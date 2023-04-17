@@ -18,7 +18,7 @@
 #include <os/reporter.h>
 #include <trace_session/connection.h>
 #include <timer_session/connection.h>
-#include <util/avl_string.h>
+#include <util/dictionary.h>
 
 #include "button.h"
 #include "trace.h"
@@ -35,17 +35,9 @@ struct Subjects
 {
 	private:
 
-		Genode::Avl_tree<Genode::Avl_string_base> _components { };
-		Genode::Avl_tree<Top::Thread>             _threads    { };
-		Genode::Trace::Timestamp                  _timestamp  { 0 };
-
-		Top::Component *_lookup_pd(char const * const name)
-		{
-			Top::Component * component = static_cast<Top::Component *>(_components.first());
-			if (!component) return nullptr;
-
-			return (Top::Component *) component->find_by_name(name);
-		}
+		Top::Components               _components { };
+		Genode::Avl_tree<Top::Thread> _threads    { };
+		Genode::Trace::Timestamp      _timestamp  { 0 };
 
 		Top::Thread *_lookup_thread(Genode::Trace::Subject_id const id)
 		{
@@ -76,7 +68,7 @@ struct Subjects
 		template <typename FN>
 		void for_each_pd(FN const &fn) const
 		{
-			_for_each_element(_components.first(), fn);
+			_components.for_each(fn);
 		}
 
 		enum { MAX_CPUS_X = 32, MAX_CPUS_Y = 2, MAX_ELEMENTS_PER_CPU = 20};
@@ -196,22 +188,25 @@ struct Subjects
 		unsigned period_trace() const { return _button_trace_period.value(); }
 		unsigned period_view() const { return _button_view_period.value(); }
 
-		void _destroy_thread_object(Top::Thread *thread,
-		                            Genode::Trace::Connection &trace,
-		                            Genode::Allocator &alloc)
+		void _destroy_thread_object(Top::Thread               *thread,
+		                            Genode::Trace::Connection  &trace,
+		                            Genode::Allocator          &alloc)
 		{
-			Top::Component * component = _lookup_pd(thread->session_label());
+			Top::Component * destroy_component = nullptr;
+
+			_components.with_element(thread->session_label(),
+			                         [&](Top::Component const &c) {
+				destroy_component = reinterpret_cast<Top::Component *>(reinterpret_cast<unsigned long>(&c));
+				_num_pds --;
+			}, [&]() { });
 
 			trace.free(thread->id());
 			_threads.remove(thread);
 			_num_subjects --;
 			Genode::destroy(alloc, thread);
 
-			if (component && !component->_threads.first()) {
-				_components.remove(component);
-				_num_pds --;
-				Genode::destroy(alloc, component);
-			}
+			if (destroy_component)
+				Genode::destroy(alloc, destroy_component);
 		}
 
 		void flush(Genode::Trace::Connection &trace, Genode::Allocator &alloc)
@@ -253,24 +248,32 @@ struct Subjects
 			{
 				Top::Thread * thread = _lookup_thread(id);
 				if (!thread) {
-					Top::Component * component = _lookup_pd(info.session_label().string());
-					if (!component) {
-						component = new (alloc) Top::Component(info.session_label().string());
-						_components.insert(component);
+					if (!_components.exists(info.session_label())) {
+						new (alloc) Top::Component(_components, info.session_label());
 						_num_pds ++;
 					}
 
-					thread = new (alloc) Top::Thread(*component, id, info);
-					_threads.insert(thread);
-					_num_subjects ++;
+					_components.with_element(info.session_label(),
+					                         [&](Top::Component &c) {
 
-					/* XXX - right place ?! */
-					if (storage.constructed())
-						storage->write(Type_b { thread->id(),
-						                        thread->session_label(),
-						                        thread->thread_name(),
-						                        unsigned(thread->affinity().xpos()),
-						                        unsigned(thread->affinity().ypos()) });
+						thread = new (alloc) Top::Thread(c, id, info);
+						_threads.insert(thread);
+						_num_subjects ++;
+
+						/* XXX - right place ?! */
+						if (storage.constructed())
+							storage->write(Type_b { thread->id(),
+							                        thread->session_label(),
+							                        thread->thread_name(),
+							                        unsigned(thread->affinity().xpos()),
+							                        unsigned(thread->affinity().ypos()) });
+					}, [&](){ });
+				}
+
+				if (!thread) {
+					Genode::error("thread of component ", info.session_label(),
+					              " could not be added");
+					return;
 				}
 
 				thread->update(info);
@@ -1457,7 +1460,7 @@ struct Subjects
 				xml.node("hbox", [&] () {
 					xml.attribute("name", thread.id().id * DIV + 3);
 					xml.node("label", [&] () {
-						xml.attribute("text", component.name());
+						xml.attribute("text", component.name);
 						xml.attribute("color", "#ffffff");
 						xml.attribute("align", "left");
 					});
@@ -1497,7 +1500,7 @@ struct Subjects
 					});
 				}
 
-				for_each_pd([&] (Genode::Avl_string_base const &base) {
+				for_each_pd([&] (auto const &base) {
 
 					pd_count ++;
 					if (pd_count - 1 < _pd_scroll.current || pd_count > _pd_scroll.current + max_pds)

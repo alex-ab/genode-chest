@@ -15,12 +15,19 @@ namespace Top {
 	struct Component; struct Thread;
 	using namespace Genode::Trace;
 	using Genode::Affinity;
+	using Genode::Session_label;
+
+	typedef Genode::Dictionary<Component, Session_label> Components;
 }
 
-struct Top::Component : Genode::Avl_string<Genode::Session_label::size()>
+struct Top::Component : Top::Components::Element
 {
 	Genode::List<Top::Thread> _threads { };
-	Component(char const * const name) : Avl_string(name) { }
+
+	Component(Components &dict, Session_label const &name)
+	:
+		Components::Element(dict, name)
+	{ }
 };
 
 struct Top::Thread
@@ -58,7 +65,7 @@ struct Top::Thread
 			_component._threads.remove(this);
 		}
 
-		char const *         session_label()  const { return _component.name(); }
+		Session_label const &session_label()  const { return _component.name; }
 		Thread_name const   &thread_name()    const { return _thread_name; }
 		Subject_info::State  state()          const { return _state; }
 		Policy_id            policy_id()      const { return _policy_id; }
@@ -82,8 +89,8 @@ struct Top::Thread
 			return false;
 		}
 
-		bool session_label(const char *compare) const {
-			return Genode::strcmp(compare, _component.name()) == 0; }
+		bool session_label(Session_label const &compare) const {
+			return compare == _component.name; }
 
 		Genode::uint64_t recent_ec_time() const { return _recent_ec_time; }
 		Genode::uint64_t recent_sc_time() const { return _recent_sc_time; }
