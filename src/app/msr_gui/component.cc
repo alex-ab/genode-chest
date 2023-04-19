@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2022 Genode Labs GmbH
+ * Copyright (C) 2022-203 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -60,6 +60,10 @@ class Power
 		bool                    _epb_perf          { false };
 		bool                    _epb_bala          { false };
 		bool                    _epb_ener          { false };
+		bool                    _hwp_on_selected   { false };
+		bool                    _hwp_on_hovered    { false };
+		bool                    _hwp_off_selected  { false };
+		bool                    _hwp_off_hovered   { false };
 		unsigned                _apply_select      { 0 };
 		unsigned                _apply_all_select  { 0 };
 
@@ -67,6 +71,7 @@ class Power
 		Button_hub<1, 0, 10, 0>    _amd_pstate { };
 
 		/* PERFORMANCE = 0, BALANCED = 7, POWER_SAVING = 15 */
+		enum { EPB_PERF = 0, EPB_BALANCED = 7, EPB_POWER_SAVE = 15 };
 		Button_hub<1, 0, 15, 7>    _intel_epb  { };
 
 		/* ranges are set by read out hardware features */
@@ -75,6 +80,7 @@ class Power
 		Button_hub<1, 0, 255, 128> _intel_hwp_des { };
 
 		/* PERFORMANCE = 0, BALANCED = 128, ENERGY = 255 */
+		enum { EPP_PERF = 0, EPP_BALANCED = 128, EPP_ENERGY = 255 };
 		Button_hub<1, 0, 255, 128> _intel_hwp_epp { };
 
 		void _generate_msr_config(bool = false);
@@ -86,6 +92,11 @@ class Power
 		void _cpu_setting(Reporter::Xml_generator &, Xml_node &);
 		void _settings_view(Reporter::Xml_generator &, Xml_node &,
 		                    String<12> const &);
+		void _settings_amd(Reporter::Xml_generator &, Xml_node &);
+		void _settings_intel_epb(Reporter::Xml_generator &, Xml_node &);
+		void _settings_intel_hwp(Reporter::Xml_generator &, Xml_node &);
+		void _settings_intel_hwp_req(Reporter::Xml_generator &, Xml_node &,
+                                    unsigned, unsigned);
 
 		unsigned _cpu_name(Reporter::Xml_generator &, Xml_node &, unsigned);
 
@@ -139,11 +150,11 @@ void Power::_hover_update()
 
 	/* settings and apply button */
 	typedef Genode::String<20> Button;
-	Button button = query_attribute<Button>(hover, "dialog", "frame",
-	                                        "hbox", "vbox", "hbox", "button", "name");
+	Button button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
+	                                        "vbox", "hbox", "button", "name");
 	if (button == "") /* intel hwp, epb, epp & AMD pstate buttons */
-		button = query_attribute<Button>(hover, "dialog", "frame",
-	                                     "vbox", "vbox", "hbox", "button", "name");
+		button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
+		                                 "vbox", "frame", "hbox", "button", "name");
 
 	bool click_valid = false;
 	Button click = query_attribute<Button>(hover, "button", "left");
@@ -237,33 +248,45 @@ void Power::_hover_update()
 				refresh = refresh || _intel_hwp_epp.update_dec();
 		}
 
+		if (click_valid && _hwp_on_hovered) {
+			_hwp_on_selected  = true;
+			_hwp_off_selected = false;
+			refresh = true;
+		}
+
+		if (click_valid && _hwp_off_hovered) {
+			_hwp_on_selected  = false;
+			_hwp_off_selected = true;
+			refresh = true;
+		}
+
 		if (_hwp_epp_perf) {
-			_intel_hwp_epp.set(0);
+			_intel_hwp_epp.set(EPP_PERF);
 			refresh = true;
 		}
 
 		if (_hwp_epp_bala) {
-			_intel_hwp_epp.set(128);
+			_intel_hwp_epp.set(EPP_BALANCED);
 			refresh = true;
 		}
 
 		if (_hwp_epp_ener) {
-			_intel_hwp_epp.set(255);
+			_intel_hwp_epp.set(EPP_ENERGY);
 			refresh = true;
 		}
 
 		if (_epb_perf) {
-			_intel_epb.set(0);
+			_intel_epb.set(EPB_PERF);
 			refresh = true;
 		}
 
 		if (_epb_bala) {
-			_intel_epb.set(7);
+			_intel_epb.set(EPB_BALANCED);
 			refresh = true;
 		}
 
 		if (_epb_ener) {
-			_intel_epb.set(15);
+			_intel_epb.set(EPB_POWER_SAVE);
 			refresh = true;
 		}
 	}
@@ -290,6 +313,8 @@ void Power::_hover_update()
 	auto const before_epb_perf = _epb_perf;
 	auto const before_epb_bala = _epb_bala;
 	auto const before_epb_ener = _epb_ener;
+	auto const before_hwp_on   = _hwp_on_hovered;
+	auto const before_hwp_off  = _hwp_off_hovered;
 
 	bool const any = button != "";
 
@@ -303,6 +328,9 @@ void Power::_hover_update()
 
 	_apply_hovered     = any && (button == "apply");
 	_apply_all_hovered = any && (button == "applyall");
+
+	_hwp_on_hovered    = any && (button == "hwp_on");
+	_hwp_off_hovered   = any && (button == "hwp_off");
 
 	_hwp_epp_perf      = any && (button == "hwp_epp-perf");
 	_hwp_epp_bala      = any && (button == "hwp_epp-bala");
@@ -342,22 +370,24 @@ void Power::_hover_update()
 		state.hovered = hovered_hwp_epp;
 	});
 
-	if ((before_hovered   != _setting_hovered) ||
-	    (before_cpu       != _setting_cpu)     ||
-	    (before_pstate    != hovered_pstate)   ||
-	    (before_epb       != hovered_epb)      ||
-	    (before_hwp_min   != hovered_hwp_min)  ||
-	    (before_hwp_max   != hovered_hwp_max)  ||
-	    (before_hwp_des   != hovered_hwp_des)  ||
-	    (before_hwp_epp   != hovered_hwp_epp)  ||
-	    (before_apply     != _apply_hovered)   ||
-	    (before_all_apply != _apply_all_hovered) ||
+	if ((before_hovered      != _setting_hovered) ||
+	    (before_cpu          != _setting_cpu)     ||
+	    (before_pstate       != hovered_pstate)   ||
+	    (before_epb          != hovered_epb)      ||
+	    (before_hwp_min      != hovered_hwp_min)  ||
+	    (before_hwp_max      != hovered_hwp_max)  ||
+	    (before_hwp_des      != hovered_hwp_des)  ||
+	    (before_hwp_epp      != hovered_hwp_epp)  ||
+	    (before_apply        != _apply_hovered)   ||
+	    (before_all_apply    != _apply_all_hovered) ||
 	    (before_hwp_epp_perf != _hwp_epp_perf) ||
 	    (before_hwp_epp_bala != _hwp_epp_bala) ||
 	    (before_hwp_epp_ener != _hwp_epp_ener) ||
-	    (before_epb_perf != _epb_perf) ||
-	    (before_epb_bala != _epb_bala) ||
-	    (before_epb_ener != _epb_ener))
+	    (before_epb_perf     != _epb_perf) ||
+	    (before_epb_bala     != _epb_bala) ||
+	    (before_epb_ener     != _epb_ener) ||
+	    (before_hwp_on       != _hwp_on_hovered) ||
+	    (before_hwp_off      != _hwp_off_hovered))
 		refresh = true;
 
 	if (refresh)
@@ -447,6 +477,12 @@ void Power::_generate_msr_cpu(Reporter::Xml_generator &xml,
 		xml.node("intel_speed_step", [&] {
 			xml.attribute("epb", _intel_epb.value());
 		});
+
+		if (_hwp_on_selected != _hwp_off_selected) {
+			xml.node("hwp", [&] {
+				xml.attribute("enable", _hwp_on_selected);
+			});
+		}
 	});
 }
 
@@ -559,11 +595,295 @@ void Power::_cpu_setting(Reporter::Xml_generator &xml, Xml_node &cpu)
 }
 
 
-void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
-                           String<12> const &cpuid)
+void Power::_settings_amd(Reporter::Xml_generator &xml, Xml_node &node)
 {
 	static bool initial_setting = true;
 
+	unsigned min = node.attribute_value("ro_limit_cur", 0u);
+	unsigned max = node.attribute_value("ro_max_value", 0u);
+	unsigned cur = node.attribute_value("ro_status", 0u);
+
+	_amd_pstate.set_min_max(min, max);
+
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_pstate");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "pstate");
+
+			auto text = String<64>("Hardware Performance-State: max-min [",
+			                       min, "-", max, "] current=", cur);
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+
+			if (initial_setting)
+				_amd_pstate.set(cur);
+
+			hub(xml, _amd_pstate, "pstate");
+		});
+	});
+
+	if (initial_setting)
+		initial_setting = false;
+}
+
+
+void Power::_settings_intel_epb(Reporter::Xml_generator &xml, Xml_node &node)
+{
+	static bool initial_setting = true;
+
+	unsigned epb = node.attribute_value("epb", 0);
+
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_speed_step");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "epb");
+
+			auto text = String<64>(" Intel speed step: [", _intel_epb.min(),
+			                       "-", _intel_epb.max(), "] current=", epb);
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+
+			if (initial_setting)
+				_intel_epb.set(epb);
+
+			hub(xml, _intel_epb, "epb");
+
+			xml.node("label", [&] () {
+				xml.attribute("name", "epbhints");
+				xml.attribute("text", "-");
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("name", "epb-perf");
+				xml.node("label", [&] () {
+					xml.attribute("text", "performance");
+				});
+				if (_epb_perf)
+					xml.attribute("hovered", true);
+				if (_intel_epb.value() == EPB_PERF)
+					xml.attribute("selected", true);
+			});
+			xml.node("button", [&] () {
+				xml.attribute("name", "epb-bala");
+				xml.node("label", [&] () {
+					xml.attribute("text", "balanced");
+				});
+				if (_epb_bala)
+					xml.attribute("hovered", true);
+				if (_intel_epb.value() == EPB_BALANCED)
+					xml.attribute("selected", true);
+			});
+			xml.node("button", [&] () {
+				xml.attribute("name", "epb-ener");
+				xml.node("label", [&] () {
+					xml.attribute("text", "power-saving");
+				});
+				if (_epb_ener)
+					xml.attribute("hovered", true);
+				if (_intel_epb.value() == EPB_POWER_SAVE)
+					xml.attribute("selected", true);
+			});
+		});
+	});
+
+	if (initial_setting)
+		initial_setting = false;
+}
+
+
+void Power::_settings_intel_hwp(Reporter::Xml_generator &xml, Xml_node &node)
+{
+	bool enabled = node.attribute_value("enable" , false);
+
+	if (_hwp_on_selected == _hwp_off_selected) {
+		_hwp_on_selected  =  enabled;
+		_hwp_off_selected = !enabled;
+	}
+
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_hwp");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "hwp");
+
+			auto text = String<24>(" Intel HWP state: ",
+			                       enabled ? "on" : "off");
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("name", "hwp_on");
+				xml.node("label", [&] () {
+					xml.attribute("text", "on");
+				});
+
+				if (_hwp_on_hovered)
+					xml.attribute("hovered", true);
+				if (_hwp_on_selected)
+					xml.attribute("selected", true);
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("name", "hwp_off");
+				xml.node("label", [&] () {
+					xml.attribute("text", "off");
+				});
+
+				if (_hwp_off_hovered)
+					xml.attribute("hovered", true);
+				if (_hwp_off_selected)
+					xml.attribute("selected", true);
+			});
+		});
+	});
+}
+
+
+void Power::_settings_intel_hwp_req(Reporter::Xml_generator &xml,
+                                    Xml_node &node,
+                                    unsigned const hwp_low,
+                                    unsigned const hwp_high)
+{
+	static bool initial_setting = true;
+
+	unsigned min = node.attribute_value("min"     , 1);
+	unsigned max = node.attribute_value("max"     , 1);
+	unsigned des = node.attribute_value("desired" , 0);
+	unsigned epp = node.attribute_value("epp"     , 1);
+
+	if (hwp_low && hwp_high && initial_setting)
+	{
+		_intel_hwp_min.set_min_max(hwp_low, hwp_high);
+		_intel_hwp_max.set_min_max(hwp_low, hwp_high);
+		/* 0 means auto - XXX better way ... */
+		_intel_hwp_des.set_min_max(0, hwp_high);
+
+		/* read out features sometimes are not within hw range .oO */
+		if (hwp_low <= min && min <= hwp_high)
+			_intel_hwp_min.set(min);
+		if (hwp_low <= max && max <= hwp_high)
+			_intel_hwp_max.set(max);
+		if (des <= hwp_high)
+			_intel_hwp_des.set(des);
+
+		_intel_hwp_epp.set(epp);
+	}
+
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_hwpreq");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "hwpreq");
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("name", 1);
+				xml.attribute("text", String<72>(" Intel HWP current: [", min, "-", max, "] desired=", des));
+			});
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", 2);
+				xml.attribute("text", String<16>(" min:"));
+			});
+			hub(xml, _intel_hwp_min, "hwp_min");
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", 3);
+				xml.attribute("text", String<16>(" max:"));
+			});
+			hub(xml, _intel_hwp_max, "hwp_max");
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", 4);
+				xml.attribute("text", String<16>(" desired:"));
+			});
+			hub(xml, _intel_hwp_des, "hwp_des");
+		});
+	});
+
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_hwpepp");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "hwpepp");
+
+			xml.node("vbox", [&] () {
+				auto text = String<64>(" Intel HWP EPP: [", _intel_hwp_epp.min(),
+				                       "-", _intel_hwp_epp.max(), "] current=", epp);
+				xml.node("label", [&] () {
+					xml.attribute("align", "left");
+					xml.attribute("name", "a");
+					xml.attribute("text", text);
+				});
+				xml.node("label", [&] () {
+					xml.attribute("align", "left");
+					xml.attribute("name", "b");
+					xml.attribute("text", " (EPP - Energy-Performance-Preference)");
+				});
+			});
+
+			if (initial_setting)
+				_intel_hwp_epp.set(epp);
+
+			hub(xml, _intel_hwp_epp, "hwp_epp");
+
+			xml.node("label", [&] () {
+				xml.attribute("name", "hwpepphints");
+				xml.attribute("text", "-");
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("name", "hwp_epp-perf");
+				xml.node("label", [&] () {
+					xml.attribute("text", "performance");
+				});
+				if (_hwp_epp_perf)
+					xml.attribute("hovered", true);
+				if (_intel_hwp_epp.value() == EPP_PERF)
+					xml.attribute("selected", true);
+			});
+			xml.node("button", [&] () {
+				xml.attribute("name", "hwp_epp-bala");
+				xml.node("label", [&] () {
+					xml.attribute("text", "balanced");
+				});
+				if (_hwp_epp_bala)
+					xml.attribute("hovered", true);
+				if (_intel_hwp_epp.value() == EPP_BALANCED)
+					xml.attribute("selected", true);
+			});
+			xml.node("button", [&] () {
+				xml.attribute("name", "hwp_epp-ener");
+				xml.node("label", [&] () {
+					xml.attribute("text", "energy");
+				});
+				if (_hwp_epp_ener)
+					xml.attribute("hovered", true);
+				if (_intel_hwp_epp.value() == EPP_ENERGY)
+					xml.attribute("selected", true);
+			});
+		});
+	});
+
+	if (initial_setting)
+		initial_setting = false;
+}
+
+
+void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
+                           String<12> const &cpuid)
+{
 	unsigned hwp_high = 0;
 	unsigned hwp_low  = 0;
 
@@ -572,80 +892,17 @@ void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
 	cpu.for_each_sub_node([&](Genode::Xml_node &node) {
 
 		if (node.type() == "pstate") {
-			unsigned min = node.attribute_value("ro_limit_cur", 0u);
-			unsigned max = node.attribute_value("ro_max_value", 0u);
-			unsigned cur = node.attribute_value("ro_status", 0u);
-
-			_amd_pstate.set_min_max(min, max);
-
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "pstate");
-
-				auto text = String<64>("Hardware Performance-State: max-min [",
-				                       min, "-", max, "] current=", cur);
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", text);
-				});
-
-				if (initial_setting)
-					_amd_pstate.set(cur);
-
-				hub(xml, _amd_pstate, "pstate");
-			});
-
+			_settings_amd(xml, node);
 			return;
 		}
 
 		if (node.type() == "intel_speed_step" && node.has_attribute("epb")) {
-			unsigned epb = node.attribute_value("epb", 0);
+			_settings_intel_epb(xml, node);
+			return;
+		}
 
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "epb");
-
-				auto text = String<64>(" Intel speed step: [", _intel_epb.min(),
-				                       "-", _intel_epb.max(), "] current=", epb);
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", text);
-				});
-
-				if (initial_setting)
-					_intel_epb.set(epb);
-
-				hub(xml, _intel_epb, "epb");
-
-				xml.node("label", [&] () {
-					xml.attribute("name", "epbhints");
-					xml.attribute("text", "-");
-				});
-
-				xml.node("button", [&] () {
-					xml.attribute("name", "epb-perf");
-					xml.node("label", [&] () {
-						xml.attribute("text", "performance");
-					});
-					if (_epb_perf)
-						xml.attribute("hovered", true);
-				});
-				xml.node("button", [&] () {
-					xml.attribute("name", "epb-bala");
-					xml.node("label", [&] () {
-						xml.attribute("text", "balanced");
-					});
-					if (_epb_bala)
-						xml.attribute("hovered", true);
-				});
-				xml.node("button", [&] () {
-					xml.attribute("name", "epb-ener");
-					xml.node("label", [&] () {
-						xml.attribute("text", "power-saving");
-					});
-					if (_epb_ener)
-						xml.attribute("hovered", true);
-				});
-			});
-
+		if (node.type() == "hwp") {
+			_settings_intel_hwp(xml, node);
 			return;
 		}
 
@@ -656,137 +913,53 @@ void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
 			hwp_high = node.attribute_value("high" , 0);
 			hwp_low  = node.attribute_value("low"  , 0);
 
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpcap");
+			xml.node("frame", [&] () {
+				xml.attribute("name", "frame_hwpcap");
 
-				auto text = String<72>(" Intel HWP features: [", hwp_low, "-",
-				                       hwp_high, "] efficient=", effi,
-				                       " guaranty=", guar, " desired=0 (AUTO)");
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", text);
+				xml.node("hbox", [&] () {
+					xml.attribute("name", "hwpcap");
+
+					xml.node("vbox", [&] () {
+						auto text = String<72>(" Intel HWP features: [", hwp_low,
+						                       "-", hwp_high, "] efficient=", effi,
+						                       " guaranty=", guar, " desired=0 (AUTO)");
+
+						xml.node("label", [&] () {
+							xml.attribute("align", "left");
+							xml.attribute("name", "a");
+							xml.attribute("text", text);
+						});
+						xml.node("label", [&] () {
+							xml.attribute("align", "left");
+							xml.attribute("name", "b");
+							xml.attribute("text", " performance & frequency range steering");
+						});
+					});
 				});
 			});
-
 			return;
 		}
 
 		if (node.type() == "hwp_request") {
-			unsigned min = node.attribute_value("min"     , 1);
-			unsigned max = node.attribute_value("max"     , 1);
-			unsigned des = node.attribute_value("desired" , 0);
-			unsigned epp = node.attribute_value("epp"     , 1);
-
-			if (hwp_low && hwp_high && initial_setting)
-			{
-				_intel_hwp_min.set_min_max(hwp_low, hwp_high);
-				_intel_hwp_max.set_min_max(hwp_low, hwp_high);
-				/* 0 means auto - XXX better way ... */
-				_intel_hwp_des.set_min_max(0, hwp_high);
-
-				/* read out features sometimes are not within hw range .oO */
-				if (hwp_low <= min && min <= hwp_high)
-					_intel_hwp_min.set(min);
-				if (hwp_low <= max && max <= hwp_high)
-					_intel_hwp_max.set(max);
-				if (des <= hwp_high)
-					_intel_hwp_des.set(des);
-
-				_intel_hwp_epp.set(epp);
-			}
-
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpreq");
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("name", 1);
-					xml.attribute("text", String<72>(" Intel HWP current: [", min, "-", max, "] desired=", des));
-				});
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 2);
-					xml.attribute("text", String<16>(" min:"));
-				});
-				hub(xml, _intel_hwp_min, "hwp_min");
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 3);
-					xml.attribute("text", String<16>(" max:"));
-				});
-				hub(xml, _intel_hwp_max, "hwp_max");
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 4);
-					xml.attribute("text", String<16>(" desired:"));
-				});
-				hub(xml, _intel_hwp_des, "hwp_des");
-			});
-
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpepp");
-
-				auto text = String<64>(" Intel EPP: [", _intel_hwp_epp.min(),
-				                       "-", _intel_hwp_epp.max(), "] current=", epp);
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", text);
-				});
-
-				if (initial_setting)
-					_intel_hwp_epp.set(epp);
-
-				hub(xml, _intel_hwp_epp, "hwp_epp");
-
-				xml.node("label", [&] () {
-					xml.attribute("name", "hwpepphints");
-					xml.attribute("text", "-");
-				});
-
-				xml.node("button", [&] () {
-					xml.attribute("name", "hwp_epp-perf");
-					xml.node("label", [&] () {
-						xml.attribute("text", "performance");
-					});
-					if (_hwp_epp_perf)
-						xml.attribute("hovered", true);
-				});
-				xml.node("button", [&] () {
-					xml.attribute("name", "hwp_epp-bala");
-					xml.node("label", [&] () {
-						xml.attribute("text", "balanced");
-					});
-					if (_hwp_epp_bala)
-						xml.attribute("hovered", true);
-				});
-				xml.node("button", [&] () {
-					xml.attribute("name", "hwp_epp-ener");
-					xml.node("label", [&] () {
-						xml.attribute("text", "energy");
-					});
-					if (_hwp_epp_ener)
-						xml.attribute("hovered", true);
-				});
-			});
-
+			_settings_intel_hwp_req(xml, node, hwp_low, hwp_high);
 			return;
 		}
 
 		if (node.type() == "hwp_coord_feed_cap") {
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpcoord");
+			xml.node("frame", [&] () {
+				xml.attribute("name", "frame_hwpcoord");
 
-				auto text = String<64>(" Intel HWP coordination feedback "
-				                       "available but not supported.");
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", text);
+				xml.node("hbox", [&] () {
+					xml.attribute("name", "hwpcoord");
+
+					auto text = String<64>(" Intel HWP coordination feedback "
+					                       "available but not yet supported.");
+					xml.node("label", [&] () {
+						xml.attribute("align", "left");
+						xml.attribute("text", text);
+					});
 				});
 			});
-
 			return;
 		}
 	});
@@ -820,9 +993,6 @@ void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
 				xml.attribute("selected", true);
 		});
 	});
-
-	if (initial_setting)
-		initial_setting = false;
 }
 
 void Component::construct(Genode::Env &env) { static Power state(env); }
