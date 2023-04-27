@@ -944,24 +944,6 @@ void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
 			_settings_intel_hwp_req(xml, node, hwp_low, hwp_high);
 			return;
 		}
-
-		if (node.type() == "hwp_coord_feed_cap") {
-			xml.node("frame", [&] () {
-				xml.attribute("name", "frame_hwpcoord");
-
-				xml.node("hbox", [&] () {
-					xml.attribute("name", "hwpcoord");
-
-					auto text = String<64>(" Intel HWP coordination feedback "
-					                       "available but not yet supported.");
-					xml.node("label", [&] () {
-						xml.attribute("align", "left");
-						xml.attribute("text", text);
-					});
-				});
-			});
-			return;
-		}
 	});
 
 	xml.node("hbox", [&] () {
