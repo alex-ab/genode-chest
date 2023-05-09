@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2022-203 Genode Labs GmbH
+ * Copyright (C) 2022-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -48,8 +48,8 @@ class Power
 		Attached_rom_dataspace  _hover     { _env, "hover" };
 		Signal_handler<Power>   _hover_sig { _env.ep(), *this, &Power::_hover_update};
 
-		Reporter                _dialog          { _env, "dialog", "dialog", 0x8000 };
-		Reporter                _msr_config      { _env, "config", "config", 0x8000 };
+		Expanding_reporter      _dialog          { _env, "dialog", "dialog" };
+		Expanding_reporter      _msr_config      { _env, "config", "config" };
 
 		State                   _setting_cpu       { };
 		State                   _setting_hovered   { };
@@ -87,25 +87,25 @@ class Power
 		Button_hub<1, 0, 255, 128> _intel_hwp_epp { };
 
 		void _generate_msr_config(bool = false);
-		void _generate_msr_cpu(Reporter::Xml_generator &, unsigned, unsigned);
+		void _generate_msr_cpu(Xml_generator &, unsigned, unsigned);
 		void _info_update();
 		void _hover_update();
-		void _settings_period(Reporter::Xml_generator &);
-		void _cpu_temp(Reporter::Xml_generator &, Xml_node &);
-		void _cpu_freq(Reporter::Xml_generator &, Xml_node &);
-		void _cpu_setting(Reporter::Xml_generator &, Xml_node &);
-		void _settings_view(Reporter::Xml_generator &, Xml_node &,
+		void _settings_period(Xml_generator &);
+		void _cpu_temp(Xml_generator &, Xml_node &);
+		void _cpu_freq(Xml_generator &, Xml_node &);
+		void _cpu_setting(Xml_generator &, Xml_node &);
+		void _settings_view(Xml_generator &, Xml_node &,
 		                    String<12> const &);
-		void _settings_amd(Reporter::Xml_generator &, Xml_node &);
-		void _settings_intel_epb(Reporter::Xml_generator &, Xml_node &);
-		void _settings_intel_hwp(Reporter::Xml_generator &, Xml_node &);
-		void _settings_intel_hwp_req(Reporter::Xml_generator &, Xml_node &,
+		void _settings_amd(Xml_generator &, Xml_node &);
+		void _settings_intel_epb(Xml_generator &, Xml_node &);
+		void _settings_intel_hwp(Xml_generator &, Xml_node &);
+		void _settings_intel_hwp_req(Xml_generator &, Xml_node &,
                                     unsigned, unsigned);
 
-		unsigned _cpu_name(Reporter::Xml_generator &, Xml_node &, unsigned);
+		unsigned _cpu_name(Xml_generator &, Xml_node &, unsigned);
 
 		template <typename T>
-		void hub(Genode::Xml_generator &xml, T &hub, char const *name)
+		void hub(Xml_generator &xml, T &hub, char const *name)
 		{
 			hub.for_each([&](Button_state &state, unsigned pos) {
 				xml.attribute("name", Genode::String<20>("hub-", name, "-", pos));
@@ -137,8 +137,7 @@ class Power
 		{
 			_info.sigh(_info_sig);
 			_hover.sigh(_hover_sig);
-			_dialog.enabled(true);
-			_msr_config.enabled(true);
+
 			_timer_period.set(unsigned(Milliseconds(4000).value));
 		}
 };
@@ -432,7 +431,7 @@ void Power::_info_update ()
 	if (!_info.valid())
 		return;
 
-	Reporter::Xml_generator xml(_dialog, [&] () {
+	_dialog.generate([&] (Xml_generator &xml) {
 
 		xml.node("frame", [&] {
 
@@ -489,7 +488,7 @@ void Power::_info_update ()
 }
 
 
-void Power::_generate_msr_cpu(Reporter::Xml_generator &xml,
+void Power::_generate_msr_cpu(Xml_generator &xml,
                               unsigned affinity_x, unsigned affinity_y)
 {
 	xml.node("cpu", [&] {
@@ -525,9 +524,9 @@ void Power::_generate_msr_config(bool all_cpus)
 	if (!_setting_cpu.valid())
 		return;
 
-	Reporter::Xml_generator xml(_msr_config, [&] () {
-		xml.attribute("verbose", false);
+	_msr_config.generate([&] (Xml_generator &xml) {
 
+		xml.attribute("verbose", false);
 		xml.attribute("update_rate_us", _timer_period.value() * 1000);
 
 		if (all_cpus) {
@@ -548,8 +547,7 @@ void Power::_generate_msr_config(bool all_cpus)
 }
 
 
-unsigned Power::_cpu_name(Reporter::Xml_generator &xml, Xml_node &cpu,
-                          unsigned last_x)
+unsigned Power::_cpu_name(Xml_generator &xml, Xml_node &cpu, unsigned last_x)
 {
 	auto const affinity_x = cpu.attribute_value("x", 0U);
 	auto const affinity_y = cpu.attribute_value("y", 0U);
@@ -572,7 +570,7 @@ unsigned Power::_cpu_name(Reporter::Xml_generator &xml, Xml_node &cpu,
 }
 
 
-void Power::_cpu_temp(Reporter::Xml_generator &xml, Xml_node &cpu)
+void Power::_cpu_temp(Xml_generator &xml, Xml_node &cpu)
 {
 	auto const temp_c = cpu.attribute_value("temp_c", 0U);
 	auto const cpuid  = cpu_id(cpu);
@@ -589,7 +587,7 @@ void Power::_cpu_temp(Reporter::Xml_generator &xml, Xml_node &cpu)
 }
 
 
-void Power::_cpu_freq(Reporter::Xml_generator &xml, Xml_node &cpu)
+void Power::_cpu_freq(Xml_generator &xml, Xml_node &cpu)
 {
 	auto const freq_khz = cpu.attribute_value("freq_khz", 0ULL);
 	auto const cpuid    = cpu_id(cpu);
@@ -609,7 +607,7 @@ void Power::_cpu_freq(Reporter::Xml_generator &xml, Xml_node &cpu)
 }
 
 
-void Power::_cpu_setting(Reporter::Xml_generator &xml, Xml_node &cpu)
+void Power::_cpu_setting(Xml_generator &xml, Xml_node &cpu)
 {
 	auto const cpuid = cpu_id(cpu);
 
@@ -630,7 +628,7 @@ void Power::_cpu_setting(Reporter::Xml_generator &xml, Xml_node &cpu)
 }
 
 
-void Power::_settings_period(Reporter::Xml_generator &xml)
+void Power::_settings_period(Xml_generator &xml)
 {
 	xml.node("frame", [&] () {
 		xml.attribute("name", "frame_period");
@@ -651,7 +649,7 @@ void Power::_settings_period(Reporter::Xml_generator &xml)
 }
 
 
-void Power::_settings_amd(Reporter::Xml_generator &xml, Xml_node &node)
+void Power::_settings_amd(Xml_generator &xml, Xml_node &node)
 {
 	static bool initial_setting = true;
 
@@ -686,7 +684,7 @@ void Power::_settings_amd(Reporter::Xml_generator &xml, Xml_node &node)
 }
 
 
-void Power::_settings_intel_epb(Reporter::Xml_generator &xml, Xml_node &node)
+void Power::_settings_intel_epb(Xml_generator &xml, Xml_node &node)
 {
 	static bool initial_setting = true;
 
@@ -753,7 +751,7 @@ void Power::_settings_intel_epb(Reporter::Xml_generator &xml, Xml_node &node)
 }
 
 
-void Power::_settings_intel_hwp(Reporter::Xml_generator &xml, Xml_node &node)
+void Power::_settings_intel_hwp(Xml_generator &xml, Xml_node &node)
 {
 	bool enabled = node.attribute_value("enable" , false);
 
@@ -803,7 +801,7 @@ void Power::_settings_intel_hwp(Reporter::Xml_generator &xml, Xml_node &node)
 }
 
 
-void Power::_settings_intel_hwp_req(Reporter::Xml_generator &xml,
+void Power::_settings_intel_hwp_req(Xml_generator &xml,
                                     Xml_node &node,
                                     unsigned const hwp_low,
                                     unsigned const hwp_high)
@@ -937,7 +935,7 @@ void Power::_settings_intel_hwp_req(Reporter::Xml_generator &xml,
 }
 
 
-void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
+void Power::_settings_view(Xml_generator &xml, Xml_node &cpu,
                            String<12> const &cpuid)
 {
 	unsigned hwp_high = 0;
