@@ -13,6 +13,7 @@
 
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
+#include <base/duration.h>
 #include <base/signal.h>
 
 #include <os/reporter.h>
@@ -27,8 +28,8 @@ struct State
 {
 	unsigned value { ~0U };
 
-	bool valid() const { return value != ~0U; }
-	void invalidate() { value = ~0U; }
+	bool valid()      const { return value != ~0U; }
+	void invalidate()       { value = ~0U; }
 
 	bool operator == (State const &o) const { return value == o.value; }
 	bool operator != (State const &o) const { return value != o.value; }
@@ -67,8 +68,10 @@ class Power
 		unsigned                _apply_select      { 0 };
 		unsigned                _apply_all_select  { 0 };
 
+		Button_hub<5, 0, 9, 0>  _timer_period { };
+
 		/* ranges are set by read out hardware features */
-		Button_hub<1, 0, 10, 0>    _amd_pstate { };
+		Button_hub<1, 0, 10, 0> _amd_pstate { };
 
 		/* PERFORMANCE = 0, BALANCED = 7, POWER_SAVING = 15 */
 		enum { EPB_PERF = 0, EPB_BALANCED = 7, EPB_POWER_SAVE = 15 };
@@ -87,6 +90,7 @@ class Power
 		void _generate_msr_cpu(Reporter::Xml_generator &, unsigned, unsigned);
 		void _info_update();
 		void _hover_update();
+		void _settings_period(Reporter::Xml_generator &);
 		void _cpu_temp(Reporter::Xml_generator &, Xml_node &);
 		void _cpu_freq(Reporter::Xml_generator &, Xml_node &);
 		void _cpu_setting(Reporter::Xml_generator &, Xml_node &);
@@ -135,6 +139,7 @@ class Power
 			_hover.sigh(_hover_sig);
 			_dialog.enabled(true);
 			_msr_config.enabled(true);
+			_timer_period.set(unsigned(Milliseconds(4000).value));
 		}
 };
 
@@ -200,6 +205,18 @@ void Power::_hover_update()
 	}
 
 	if (click_valid && _setting_cpu.valid()) {
+
+		if (_timer_period.any_active()) {
+			if (click == "left")
+				refresh = refresh || _timer_period.update_inc();
+			else
+			if (click == "right")
+				refresh = refresh || _timer_period.update_dec();
+
+			if (_timer_period.value() < 100)
+				_timer_period.set(100);
+		}
+
 		if (_amd_pstate.any_active()) {
 			if (click == "left")
 				refresh = refresh || _amd_pstate.update_inc();
@@ -299,6 +316,7 @@ void Power::_hover_update()
 
 	auto const before_hovered   = _setting_hovered;
 	auto const before_cpu       = _setting_cpu;
+	auto const before_period    = _timer_period.any_active();
 	auto const before_pstate    = _amd_pstate.any_active();
 	auto const before_epb       = _intel_epb.any_active();
 	auto const before_hwp_min   = _intel_hwp_min.any_active();
@@ -319,6 +337,7 @@ void Power::_hover_update()
 	bool const any = button != "";
 
 	bool const hovered_setting = any && (button == "settings");
+	bool const hovered_period  = any && (String<11>(button) == "hub-period");
 	bool const hovered_pstate  = any && (String<11>(button) == "hub-pstate");
 	bool const hovered_epb     = any && (String< 8>(button) == "hub-epb");
 	bool const hovered_hwp_min = any && (String<12>(button) == "hub-hwp_min");
@@ -346,6 +365,16 @@ void Power::_hover_update()
 	} else if (_setting_hovered.valid())
 		_setting_hovered.invalidate();
 
+	if (hovered_period || before_period) {
+		_timer_period.for_each([&](Button_state &state, unsigned pos) {
+			Genode::String<20> pos_name { "hub-period-", pos };
+			if (Genode::String<20>(button) == pos_name) {
+				state.hovered = hovered_period;
+			} else
+				state.hovered = false;
+		});
+	}
+
 	_amd_pstate.for_each([&](Button_state &state, unsigned) {
 		state.hovered = hovered_pstate;
 	});
@@ -372,6 +401,7 @@ void Power::_hover_update()
 
 	if ((before_hovered      != _setting_hovered) ||
 	    (before_cpu          != _setting_cpu)     ||
+	    (before_period       != hovered_period)   ||
 	    (before_pstate       != hovered_pstate)   ||
 	    (before_epb          != hovered_epb)      ||
 	    (before_hwp_min      != hovered_hwp_min)  ||
@@ -403,8 +433,11 @@ void Power::_info_update ()
 		return;
 
 	Reporter::Xml_generator xml(_dialog, [&] () {
+
 		xml.node("frame", [&] {
+
 			xml.node("hbox", [&] {
+
 				xml.node("vbox", [&] {
 					xml.attribute("name", 1);
 
@@ -494,6 +527,8 @@ void Power::_generate_msr_config(bool all_cpus)
 
 	Reporter::Xml_generator xml(_msr_config, [&] () {
 		xml.attribute("verbose", false);
+
+		xml.attribute("update_rate_us", _timer_period.value() * 1000);
 
 		if (all_cpus) {
 			_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node &cpu) {
@@ -590,6 +625,27 @@ void Power::_cpu_setting(Reporter::Xml_generator &xml, Xml_node &cpu)
 				xml.attribute("hovered", true);
 			if (_setting_cpu.value == cpuid)
 				xml.attribute("selected", true);
+		});
+	});
+}
+
+
+void Power::_settings_period(Reporter::Xml_generator &xml)
+{
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_period");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "period");
+
+			auto text = String<64>("Update period in ms:");
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+
+			hub(xml, _timer_period, "period");
 		});
 	});
 }
@@ -888,6 +944,8 @@ void Power::_settings_view(Reporter::Xml_generator &xml, Xml_node &cpu,
 	unsigned hwp_low  = 0;
 
 	xml.attribute("name", "settings");
+
+	_settings_period(xml);
 
 	cpu.for_each_sub_node([&](Genode::Xml_node &node) {
 
