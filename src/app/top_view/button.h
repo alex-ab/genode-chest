@@ -140,8 +140,11 @@ struct Button_hub
 	{
 		for (unsigned i = 0; i < DIGITS; i++) {
 			Button_state &button = _button[i];
-			button.set(value % button.range());
-			value /= button.range();
+
+			if (value >= button.first)
+				button.set(button.first + ((value - button.first) % button.range()));
+
+			value /= button.first + button.range();
 		}
 	}
 
@@ -149,8 +152,9 @@ struct Button_hub
 	{
 		unsigned value = 0;
 		for (unsigned i = DIGITS; i > 0; i--) {
-			value *= _button[i-1].range();
-			value += _button[i-1].current;
+			auto &button = _button[i-1];
+			value *= button.first + button.range();
+			value += button.current;
 		}
 		return value;
 	}

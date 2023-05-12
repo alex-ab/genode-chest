@@ -124,13 +124,17 @@ append config {
 				<inline description="1">
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="973791" temp_c="58">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
+							<hwp_request_package raw="0x8000ff01"/>
+							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="0" y="1" freq_khz="1973791" temp_c="64">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
@@ -144,13 +148,17 @@ append config {
 				<inline description="2">
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="273891" temp_c="48">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
+							<hwp_request_package raw="0x8000ff01"/>
+							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x0fffffff8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="0" y="1" freq_khz="2973791" temp_c="74">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
@@ -164,13 +172,17 @@ append config {
 				<inline description="3">
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="173991" temp_c="28">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
+							<hwp_request_package raw="0x8000ff01"/>
+							<hwp_request min="1" max="255" desired="0" epp="128" raw="0x8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
+							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
@@ -184,12 +196,14 @@ append config {
 				<inline description="4">
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="173991" temp_c="28">
-							<hwp enable="false"/>
+							<hwp enable="true"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
+							<hwp enable="false"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
