@@ -84,6 +84,10 @@ class Power
 		bool                    _pstate_custom     { false };
 		bool                    _pstate_custom_sel { false };
 		bool                    _hwp_enabled_once  { false };
+		bool                    _hover_normal      { false };
+		bool                    _hover_advanced    { false };
+		bool                    _select_normal     { true  };
+		bool                    _select_advanced   { false };
 
 		Button_hub<5, 0, 9, 0>  _timer_period { };
 
@@ -112,6 +116,7 @@ class Power
 		void _info_update();
 		void _hover_update();
 		void _settings_period(Xml_generator &);
+		void _settings_mode  (Xml_generator &);
 		void _cpu_temp(Xml_generator &, Xml_node const &);
 		void _cpu_freq(Xml_generator &, Xml_node const &);
 		void _cpu_setting(Xml_generator &, Xml_node const &);
@@ -121,7 +126,8 @@ class Power
 		void _settings_intel_epb(Xml_generator &, Xml_node const &, bool);
 		void _settings_intel_hwp(Xml_generator &, Xml_node const &, bool);
 		void _settings_intel_hwp_req(Xml_generator &, Xml_node const &,
-                                    unsigned, unsigned, uint64_t, bool, bool);
+		                             unsigned, unsigned, uint64_t, bool, bool,
+		                             unsigned &);
 
 		unsigned _cpu_name(Xml_generator &, Xml_node const &, unsigned);
 
@@ -214,6 +220,14 @@ void Power::_hover_update()
 			_setting_cpu.invalidate();
 		} else
 			_setting_cpu = _setting_hovered;
+
+		refresh = true;
+	}
+
+	if (click_valid && (_hover_normal || _hover_advanced)) {
+
+		if (_hover_normal)   { _select_normal = true; _select_advanced = false; }
+		if (_hover_advanced) { _select_advanced = true; _select_normal = false; }
 
 		refresh = true;
 	}
@@ -408,6 +422,8 @@ void Power::_hover_update()
 	auto const before_pstate_mid     = _pstate_mid;
 	auto const before_pstate_min     = _pstate_min;
 	auto const before_pstate_custom  = _pstate_custom;
+	auto const before_normal         = _hover_normal;
+	auto const before_advanced       = _hover_advanced;
 
 	bool any = button != "";
 
@@ -444,6 +460,9 @@ void Power::_hover_update()
 	_pstate_mid    = any && (button == "pstate-mid")    && (!(any = false));
 	_pstate_min    = any && (button == "pstate-min")    && (!(any = false));
 	_pstate_custom = any && (button == "pstate-custom") && (!(any = false));
+
+	_hover_normal   = any && (button == "normal") && (!(any = false));
+	_hover_advanced = any && (button == "advanced") && (!(any = false));
 
 	if (hovered_setting) {
 		_setting_hovered.value = query_attribute<unsigned>(hover, "dialog", "frame",
@@ -509,6 +528,8 @@ void Power::_hover_update()
 	    (before_epb_ener       != _epb_ener)          ||
 	    (before_epb_custom     != _epb_custom)        ||
 	    (before_hwp_on         != _hwp_on_hovered)    ||
+	    (before_normal         != _hover_normal)      ||
+	    (before_advanced       != _hover_advanced)    ||
 	    (before_pstate_max     != _pstate_max)        ||
 	    (before_pstate_mid     != _pstate_mid)        ||
 	    (before_pstate_min     != _pstate_min)        ||
@@ -740,6 +761,53 @@ void Power::_cpu_setting(Xml_generator &xml, Xml_node const &cpu)
 }
 
 
+void Power::_settings_mode(Xml_generator &xml)
+{
+	xml.node("frame", [&] () {
+		xml.attribute("name", "frame_mode");
+
+		xml.node("hbox", [&] () {
+			xml.attribute("name", "mode");
+
+			auto text = String<64>(" Settings:");
+
+			xml.node("label", [&] () {
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+
+#if 1
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "normal");
+				xml.node("label", [&] () {
+					xml.attribute("text", "normal");
+				});
+
+				if (_hover_normal)
+					xml.attribute("hovered", true);
+				if (_select_normal)
+					xml.attribute("selected", true);
+			});
+#endif
+
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "advanced");
+				xml.node("label", [&] () {
+					xml.attribute("text", "advanced");
+				});
+
+				if (_hover_advanced)
+					xml.attribute("hovered", true);
+				if (_select_advanced)
+					xml.attribute("selected", true);
+			});
+		});
+	});
+}
+
+
 void Power::_settings_period(Xml_generator &xml)
 {
 	xml.node("frame", [&] () {
@@ -839,28 +907,30 @@ void Power::_settings_amd(Xml_generator &xml, Xml_node const &node,
 					xml.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "pstate-custom");
-				xml.node("label", [&] () {
-					xml.attribute("text", "custom");
+			if (_select_advanced) {
+				if (_pstate_custom_sel) {
+					auto text = String<64>(" range max-min [", min_value, "-",
+					                       max_value, "] current=", cur_value);
+
+					xml.node("label", [&] () {
+						xml.attribute("name", "right");
+						xml.attribute("align", "right");
+						xml.attribute("text", text);
+					});
+
+					hub(xml, _amd_pstate, "pstate");
+				}
+
+				xml.node("button", [&] () {
+					xml.attribute("name", "pstate-custom");
+					xml.node("label", [&] () {
+						xml.attribute("text", "custom");
+					});
+					if (_pstate_custom)
+						xml.attribute("hovered", true);
+					if (_pstate_custom_sel)
+						xml.attribute("selected", true);
 				});
-				if (_pstate_custom)
-					xml.attribute("hovered", true);
-				if (_pstate_custom_sel)
-					xml.attribute("selected", true);
-			});
-
-			if (_pstate_custom_sel) {
-				auto text = String<64>(" range max-min [", min_value, "-",
-				                       max_value, "] current=", cur_value);
-
-				xml.node("label", [&] () {
-					xml.attribute("name", "right");
-					xml.attribute("align", "right");
-					xml.attribute("text", text);
-				});
-
-				hub(xml, _amd_pstate, "pstate");
 			}
 		});
 	});
@@ -871,8 +941,6 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
                                 Xml_node const &node,
                                 bool     const  re_read)
 {
-	bool const extra_info = _epb_custom_select;
-
 	unsigned epb = node.attribute_value("epb", 0);
 
 	xml.node("frame", [&] () {
@@ -904,9 +972,21 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 			});
 
 			xml.node("button", [&] () {
+				xml.attribute("name", "epb-bala");
+				xml.node("label", [&] () {
+					xml.attribute("text", "balanced");
+				});
+				if (_epb_bala)
+					xml.attribute("hovered", true);
+				if (_intel_epb.value() == EPB_BALANCED ||
+				    _intel_epb.value() == EPB_BALANCED - 1)
+					xml.attribute("selected", true);
+			});
+
+			xml.node("button", [&] () {
 				xml.attribute("name", "epb-ener");
 				xml.node("label", [&] () {
-					xml.attribute("text", "power-saving");
+					xml.attribute("text", "energy");
 				});
 				if (_epb_ener)
 					xml.attribute("hovered", true);
@@ -914,29 +994,10 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 					xml.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "epb-bala");
-				xml.node("label", [&] () {
-					xml.attribute("text", "balanced");
-				});
-				if (_epb_bala)
-					xml.attribute("hovered", true);
-				if (_intel_epb.value() == EPB_BALANCED)
-					xml.attribute("selected", true);
-			});
+			if (!_select_advanced)
+				return;
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "epb-custom");
-				xml.node("label", [&] () {
-					xml.attribute("text", "custom");
-				});
-				if (_epb_custom)
-					xml.attribute("hovered", true);
-				if (extra_info || ((_intel_epb.value() != EPB_PERF) &&
-				                   (_intel_epb.value() != EPB_POWER_SAVE) &&
-				                   (_intel_epb.value() != EPB_BALANCED)))
-					xml.attribute("selected", true);
-			});
+			bool const extra_info = _epb_custom_select;
 
 			if (extra_info) {
 				auto text = String<64>(" range [", _intel_epb.min(), "-",
@@ -950,6 +1011,20 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 
 				hub(xml, _intel_epb, "epb");
 			}
+
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "epb-custom");
+				xml.node("label", [&] () {
+					xml.attribute("text", "custom");
+				});
+				if (_epb_custom)
+					xml.attribute("hovered", true);
+				if (extra_info || ((_intel_epb.value() != EPB_PERF) &&
+				                   (_intel_epb.value() != EPB_POWER_SAVE) &&
+				                   (_intel_epb.value() != EPB_BALANCED)))
+					xml.attribute("selected", true);
+			});
 
 		});
 	});
@@ -1018,7 +1093,8 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
                                     unsigned const hwp_high,
                                     uint64_t const hwp_req_pkg,
                                     bool     const hwp_req_pkg_valid,
-                                    bool     const re_read)
+                                    bool     const re_read,
+                                    unsigned     & frames_count)
 {
 	auto const hwp_req = node.attribute_value("raw", 0ull);
 
@@ -1056,100 +1132,33 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 		_intel_hwp_pck_des.set_min_max(hwp_low, hwp_high);
 	}
 
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_hwpreq");
+	if (_select_advanced) {
+		frames_count ++;
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "hwpreq");
-
-			auto text = String<72>(" HWP CPU: [", hwp_min, "-", hwp_max, "] desired=",
-			                       hwp_des, (hwp_des == 0) ? " (AUTO)" : "",
-			                       (hwp_req >> 32) ? " IMPLEMENT ME:" : "");
-
-			/* only relevant if HWP_REQ_PACKAGE is supported */
-			if (Hwp_request::Pkg_ctrl::get(hwp_req))
-				text = String<72>(text, "P");
-			if (Hwp_request::Act_wnd_valid::get(hwp_req))
-				text = String<72>(text, "A");
-			if (Hwp_request::Epp_valid::get(hwp_req))
-				text = String<72>(text, "E");
-			if (Hwp_request::Desired_valid::get(hwp_req))
-				text = String<72>(text, "D");
-			if (Hwp_request::Max_valid::get(hwp_req))
-				text = String<72>(text, "X");
-			if (Hwp_request::Min_valid::get(hwp_req))
-				text = String<72>(text, "N");
-
-			xml.node("label", [&] () {
-				xml.attribute("align", "left");
-				xml.attribute("name", 1);
-				xml.attribute("text", text);
-			});
-
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_req-custom");
-				xml.node("label", [&] () {
-					xml.attribute("text", "adjust");
-				});
-				if (_hwp_req_custom)
-					xml.attribute("hovered", true);
-
-				if (_hwp_req_cus_sel)
-					xml.attribute("selected", true);
-			});
-
-			if (_hwp_req_cus_sel) {
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 2);
-					xml.attribute("text", String<16>(" min:"));
-				});
-				hub(xml, _intel_hwp_min, "hwp_min");
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 3);
-					xml.attribute("text", String<16>(" max:"));
-				});
-				hub(xml, _intel_hwp_max, "hwp_max");
-
-				xml.node("label", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", 4);
-					xml.attribute("text", String<16>(" desired:"));
-				});
-
-				/* if auto on, hide button for individual values */
-				if (!_hwp_req_auto_sel) {
-					hub(xml, _intel_hwp_des, "hwp_des");
-				}
-
-				xml.node("button", [&] () {
-					xml.attribute("name", "hwp_req-auto");
-					xml.node("label", [&] () {
-						xml.attribute("text", "auto");
-					});
-					if (_hwp_req_auto)
-						xml.attribute("hovered", true);
-					if (_hwp_req_auto_sel)
-						xml.attribute("selected", true);
-				});
-			}
-		});
-	});
-
-	/* just show the values if hwp req package is available XXX */
-	/* re-use code from  "hwp request" XXX */
-	if (hwp_req_pkg_valid) {
 		xml.node("frame", [&] () {
-			xml.attribute("name", "frame_hwpreq_pck");
+			xml.attribute("name", "frame_hwpreq");
 
 			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpreq_pck");
+				xml.attribute("name", "hwpreq");
 
-				auto text = String<72>(" Package: [", hwp_pkg_min, "-", hwp_pkg_max,
-				                       "] desired=", hwp_pkg_des,
-				                       (hwp_pkg_des == 0) ? " (AUTO)" : "");
+				auto text = String<72>(" HWP CPU: [", hwp_min, "-", hwp_max, "] desired=",
+				                       hwp_des, (hwp_des == 0) ? " (AUTO)" : "",
+				                       (hwp_req >> 32) ? " IMPLEMENT ME:" : "");
+
+				/* only relevant if HWP_REQ_PACKAGE is supported */
+				if (Hwp_request::Pkg_ctrl::get(hwp_req))
+					text = String<72>(text, "P");
+				if (Hwp_request::Act_wnd_valid::get(hwp_req))
+					text = String<72>(text, "A");
+				if (Hwp_request::Epp_valid::get(hwp_req))
+					text = String<72>(text, "E");
+				if (Hwp_request::Desired_valid::get(hwp_req))
+					text = String<72>(text, "D");
+				if (Hwp_request::Max_valid::get(hwp_req))
+					text = String<72>(text, "X");
+				if (Hwp_request::Min_valid::get(hwp_req))
+					text = String<72>(text, "N");
+
 				xml.node("label", [&] () {
 					xml.attribute("align", "left");
 					xml.attribute("name", 1);
@@ -1162,27 +1171,102 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 						xml.attribute("name", 2);
 						xml.attribute("text", String<16>(" min:"));
 					});
-					hub(xml, _intel_hwp_pck_min, "hwp_pck_min");
+					hub(xml, _intel_hwp_min, "hwp_min");
 
 					xml.node("label", [&] () {
 						xml.attribute("align", "right");
 						xml.attribute("name", 3);
 						xml.attribute("text", String<16>(" max:"));
 					});
-					hub(xml, _intel_hwp_pck_max, "hwp_pck_max");
+					hub(xml, _intel_hwp_max, "hwp_max");
 
 					xml.node("label", [&] () {
 						xml.attribute("align", "right");
 						xml.attribute("name", 4);
 						xml.attribute("text", String<16>(" desired:"));
 					});
-					hub(xml, _intel_hwp_pck_des, "hwp_pck_des");
+
+					/* if auto on, hide button for individual values */
+					if (!_hwp_req_auto_sel) {
+						hub(xml, _intel_hwp_des, "hwp_des");
+					}
+
+					xml.node("button", [&] () {
+						xml.attribute("name", "hwp_req-auto");
+						xml.node("label", [&] () {
+							xml.attribute("text", "auto");
+						});
+						if (_hwp_req_auto)
+							xml.attribute("hovered", true);
+						if (_hwp_req_auto_sel)
+							xml.attribute("selected", true);
+					});
 				}
+
+				xml.node("button", [&] () {
+				xml.attribute("align", "right");
+					xml.attribute("name", "hwp_req-custom");
+					xml.node("label", [&] () {
+						xml.attribute("text", "custom");
+					});
+					if (_hwp_req_custom)
+						xml.attribute("hovered", true);
+
+					if (_hwp_req_cus_sel)
+						xml.attribute("selected", true);
+				});
+
 			});
 		});
+
+		/* just show the values if hwp req package is available XXX */
+		/* re-use code from  "hwp request" XXX */
+		if (hwp_req_pkg_valid) {
+			frames_count ++;
+			xml.node("frame", [&] () {
+				xml.attribute("name", "frame_hwpreq_pck");
+
+				xml.node("hbox", [&] () {
+					xml.attribute("name", "hwpreq_pck");
+
+					auto text = String<72>(" Package: [", hwp_pkg_min, "-", hwp_pkg_max,
+					                       "] desired=", hwp_pkg_des,
+					                       (hwp_pkg_des == 0) ? " (AUTO)" : "");
+					xml.node("label", [&] () {
+						xml.attribute("align", "left");
+						xml.attribute("name", 1);
+						xml.attribute("text", text);
+					});
+
+					if (_hwp_req_cus_sel) {
+						xml.node("label", [&] () {
+							xml.attribute("align", "right");
+							xml.attribute("name", 2);
+							xml.attribute("text", String<16>(" min:"));
+						});
+						hub(xml, _intel_hwp_pck_min, "hwp_pck_min");
+
+						xml.node("label", [&] () {
+							xml.attribute("align", "right");
+							xml.attribute("name", 3);
+							xml.attribute("text", String<16>(" max:"));
+						});
+						hub(xml, _intel_hwp_pck_max, "hwp_pck_max");
+
+						xml.node("label", [&] () {
+							xml.attribute("align", "right");
+							xml.attribute("name", 4);
+							xml.attribute("text", String<16>(" desired:"));
+						});
+						hub(xml, _intel_hwp_pck_des, "hwp_pck_des");
+					}
+				});
+			});
+		}
 	}
 
 	xml.node("frame", [&] () {
+		frames_count ++;
 		xml.attribute("name", "frame_hwpepp");
 
 		xml.node("hbox", [&] () {
@@ -1212,7 +1296,8 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 				});
 				if (_hwp_epp_bala)
 					xml.attribute("hovered", true);
-				if (_intel_hwp_epp.value() == EPP_BALANCED)
+				if (_intel_hwp_epp.value() == EPP_BALANCED ||
+				    _intel_hwp_epp.value() == EPP_BALANCED - 1)
 					xml.attribute("selected", true);
 			});
 
@@ -1227,20 +1312,7 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 					xml.attribute("selected", true);
 			});
 
-			bool const extra_info = _epp_custom_select;
-
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_epp-custom");
-				xml.node("label", [&] () {
-					xml.attribute("text", "custom");
-				});
-				if (_hwp_epp_custom)
-					xml.attribute("hovered", true);
-				if (extra_info || ((_intel_hwp_epp.value() != EPP_PERF)     &&
-				                   (_intel_hwp_epp.value() != EPP_BALANCED) &&
-				                   (_intel_hwp_epp.value() != EPP_ENERGY)))
-					xml.attribute("selected", true);
-			});
+			bool const extra_info = _epp_custom_select && _select_advanced;
 
 			if (extra_info) {
 				xml.node("vbox", [&] () {
@@ -1266,6 +1338,23 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 
 				hub(xml, _intel_hwp_epp, "hwp_epp");
 			}
+
+			if (_select_advanced) {
+				xml.node("button", [&] () {
+					xml.attribute("align", "right");
+					xml.attribute("name", "hwp_epp-custom");
+					xml.node("label", [&] () {
+						xml.attribute("text", "custom");
+					});
+					if (_hwp_epp_custom)
+						xml.attribute("hovered", true);
+					if (extra_info || ((_intel_hwp_epp.value() != EPP_PERF)     &&
+					                   (_intel_hwp_epp.value() != EPP_BALANCED) &&
+					                   (_intel_hwp_epp.value() != EPP_ENERGY)))
+						xml.attribute("selected", true);
+				});
+			}
+
 		});
 	});
 }
@@ -1285,6 +1374,9 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 	xml.attribute("name", "settings");
 
 	_settings_period(xml);
+	frames ++;
+
+	_settings_mode(xml);
 	frames ++;
 
 	cpu.for_each_sub_node([&](Genode::Xml_node const &node) {
@@ -1314,7 +1406,7 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			if (!_hwp_enabled_once)
 				return;
 
-			bool const extra_info = _hwp_req_cus_sel;
+			bool const extra_info = _select_advanced && _hwp_req_cus_sel;
 
 			unsigned effi = node.attribute_value("effi" , 1);
 			unsigned guar = node.attribute_value("guar" , 1);
@@ -1370,10 +1462,8 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			if (!_hwp_enabled_once)
 				return;
 
-			frames += 2;
-
 			_settings_intel_hwp_req(xml, node, hwp_low, hwp_high, hwp_req_pkg,
-			                        hwp_req_pkg_valid, re_eval);
+			                        hwp_req_pkg_valid, re_eval, frames);
 			return;
 		}
 	});
@@ -1429,17 +1519,19 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 				xml.attribute("selected", true);
 		});
 
-		xml.node("button", [&] () {
-			xml.attribute("name", "apply");
-			xml.node("label", [&] () {
-				xml.attribute("text", cpuid);
-			});
+		if (_select_advanced) {
+			xml.node("button", [&] () {
+				xml.attribute("name", "apply");
+				xml.node("label", [&] () {
+					xml.attribute("text", cpuid);
+				});
 
-			if (_apply_hovered)
-				xml.attribute("hovered", true);
-			if (_apply_select)
-				xml.attribute("selected", true);
-		});
+				if (_apply_hovered)
+					xml.attribute("hovered", true);
+				if (_apply_select)
+					xml.attribute("selected", true);
+			});
+		}
 
 		xml.node("button", [&] () {
 			xml.attribute("name", "applyall");
