@@ -56,6 +56,7 @@ class Power
 		unsigned                _last_cpu          { ~0U };
 		bool                    _initial_hwp_cap   { false };
 		bool                    _none_hovered      { false };
+		bool                    _apply_period      { false };
 		bool                    _apply_hovered     { false };
 		bool                    _apply_all_hovered { false };
 		bool                    _hwp_epp_perf      { false };
@@ -78,6 +79,7 @@ class Power
 		bool                    _hwp_req_auto_sel  { false };
 		bool                    _apply_select      { false };
 		bool                    _apply_all_select  { false };
+		bool                    _apply_select_per  { false };
 		bool                    _pstate_max        { false };
 		bool                    _pstate_mid        { false };
 		bool                    _pstate_min        { false };
@@ -106,7 +108,7 @@ class Power
 		enum { EPP_PERF = 0, EPP_BALANCED = 128, EPP_ENERGY = 255 };
 		Button_hub<1, 0, 255, 128> _intel_hwp_epp { };
 
-		void _generate_msr_config(bool = false);
+		void _generate_msr_config(bool, bool = false);
 		void _generate_msr_cpu(Xml_generator &, unsigned, unsigned);
 		void _info_update();
 		void _hover_update();
@@ -202,6 +204,7 @@ void Power::_hover_update()
 
 	if (_apply_select)     _apply_select     = false;
 	if (_apply_all_select) _apply_all_select = false;
+	if (_apply_select_per) _apply_select_per = false;
 
 	bool refresh = false;
 
@@ -220,6 +223,15 @@ void Power::_hover_update()
 
 		if (_apply_hovered)     _apply_select     = true;
 		if (_apply_all_hovered) _apply_all_select = true;
+
+		refresh = true;
+	}
+
+	if (click_valid && (_apply_period)) {
+
+		_generate_msr_config(_apply_all_hovered, _apply_period);
+
+		_apply_select_per = true;
 
 		refresh = true;
 	}
@@ -384,6 +396,7 @@ void Power::_hover_update()
 	auto const before_hwp_des        = _intel_hwp_des.any_active();
 	auto const before_hwp_epp        = _intel_hwp_epp.any_active();
 	auto const before_none           = _none_hovered;
+	auto const before_apply_period   = _apply_period;
 	auto const before_apply          = _apply_hovered;
 	auto const before_all_apply      = _apply_all_hovered;
 	auto const before_hwp_epp_perf   = _hwp_epp_perf;
@@ -414,9 +427,10 @@ void Power::_hover_update()
 	bool const hovered_hwp_des = any && (String<12>(button) == "hub-hwp_des") && (!(any = false));
 	bool const hovered_hwp_epp = any && (String<12>(button) == "hub-hwp_epp") && (!(any = false));
 
-	_none_hovered      = any && (button == "none")     && (!(any = false));
-	_apply_hovered     = any && (button == "apply")    && (!(any = false));
-	_apply_all_hovered = any && (button == "applyall") && (!(any = false));
+	_none_hovered      = any && (button == "none")         && (!(any = false));
+	_apply_hovered     = any && (button == "apply")        && (!(any = false));
+	_apply_all_hovered = any && (button == "applyall")     && (!(any = false));
+	_apply_period      = any && (button == "apply_period") && (!(any = false));
 
 	_hwp_on_hovered    = any && (button == "hwp_on")  && (!(any = false));
 	_hwp_off_hovered   = any && (button == "hwp_off") && (!(any = false));
@@ -489,6 +503,7 @@ void Power::_hover_update()
 	    (before_hwp_des        != hovered_hwp_des)    ||
 	    (before_hwp_epp        != hovered_hwp_epp)    ||
 	    (before_none           != _none_hovered)      ||
+	    (before_apply_period   != _apply_period)      ||
 	    (before_apply          != _apply_hovered)     ||
 	    (before_all_apply      != _apply_all_hovered) ||
 	    (before_hwp_epp_perf   != _hwp_epp_perf)      ||
@@ -619,7 +634,7 @@ void Power::_generate_msr_cpu(Xml_generator &xml,
 }
 
 
-void Power::_generate_msr_config(bool all_cpus)
+void Power::_generate_msr_config(bool all_cpus, bool const apply_period)
 {
 	if (!_setting_cpu.valid())
 		return;
@@ -628,6 +643,10 @@ void Power::_generate_msr_config(bool all_cpus)
 
 		xml.attribute("verbose", false);
 		xml.attribute("update_rate_us", _timer_period.value() * 1000);
+
+		/* if soley period changed, don't rewrite HWP parameters */
+		if (apply_period)
+			return;
 
 		if (all_cpus) {
 			_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
@@ -744,6 +763,25 @@ void Power::_settings_period(Xml_generator &xml)
 			});
 
 			hub(xml, _timer_period, "period");
+
+			xml.node("label", [&] () {
+				xml.attribute("name", "b");
+				xml.attribute("align", "right");
+				xml.attribute("text", "");
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "apply_period");
+				xml.node("label", [&] () {
+					xml.attribute("text", "apply");
+				});
+
+				if (_apply_period)
+					xml.attribute("hovered", true);
+				if (_apply_select_per)
+					xml.attribute("selected", true);
+			});
 		});
 	});
 }
