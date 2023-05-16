@@ -69,8 +69,6 @@ class Power
 		bool                    _epb_custom        { false };
 		bool                    _hwp_on_selected   { false };
 		bool                    _hwp_on_hovered    { false };
-		bool                    _hwp_off_selected  { false };
-		bool                    _hwp_off_hovered   { false };
 		bool                    _epb_custom_select { false };
 		bool                    _epp_custom_select { false };
 		bool                    _hwp_req_custom    { false };
@@ -85,6 +83,7 @@ class Power
 		bool                    _pstate_min        { false };
 		bool                    _pstate_custom     { false };
 		bool                    _pstate_custom_sel { false };
+		bool                    _hwp_enabled_once  { false };
 
 		Button_hub<5, 0, 9, 0>  _timer_period { };
 
@@ -161,6 +160,8 @@ class Power
 			_hover.sigh(_hover_sig);
 
 			_timer_period.set(unsigned(Milliseconds(4000).value));
+
+			_info_update();
 		}
 };
 
@@ -298,14 +299,7 @@ void Power::_hover_update()
 		}
 
 		if (click_valid && _hwp_on_hovered) {
-			_hwp_on_selected  = true;
-			_hwp_off_selected = false;
-			refresh = true;
-		}
-
-		if (click_valid && _hwp_off_hovered) {
-			_hwp_on_selected  = false;
-			_hwp_off_selected = true;
+			_hwp_on_selected = true;
 			refresh = true;
 		}
 
@@ -410,7 +404,6 @@ void Power::_hover_update()
 	auto const before_epb_ener       = _epb_ener;
 	auto const before_epb_custom     = _epb_custom;
 	auto const before_hwp_on         = _hwp_on_hovered;
-	auto const before_hwp_off        = _hwp_off_hovered;
 	auto const before_pstate_max     = _pstate_max;
 	auto const before_pstate_mid     = _pstate_mid;
 	auto const before_pstate_min     = _pstate_min;
@@ -433,7 +426,6 @@ void Power::_hover_update()
 	_apply_period      = any && (button == "apply_period") && (!(any = false));
 
 	_hwp_on_hovered    = any && (button == "hwp_on")  && (!(any = false));
-	_hwp_off_hovered   = any && (button == "hwp_off") && (!(any = false));
 
 	_hwp_epp_perf      = any && (button == "hwp_epp-perf")   && (!(any = false));
 	_hwp_epp_bala      = any && (button == "hwp_epp-bala")   && (!(any = false));
@@ -517,7 +509,6 @@ void Power::_hover_update()
 	    (before_epb_ener       != _epb_ener)          ||
 	    (before_epb_custom     != _epb_custom)        ||
 	    (before_hwp_on         != _hwp_on_hovered)    ||
-	    (before_hwp_off        != _hwp_off_hovered)   ||
 	    (before_pstate_max     != _pstate_max)        ||
 	    (before_pstate_mid     != _pstate_mid)        ||
 	    (before_pstate_min     != _pstate_min)        ||
@@ -625,7 +616,7 @@ void Power::_generate_msr_cpu(Xml_generator &xml,
 			xml.attribute("epb", _intel_epb.value());
 		});
 
-		if (_hwp_on_selected != _hwp_off_selected) {
+		if (_hwp_on_selected && !_hwp_enabled_once) {
 			xml.node("hwp", [&] {
 				xml.attribute("enable", _hwp_on_selected);
 			});
@@ -641,7 +632,9 @@ void Power::_generate_msr_config(bool all_cpus, bool const apply_period)
 
 	_msr_config.generate([&] (Xml_generator &xml) {
 
+/*
 		xml.attribute("verbose", false);
+*/
 		xml.attribute("update_rate_us", _timer_period.value() * 1000);
 
 		/* if soley period changed, don't rewrite HWP parameters */
@@ -965,12 +958,7 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 
 void Power::_settings_intel_hwp(Xml_generator &xml, Xml_node const &node, bool)
 {
-	bool enabled = node.attribute_value("enable" , false);
-
-	if (_hwp_on_selected == _hwp_off_selected) {
-		_hwp_on_selected  =  enabled;
-		_hwp_off_selected = !enabled;
-	}
+	bool enabled = node.attribute_value("enable", false);
 
 	xml.node("frame", [&] () {
 		xml.attribute("name", "frame_hwp");
@@ -978,12 +966,16 @@ void Power::_settings_intel_hwp(Xml_generator &xml, Xml_node const &node, bool)
 		xml.node("hbox", [&] () {
 			xml.attribute("name", "hwp");
 
-			auto text = String<24>(" Intel HWP state: ",
-			                       enabled ? "on" : "off");
+			auto text = String<72>(" Intel HWP state: ",
+			                       enabled ? "on" : "off",
+			                       " - Once enabled stays until reset (Intel spec)");
 			xml.node("label", [&] () {
 				xml.attribute("align", "left");
 				xml.attribute("text", text);
 			});
+
+			if (enabled)
+				return;
 
 			xml.node("button", [&] () {
 				xml.attribute("name", "hwp_on");
@@ -996,20 +988,11 @@ void Power::_settings_intel_hwp(Xml_generator &xml, Xml_node const &node, bool)
 				if (_hwp_on_selected)
 					xml.attribute("selected", true);
 			});
-
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_off");
-				xml.node("label", [&] () {
-					xml.attribute("text", "off");
-				});
-
-				if (_hwp_off_hovered)
-					xml.attribute("hovered", true);
-				if (_hwp_off_selected)
-					xml.attribute("selected", true);
-			});
 		});
 	});
+
+	if (enabled && !_hwp_enabled_once)
+		_hwp_enabled_once = true;
 }
 
 
@@ -1328,7 +1311,7 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 
 			hwp_extension = true;
 
-			if (!_hwp_on_selected)
+			if (!_hwp_enabled_once)
 				return;
 
 			bool const extra_info = _hwp_req_cus_sel;
@@ -1384,7 +1367,7 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 
 			hwp_extension = true;
 
-			if (!_hwp_on_selected)
+			if (!_hwp_enabled_once)
 				return;
 
 			frames += 2;

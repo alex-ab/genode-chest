@@ -121,6 +121,30 @@ append config {
 		<provides> <service name="ROM"/> </provides>
 		<config verbose="yes">
 			<rom name="info">
+				<inline description="0">
+					<info update_rate_us="4000000">
+						<cpu x="0" y="0" freq_khz="973791" temp_c="58">
+							<hwp enable="false"/>
+							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
+							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
+							<intel_speed_step epb="0"/>
+							<hwp_coord_feed_cap/>
+						</cpu>
+						<cpu x="0" y="1" freq_khz="1973791" temp_c="64">
+							<hwp enable="false"/>
+							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
+							<hwp_request_package raw="0x8000ff01"/>
+							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
+							<intel_speed_step epb="0"/>
+							<hwp_coord_feed_cap/>
+						</cpu>
+						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
+							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
+						</cpu>
+					</info>
+				</inline>
+				<sleep milliseconds="8000" />
 				<inline description="1">
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="973791" temp_c="58">
