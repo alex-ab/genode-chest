@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2018-2022 Genode Labs GmbH
+ * Copyright (C) 2018-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -71,12 +71,12 @@ struct Subjects
 			_components.for_each(fn);
 		}
 
-		enum { MAX_CPUS_X = 32, MAX_CPUS_Y = 2, MAX_ELEMENTS_PER_CPU = 20};
+		enum { MAX_CPUS_X = 64, MAX_CPUS_Y = 2, MAX_ELEMENTS_PER_CPU = 20};
 
 		/* accumulated execution time on all CPUs */
-		Genode::uint64_t total_first  [MAX_CPUS_X][MAX_CPUS_Y];
-		Genode::uint64_t total_second [MAX_CPUS_X][MAX_CPUS_Y];
-		Genode::uint64_t total_idle   [MAX_CPUS_X][MAX_CPUS_Y];
+		Genode::uint64_t total_first  [MAX_CPUS_X][MAX_CPUS_Y] { };
+		Genode::uint64_t total_second [MAX_CPUS_X][MAX_CPUS_Y] { };
+		Genode::uint64_t total_idle   [MAX_CPUS_X][MAX_CPUS_Y] { };
 
 		Genode::uint64_t total_cpu_first(Location const &aff) const {
 			return total_first[aff.xpos()][aff.ypos()]; }
@@ -85,24 +85,27 @@ struct Subjects
 			return total_second[aff.xpos()][aff.ypos()]; }
 
 		/* most significant consumer per CPU */
-		Top::Thread const * load[MAX_CPUS_X][MAX_CPUS_Y][MAX_ELEMENTS_PER_CPU];
+		Top::Thread const * load[MAX_CPUS_X][MAX_CPUS_Y][MAX_ELEMENTS_PER_CPU] { };
 
 		/* disable report for given CPU */
-		bool _cpu_show [MAX_CPUS_X][MAX_CPUS_Y];
+		bool _cpu_show [MAX_CPUS_X][MAX_CPUS_Y] { };
 		/* state whether cpu is supposed to be available */
-		bool _cpu_online [MAX_CPUS_X][MAX_CPUS_Y];
+		bool _cpu_online [MAX_CPUS_X][MAX_CPUS_Y] { };
 		/* state whether topmost threads should be reported to graph */
-		bool _cpu_graph_top [MAX_CPUS_X][MAX_CPUS_Y];
+		bool _cpu_graph_top [MAX_CPUS_X][MAX_CPUS_Y] { };
 		/* state whether topmost threads w/o idle should be reported to graph */
-		bool _cpu_graph_top_no_idle [MAX_CPUS_X][MAX_CPUS_Y];
+		bool _cpu_graph_top_no_idle [MAX_CPUS_X][MAX_CPUS_Y] { };
 
-		Button_hub<1, 1, 20, 2> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y];
+		Button_hub<1, 1, 20, 2> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
 
 		bool & cpu_show(Location const &loc) {
 			return _cpu_show[loc.xpos()][loc.ypos()]; }
 
 		bool cpu_show(Location const &loc) const {
-			return _cpu_show[loc.xpos()][loc.ypos()]; }
+			return cpu_online(loc) && _cpu_show[loc.xpos()][loc.ypos()]; }
+
+		bool cpu_online(Location const &loc) const {
+			return _cpu_online[loc.xpos()][loc.ypos()]; }
 
 		bool & cpu_online(Location const &loc) {
 			return _cpu_online[loc.xpos()][loc.ypos()]; }
@@ -173,6 +176,11 @@ struct Subjects
 
 	public:
 
+		void init()
+		{
+			Genode::memset(_cpu_show, 1, sizeof(_cpu_show));
+		}
+
 		void read_config(Genode::Xml_node &);
 		void write_config(Genode::Xml_generator &) const;
 
@@ -218,8 +226,8 @@ struct Subjects
 			/* clear old calculations */
 			Genode::memset(total_first , 0, sizeof(total_first));
 			Genode::memset(total_second, 0, sizeof(total_second));
-			Genode::memset(total_idle , 0, sizeof(total_idle));
-			Genode::memset(load, 0, sizeof(load));
+			Genode::memset(total_idle  , 0, sizeof(total_idle));
+			Genode::memset(load        , 0, sizeof(load));
 		}
 
 		bool update(Genode::Trace::Connection &trace,
@@ -228,14 +236,14 @@ struct Subjects
 		{
 			constexpr Genode::uint32_t const INVALID_ID = ~0U;
 
-			bool const first_update = !_threads.first();
-
-			/* quirk for platforms where timestamp() don't work */
-			Genode::Trace::Timestamp timestamp = Genode::Trace::timestamp();
-			if (timestamp == _timestamp)
-				_timestamp += 1;
-			else
-				_timestamp = timestamp;
+			/* quirk for platforms where timestamp() does not work */
+			{
+				auto const timestamp = Genode::Trace::timestamp();
+				if (timestamp <= _timestamp)
+					_timestamp += 1;
+				else
+					_timestamp = timestamp;
+			}
 
 			/* XXX - right place ?! */
 			if (storage.constructed())
@@ -287,10 +295,10 @@ struct Subjects
 			});
 
 			/* clear old calculations */
-			Genode::memset(total_first,  0, sizeof(total_first));
+			Genode::memset(total_first , 0, sizeof(total_first));
 			Genode::memset(total_second, 0, sizeof(total_second));
-			Genode::memset(total_idle,  0, sizeof(total_idle));
-			Genode::memset(load, 0, sizeof(load));
+			Genode::memset(total_idle  , 0, sizeof(total_idle));
+			Genode::memset(load        , 0, sizeof(load));
 
 			for_each_thread([&] (Top::Thread &thread) {
 				/* collect highest execution time per CPU */
@@ -307,8 +315,14 @@ struct Subjects
 				total_first [x][y] += thread.recent_time(sort == EC_TIME);
 				total_second[x][y] += thread.recent_time(sort == SC_TIME);
 
-				if (thread.thread_name() == "idle")
+				if (thread.thread_name() == "idle") {
 					total_idle[x][y] = thread.recent_time(sort == EC_TIME);
+
+					Location const location(x, y);
+
+					if (!cpu_online(location))
+						cpu_online(location) = true;
+				}
 
 				enum { NONE = ~0U };
 				unsigned replace = NONE;
@@ -430,27 +444,8 @@ struct Subjects
 				}
 			}
 
-			if (first_update) {
-				for (unsigned x = 0; x < MAX_CPUS_X; x++) {
-					for (unsigned y = 0; y < MAX_CPUS_Y; y++) {
-						Location const location(x, y);
-
-						if (!total_first[x][y]) {
-							cpu_online(location) = false;
-							continue;
-						}
-
-						/* set default values solely if no config was read in */
-						if (!cpu_online(location)) {
-							cpu_show(location) = true;
-							cpu_online(location) = true;
-						}
-					}
-				}
-			}
-
 			/* hacky XXX */
-			_show_second_time = total_first[0][0] && total_second[0][0] &&
+			_show_second_time =  total_first[0][0] && total_second[0][0] &&
 			                    (total_first[0][0] != total_second[0][0]);
 
 			/* move it before and don't evaluate results ? XXX */
@@ -1867,8 +1862,14 @@ struct App::Main
 
 	Main(Env &env) : _env(env)
 	{
+		_subjects.init();
+
 		_config.sigh(_config_handler);
+
 		_handle_config();
+
+		/* trigger to get immediate GUI content before first timeout */
+		_handle_trace(Duration(Microseconds(1000)));
 	}
 };
 
