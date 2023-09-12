@@ -60,11 +60,6 @@ struct Top::Thread
 			_component._threads.insert(this);
 		}
 
-		~Thread()
-		{
-			_component._threads.remove(this);
-		}
-
 		Session_label const &session_label()  const { return _component.name; }
 		Thread_name const   &thread_name()    const { return _thread_name; }
 		Subject_info::State  state()          const { return _state; }
@@ -125,6 +120,19 @@ struct Top::Thread
 			{
 				fn(*thread);
 			}
+		}
+
+		static void destroy(Thread &thread, Genode::Allocator &alloc,
+		                    unsigned &component_counter)
+		{
+			thread._component._threads.remove(&thread);
+
+			if (!thread._component._threads.first()) {
+				Genode::destroy(alloc, &thread._component);
+				component_counter --;
+			}
+
+			Genode::destroy(alloc, &thread);
 		}
 
 		/*****************

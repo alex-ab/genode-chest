@@ -196,31 +196,23 @@ struct Subjects
 		unsigned period_trace() const { return _button_trace_period.value(); }
 		unsigned period_view() const { return _button_view_period.value(); }
 
-		void _destroy_thread_object(Top::Thread               *thread,
-		                            Genode::Trace::Connection  &trace,
-		                            Genode::Allocator          &alloc)
+		void _destroy_thread_object(Top::Thread               &thread,
+		                            Genode::Trace::Connection &trace,
+		                            Genode::Allocator         &alloc)
 		{
-			Top::Component * destroy_component = nullptr;
+			trace.free(thread.id());
 
-			_components.with_element(thread->session_label(),
-			                         [&](Top::Component const &c) {
-				destroy_component = reinterpret_cast<Top::Component *>(reinterpret_cast<unsigned long>(&c));
-				_num_pds --;
-			}, [&]() { });
+			_threads.remove(&thread);
 
-			trace.free(thread->id());
-			_threads.remove(thread);
+			Top::Thread::destroy(thread, alloc, _num_pds);
+
 			_num_subjects --;
-			Genode::destroy(alloc, thread);
-
-			if (destroy_component)
-				Genode::destroy(alloc, destroy_component);
 		}
 
 		void flush(Genode::Trace::Connection &trace, Genode::Allocator &alloc)
 		{
 			while (Top::Thread * const thread = _threads.first()) {
-				_destroy_thread_object(thread, trace, alloc);
+				_destroy_thread_object(*thread, trace, alloc);
 			}
 
 			/* clear old calculations */
@@ -290,7 +282,7 @@ struct Subjects
 				if (thread->state() == Genode::Trace::Subject_info::DEAD &&
 				    !thread->recent_ec_time() && !thread->recent_sc_time())
 				{
-					_destroy_thread_object(thread, trace, alloc);
+					_destroy_thread_object(*thread, trace, alloc);
 				}
 			});
 
