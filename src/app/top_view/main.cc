@@ -1067,38 +1067,39 @@ struct Subjects
 			}
 
 			for_each_thread([&] (Top::Thread &thread) {
-				if (thread.track(sort == EC_TIME)) {
+				if (thread.track_ec()) {
 					xml.node("entry", [&]{
 						int const xpos = thread.affinity().xpos();
 						int const ypos = thread.affinity().ypos();
 
-						Genode::String<12> cpu_name(xpos, ".", ypos, _show_second_time ? (sort == EC_TIME ? " ec" : " sc") : "");
-						xml.attribute("cpu", cpu_name);
-						xml.attribute("label", thread.session_label());
+						Genode::String<12> cpu_name(xpos, ".", ypos, _show_second_time ? " ec" : "");
+						xml.attribute("cpu",    cpu_name);
+						xml.attribute("label",  thread.session_label());
 						xml.attribute("thread", thread.thread_name());
-						xml.attribute("id", thread.id().id);
-						xml.attribute("tsc", _timestamp);
+						xml.attribute("id",     thread.id().id);
+						xml.attribute("tsc",    _timestamp);
 
 						Genode::uint64_t t = total_cpu_first(thread.affinity());
 
-						xml.attribute("value", t ? (thread.recent_time(sort == EC_TIME) * 10000 / t) : 0 );
+						xml.attribute("value", t ? (thread.recent_time(true /* EC */) * 10000 / t) : 0 );
 					});
 				}
-				if (thread.track(sort == SC_TIME)) {
+				if (thread.track_sc()) {
 					xml.node("entry", [&]{
 						int const xpos = thread.affinity().xpos();
 						int const ypos = thread.affinity().ypos();
 
-						Genode::String<12> cpu_name(xpos, ".", ypos, _show_second_time ? (sort == SC_TIME ? " ec" : " sc") : "");
-						xml.attribute("cpu", cpu_name);
-						xml.attribute("label", thread.session_label());
+						Genode::String<12> cpu_name(xpos, ".", ypos, _show_second_time ? " sc" : "");
+						xml.attribute("cpu",    cpu_name);
+						xml.attribute("label",  thread.session_label());
 						xml.attribute("thread", thread.thread_name());
-						xml.attribute("id", thread.id().id);
-						xml.attribute("tsc", _timestamp);
+						/* HACK, graph can't handle same ID for SC and EC atm */
+						xml.attribute("id",     ~0U - thread.id().id);
+						xml.attribute("tsc",    _timestamp);
 
 						Genode::uint64_t t = total_cpu_second(thread.affinity());
 
-						xml.attribute("value", t ? (thread.recent_time(sort == SC_TIME) * 10000 / t) : 0 );
+						xml.attribute("value", t ? (thread.recent_time(false /* SC */) * 10000 / t) : 0 );
 					});
 				}
 			});

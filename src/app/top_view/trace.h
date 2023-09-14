@@ -72,14 +72,15 @@ struct Top::Thread
 		void                 track_ec(bool track)   { _track_ec = track; }
 		void                 track_sc(bool track)   { _track_sc = track; }
 
-		void                 track(bool ec_time, bool track)
+		void track(bool ec_time, bool track)
 		{
-			if (ec_time) track_ec(track);
+			if ( ec_time) track_ec(track);
 			if (!ec_time) track_sc(track);
 		}
-		bool                 track(bool ec_time)
+
+		bool track(bool ec_time)
 		{
-			if (ec_time)  return _track_ec;
+			if ( ec_time) return _track_ec;
 			if (!ec_time) return _track_sc;
 			return false;
 		}
