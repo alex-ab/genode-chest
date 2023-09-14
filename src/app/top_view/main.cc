@@ -1109,7 +1109,8 @@ struct Subjects
 		                      Top::Thread const &entry,
 		                      Genode::String<16> name,
 		                      unsigned id,
-		                      FN const &fn)
+		                      FN const &fn,
+		                      Genode::String<12> align = "left")
 		{
 			xml.node("vbox", [&] () {
 				xml.attribute("name", Genode::String<20>(name, id));
@@ -1119,7 +1120,7 @@ struct Subjects
 					xml.node("label", [&] () {
 						xml.attribute("text", name);
 						xml.attribute("color", "#ffffff");
-						xml.attribute("align", "left");
+						xml.attribute("align", align);
 					});
 				});
 
@@ -1135,6 +1136,44 @@ struct Subjects
 							xml.attribute("color", "#ffffff");
 							xml.attribute("align", left ? "left" : "right");
 						});
+					});
+				});
+			});
+		}
+
+		void detail_view_tool_track(Genode::Xml_generator       &xml,
+		                            Top::Thread           const &thread,
+		                            unsigned              const  id,
+		                            SORT_TIME             const  sort,
+		                            bool                  const  first)
+		{
+			Genode::String<4> ec_sc(_show_second_time ? "EC" : "");
+			bool ec = true;
+
+			if ( first && sort == SC_TIME) { ec_sc = "SC"; ec = false; }
+			if (!first && sort == EC_TIME) { ec_sc = "SC"; ec = false; }
+
+			xml.node("vbox", [&] () {
+				xml.attribute("name", Genode::String<16>("track_", ec_sc));
+
+				xml.node("button", [&] () {
+					xml.attribute("name", "inv");
+					xml.attribute("style", "invisible");
+
+					xml.node("label", [&] () {
+						xml.attribute("text", ec_sc);
+						xml.attribute("color", "#ffffff");
+						xml.attribute("align", "left");
+					});
+				});
+
+				thread.for_each_thread_of_pd([&] (Top::Thread &check) {
+					xml.node("button", [&] () {
+						xml.attribute("name", check.id().id * DIV + id);
+						xml.attribute("style", "checkbox");
+						if (check.track(ec))
+							xml.attribute("selected","yes");
+						xml.node("hbox", [&] () { });
 					});
 				});
 			});
@@ -1181,7 +1220,7 @@ struct Subjects
 							return Genode::String<8>(e.affinity().xpos(), ".", e.affinity().ypos(), " ");
 						});
 
-					detail_view_tool(xml, thread, Genode::String<16>("load ", _show_second_time ? (sort == EC_TIME ? "ec " : "sc ") : ""), 3,
+					detail_view_tool(xml, thread, Genode::String<16>("load"), 3,
 						[&] (Top::Thread const &e, bool &left) {
 							unsigned long long t = total_first[e.affinity().xpos()][e.affinity().ypos()];
 							auto const percent = t ? (e.recent_time(sort == EC_TIME) * 100   / t) : 0ull;
@@ -1189,30 +1228,10 @@ struct Subjects
 
 							left = false;
 							return Genode::String<9>(string(percent, rest), " ");
-						});
+						}, "right");
 
-					xml.node("vbox", [&] () {
-						xml.attribute("name", "track_first");
-
-						xml.node("hbox", [&] () {
-							xml.attribute("name", "track_first");
-							xml.node("label", [&] () {
-								xml.attribute("text", "");
-								xml.attribute("color", "#ffffff");
-								xml.attribute("align", "left");
-							});
-						});
-
-						thread.for_each_thread_of_pd([&] (Top::Thread &check) {
-							xml.node("button", [&] () {
-								xml.attribute("name", check.id().id * DIV + CHECKBOX_ID_FIRST);
-								xml.attribute("style", "checkbox");
-								if (check.track(sort == EC_TIME))
-									xml.attribute("selected","yes");
-								xml.node("hbox", [&] () { });
-							});
-						});
-					});
+					detail_view_tool_track(xml, thread, CHECKBOX_ID_FIRST,
+					                       sort, true);
 
 					detail_view_tool(xml, thread, Genode::String<16>("thread "), 4,
 						[&] (Top::Thread const &e, bool &) {
@@ -1230,7 +1249,7 @@ struct Subjects
 						});
 
 					if (_show_second_time) {
-						detail_view_tool(xml, thread, Genode::String<16>("load ", sort == SC_TIME ? "ec " : "sc "), 8,
+						detail_view_tool(xml, thread, Genode::String<16>("load"), 8,
 							[&] (Top::Thread const &e, bool &left) {
 								unsigned long long t = total_second[e.affinity().xpos()][e.affinity().ypos()];
 								auto const percent = t ? (e.recent_time(sort == SC_TIME) * 100   / t) : 0ull;
@@ -1238,30 +1257,10 @@ struct Subjects
 
 								left = false;
 								return Genode::String<9>(string(percent, rest), " ");
-							});
+							}, "right");
 
-						xml.node("vbox", [&] () {
-							xml.attribute("name", "track_second");
-
-							xml.node("hbox", [&] () {
-								xml.attribute("name", "track_second");
-								xml.node("label", [&] () {
-									xml.attribute("text", "");
-									xml.attribute("color", "#ffffff");
-									xml.attribute("align", "left");
-								});
-							});
-
-							thread.for_each_thread_of_pd([&] (Top::Thread &check) {
-								xml.node("button", [&] () {
-									xml.attribute("name", check.id().id * DIV + CHECKBOX_ID_SECOND);
-									xml.attribute("style", "checkbox");
-									if (check.track(sort == SC_TIME))
-										xml.attribute("selected","yes");
-									xml.node("hbox", [&] () { });
-								});
-							});
-						});
+						detail_view_tool_track(xml, thread, CHECKBOX_ID_SECOND,
+						                       sort, false);
 					}
 				});
 			});
@@ -1343,7 +1342,7 @@ struct Subjects
 				xml.attribute("name", "list_view_load");
 
 				xml.node("hbox", [&] () {
-					Genode::String<16> name("load ", _show_second_time ? (sort == EC_TIME ? "ec " : "sc ") : "");
+					Genode::String<16> name("load ", _show_second_time ? (sort == EC_TIME ? "EC " : "SC ") : "");
 					xml.attribute("name", "load");
 					xml.node("label", [&] () {
 						xml.attribute("text", name);
@@ -1399,7 +1398,7 @@ struct Subjects
 
 		void list_view_pd(Genode::Xml_generator &xml, SORT_TIME const sort)
 		{
-			Genode::String<18> label("load cpu", _last_cpu.xpos(), ".", _last_cpu.ypos(), _show_second_time ? (sort == EC_TIME ? " ec " : " sc ") : " ");
+			Genode::String<18> label("load cpu", _last_cpu.xpos(), ".", _last_cpu.ypos(), _show_second_time ? (sort == EC_TIME ? " EC " : " SC ") : " ");
 			list_view_pd_tool(xml, "list_view_load", "load", label.string(),
 			                  [&] (Top::Component const &, Top::Thread const &thread)
 			{
