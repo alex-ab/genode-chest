@@ -34,7 +34,7 @@ namespace Msr
 
 struct Msr::Cpuid
 {
-	enum { MAX_LEAF_IDX = 8 };
+	enum { MAX_LEAF_IDX = 9 };
 
 	unsigned eax[MAX_LEAF_IDX] { };
 	unsigned ebx[MAX_LEAF_IDX] { };
@@ -67,12 +67,17 @@ struct Msr::Cpuid
 			core_type = uint8_t((eax >> 24) & 0xffu);
 		}
 
-		cpuid (0x80000000, eax_8000[0], ebx_8000[0], ecx_8000[0], edx_8000[0]);
-		for (auto idx = 1u; idx <= eax_8000[0] && idx < MAX_LEAF_IDX; idx++) {
-			cpuid(0x80000000 + idx, eax_8000[idx], ebx_8000[idx],
+		unsigned const ids_8000 = 0x80000000u;
+
+		cpuid (ids_8000, eax_8000[0], ebx_8000[0], ecx_8000[0], edx_8000[0]);
+
+		for (auto idx = 1u; idx <= max_id_8000() && idx < MAX_LEAF_IDX; idx++) {
+			cpuid(ids_8000 + idx, eax_8000[idx], ebx_8000[idx],
 			      ecx_8000[idx], edx_8000[idx]);
 		}
 	}
+
+	uint8_t max_id_8000() const { return uint8_t(eax_8000[0]); }
 
     using Family_id = unsigned;
     enum { FAMILY_ID_UNKNOWN = ~static_cast<unsigned>(0) };
@@ -95,15 +100,13 @@ struct Msr::Cpuid
         return family_id;
     }
 
-    enum class Model {
-        KABY_LAKE_DESKTOP,
-        UNKNOWN,
-    };
+    using Model_id = unsigned;
+    enum { MODEL_ID_UNKNOWN = ~static_cast<unsigned>(0) };
 
-    Model model() const
+    Model_id model_id() const
     {
         if (eax[0] < 1) {
-            return Model::UNKNOWN;
+            return MODEL_ID_UNKNOWN;
         }
         enum { MODEL_ID_SHIFT = 4 };
         enum { MODEL_ID_MASK = 0xf };
@@ -117,10 +120,8 @@ struct Msr::Cpuid
             model_id +=
                 ((eax[1] >> EXT_MODEL_ID_SHIFT) & EXT_MODEL_ID_MASK) << 4;
         }
-        switch (model_id) {
-        case 0x9e: return Model::KABY_LAKE_DESKTOP;
-        default:   return Model::UNKNOWN;
-        }
+
+        return model_id;
     }
 
 	bool hwp() const
@@ -157,9 +158,28 @@ struct Msr::Cpuid
 
 	bool pstate_support() const
 	{
-		if (eax_8000[0] < 7)
+		if (max_id_8000() < 7)
 			return false;
 
 		return !!(edx_8000[7] & (1 << 7));
+	}
+
+	bool enhanced_speedstep() const {
+		return (ecx[0] >= 1) && (ecx[1] >> 7) & 1; }
+
+	bool amd_cppc() const
+	{
+		if (max_id_8000() < 8)
+			return false;
+
+		return !!(ebx_8000[8] & (1 << 27));
+	}
+
+	bool amd_pwr_report() const
+	{
+		if (max_id_8000() < 7)
+			return false;
+
+		return !!(edx_8000[7] & (1 << 12));
 	}
 };

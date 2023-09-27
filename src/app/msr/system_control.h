@@ -67,11 +67,18 @@ struct Msr::System_control: Genode::Rpc_client<Pd_session::System_control>
 
 	bool get_state(State const &state, addr_t &success,
 	               uint64_t * msr_1 = nullptr, uint64_t * msr_2 = nullptr,
-	               uint64_t * msr_3 = nullptr) const
+	               uint64_t * msr_3 = nullptr, uint64_t * msr_4 = nullptr,
+	               uint64_t * msr_5 = nullptr, uint64_t * msr_6 = nullptr,
+	               uint64_t * msr_7 = nullptr, uint64_t * msr_8 = nullptr)
 	{
 		if (msr_1) *msr_1 = state.r8;
 		if (msr_2) *msr_2 = state.r9;
 		if (msr_3) *msr_3 = state.r10;
+		if (msr_4) *msr_4 = state.r11;
+		if (msr_5) *msr_5 = state.r12;
+		if (msr_6) *msr_6 = state.r13;
+		if (msr_7) *msr_7 = state.r14;
+		if (msr_8) *msr_8 = state.r15;
 
 		success = state.ip;
 

@@ -28,9 +28,15 @@ struct Msr::Power_amd
 	uint64_t pstate_ctrl   { };
 	uint64_t pstate_status { };
 
+	uint64_t swpwracc    { };
+	uint64_t swpwraccmax { };
+
 	bool valid_pstate_limit  { };
 	bool valid_pstate_ctrl   { };
 	bool valid_pstate_status { };
+
+	bool valid_swpwracc      { };
+	bool valid_swpwraccmax   { };
 
 	struct Pstate_limit : Genode::Register<64> {
 		struct Cur_limit : Bitfield< 0, 4> { };
@@ -49,6 +55,9 @@ struct Msr::Power_amd
 		AMD_PSTATE_LIMIT  = 0xc0010061,
 		AMD_PSTATE_CTRL   = 0xc0010062,
 		AMD_PSTATE_STATUS = 0xc0010063,
+
+		AMD_CPUSWPWRACC    = 0xc001007a,
+		AMD_MAXCPUSWPWRACC = 0xc001007b,
 	};
 
 	void read_pstate(System_control &system)
@@ -84,6 +93,23 @@ struct Msr::Power_amd
 		return result && (success & 1);
 	}
 
+	void read_power(System_control &system)
+	{
+		System_control::State state { };
+
+		system.add_rdmsr(state, AMD_CPUSWPWRACC);
+		system.add_rdmsr(state, AMD_MAXCPUSWPWRACC);
+
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool    result = system.get_state(state, success, &swpwracc,
+		                                  &swpwraccmax);
+
+		valid_swpwracc    = result && (success & 1);
+		valid_swpwraccmax = result && (success & 2);
+	}
+
 	void update(System_control &);
 	void update(System_control &, Genode::Xml_node const &);
 	void report(Genode::Xml_generator &) const;
@@ -93,6 +119,9 @@ void Msr::Power_amd::update(System_control &system)
 {
 	if (cpuid.pstate_support())
 		read_pstate(system);
+
+	if (cpuid.amd_pwr_report())
+		read_power(system);
 }
 
 void Msr::Power_amd::report(Genode::Xml_generator &xml) const
@@ -109,6 +138,18 @@ void Msr::Power_amd::report(Genode::Xml_generator &xml) const
 			if (valid_pstate_status) {
 				xml.attribute("ro_status", Pstate_status::Status::get(pstate_status));
 			}
+		});
+	}
+
+	if (cpuid.amd_pwr_report() || cpuid.amd_cppc()) {
+		xml.node("power", [&] () {
+			/* unimplemented by kernel by now - just report the feature atm */
+			xml.attribute("amd_pwr_report", cpuid.amd_pwr_report());
+			xml.attribute("amd_cpc", cpuid.amd_cppc());
+			if (valid_swpwracc)
+				xml.attribute("swpwracc", swpwracc);
+			if (valid_swpwraccmax)
+				xml.attribute("swpwraccmax", swpwraccmax);
 		});
 	}
 }

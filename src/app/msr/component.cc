@@ -97,6 +97,10 @@ struct Core_thread : Thread, Msr::Monitoring
 				power_intel->update(system);
 				if (config_node)
 					power_intel->update(system, *config_node, location);
+
+				/* features are homogen across all CPUs, e.g. P/E ? */
+				if (master)
+					power_intel->update_package(system);
 			}
 
 			if (power_amd.constructed()) {
@@ -259,7 +263,7 @@ struct Msr::Msr {
 					cpu.report(xml, tcc);
 
 					if (cpu.power_intel.constructed())
-						cpu.power_intel->report(xml);
+						cpu.power_intel->report(xml, cpu.tsc_freq_khz);
 					if (cpu.power_amd.constructed())
 						cpu.power_amd->report(xml);
 				});
