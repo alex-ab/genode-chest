@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2020-2021 Genode Labs GmbH
+ * Copyright (C) 2020-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -116,47 +116,39 @@ struct Msr::Cpuid
         }
     }
 
-    bool hwp() const
-    {
-        if (eax[0] < 6) {
-            return false;
-        }
-        return ((eax[6] >> 7) & 1) == 1;
-    }
+	bool hwp() const
+	{
+		if (eax[0] < 6) {
+			return false;
+		}
+		return ((eax[6] >> 7) & 1) == 1;
+	}
 
-    bool hwp_notification() const
-    {
-        if (eax[0] < 6) {
-            return false;
-        }
-        return ((eax[6] >> 8) & 1) == 1;
-    }
+	bool hwp_energy_perf_pref() const
+	{
+		if (eax[0] < 6) {
+			return false;
+		}
+		return ((eax[6] >> 10) & 1) == 1;
+	}
 
-    bool hwp_energy_perf_pref() const
-    {
-        if (eax[0] < 6) {
-            return false;
-        }
-        return ((eax[6] >> 10) & 1) == 1;
-    }
+	bool hardware_coordination_feedback_cap() const
+	{
+		if (eax[0] < 6) {
+			return false;
+		}
+		return ((ecx[6] >> 0) & 1) == 1;
+	}
 
-    bool hardware_coordination_feedback_cap() const
-    {
-        if (eax[0] < 6) {
-            return false;
-        }
-        return ((ecx[6] >> 0) & 1) == 1;
-    }
+	bool hwp_energy_perf_bias() const
+	{
+		if (eax[0] < 6) {
+			return false;
+		}
+		return ((ecx[6] >> 3) & 1) == 1;
+	}
 
-    bool hwp_energy_perf_bias() const
-    {
-        if (eax[0] < 6) {
-            return false;
-        }
-        return ((ecx[6] >> 3) & 1) == 1;
-    }
-
-    bool pstate_support() const
+	bool pstate_support() const
 	{
 		if (eax_8000[0] < 7)
 			return false;

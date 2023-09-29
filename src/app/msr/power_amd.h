@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2022 Genode Labs GmbH
+ * Copyright (C) 2022-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -12,7 +12,6 @@
 
 #pragma once
 
-#include "nova.h"
 #include "cpuid.h"
 
 namespace Msr {
@@ -24,8 +23,6 @@ namespace Msr {
 struct Msr::Power_amd
 {
 	Cpuid cpuid { };
-
-	uint64_t const write_msr = 1u << 29;
 
 	uint64_t pstate_limit  { };
 	uint64_t pstate_ctrl   { };
@@ -54,45 +51,48 @@ struct Msr::Power_amd
 		AMD_PSTATE_STATUS = 0xc0010063,
 	};
 
-	void read_pstate(Nova::Utcb &utcb)
+	void read_pstate(System_control &system)
 	{
-		utcb.set_msg_word(3);
-		utcb.msg()[0] = AMD_PSTATE_LIMIT;
-		utcb.msg()[1] = AMD_PSTATE_CTRL;
-		utcb.msg()[2] = AMD_PSTATE_STATUS;
+		System_control::State state { };
 
-		auto const res     = Nova_msr::msr();
-		auto const success = utcb.msg_words();
+		system.add_rdmsr(state, AMD_PSTATE_LIMIT);
+		system.add_rdmsr(state, AMD_PSTATE_CTRL);
+		system.add_rdmsr(state, AMD_PSTATE_STATUS);
 
-		pstate_limit  = utcb.msg()[0];
-		pstate_ctrl   = utcb.msg()[1];
-		pstate_status = utcb.msg()[2];
+		state = system.system_control(state);
 
-		valid_pstate_limit  = (res == Nova::NOVA_OK) && (success & (1 << 0));
-		valid_pstate_ctrl   = (res == Nova::NOVA_OK) && (success & (1 << 1));
-		valid_pstate_status = (res == Nova::NOVA_OK) && (success & (1 << 2));
+		addr_t success = 0;
+		bool    result = system.get_state(state, success, &pstate_limit,
+		                                  &pstate_ctrl, &pstate_status);
+
+		valid_pstate_limit  = result && (success & 1);
+		valid_pstate_ctrl   = result && (success & 2);
+		valid_pstate_status = result && (success & 4);
 	}
 
-	bool write_pstate(Nova::Utcb &utcb, uint64_t const &value)
+	bool write_pstate(System_control &system, uint64_t const &value) const
 	{
-		utcb.set_msg_word(2);
-		utcb.msg()[0] = AMD_PSTATE_CTRL | write_msr;
-		utcb.msg()[1] = value;
+		System_control::State state { };
 
-		uint8_t const res     = Nova_msr::msr();
-		auto    const success = utcb.msg_words();
-		return (res == Nova::NOVA_OK) && ((success & 3) == 3);
+		system.add_wrmsr(state, AMD_PSTATE_CTRL, value);
+
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success);
+
+		return result && (success & 1);
 	}
 
-	void update(Nova::Utcb &);
-	void update(Nova::Utcb &, Genode::Xml_node const &);
+	void update(System_control &);
+	void update(System_control &, Genode::Xml_node const &);
 	void report(Genode::Xml_generator &) const;
 };
 
-void Msr::Power_amd::update(Nova::Utcb &utcb)
+void Msr::Power_amd::update(System_control &system)
 {
 	if (cpuid.pstate_support())
-		read_pstate(utcb);
+		read_pstate(system);
 }
 
 void Msr::Power_amd::report(Genode::Xml_generator &xml) const
@@ -113,7 +113,7 @@ void Msr::Power_amd::report(Genode::Xml_generator &xml) const
 	}
 }
 
-void Msr::Power_amd::update(Nova::Utcb &utcb, Genode::Xml_node const &config)
+void Msr::Power_amd::update(System_control &system, Genode::Xml_node const &config)
 {
 	using Genode::warning;
 
@@ -135,7 +135,7 @@ void Msr::Power_amd::update(Nova::Utcb &utcb, Genode::Xml_node const &config)
 			return;
 		}
 
-		if (!write_pstate(utcb, value)) {
+		if (!write_pstate(system, value)) {
 			if (verbose)
 				warning("pstate - setting ", value, " failed");
 			Genode::error("write failed");

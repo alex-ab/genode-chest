@@ -4,15 +4,13 @@
  */
 
 /*
- * Copyright (C) 2021 Genode Labs GmbH
+ * Copyright (C) 2021-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
  */
 
 #pragma once
-
-#include "nova.h"
 
 namespace Msr {
 	struct Msr;
@@ -37,100 +35,111 @@ struct Msr::Monitoring
 	uint8_t temp_cpu           { };
 	bool    temp_cpu_valid     { };
 
-	void update_package_temperature(Nova::Utcb &utcb)
+	void update_package_temperature(System_control &system)
 	{
 		enum Registers { IA32_PKG_THERM_STATUS = 0x1b1 };
 
-		unsigned const pos = 0;
+		System_control::State state { };
 
-		utcb.set_msg_word(1);
-		utcb.msg()[pos] = IA32_PKG_THERM_STATUS;
+		system.add_rdmsr(state, IA32_PKG_THERM_STATUS);
 
-		Nova_msr::msr();
+		state = system.system_control(state);
 
-		auto const status  = utcb.msg()[pos];
-		auto const success = utcb.msg_words();
+		addr_t   success = 0;
+		uint64_t status  = 0;
+
+		bool result = system.get_state(state, success, &status);
+
+		temp_package_valid = result && (success & 1);
+		if (!temp_package_valid)
+			return;
 
 		struct Status : Genode::Register<64> {
 			struct Temperature : Bitfield<16, 7> { }; };
 
-		temp_package       = uint8_t(Status::Temperature::get(status));
-		temp_package_valid = success & (1 << pos);
+		temp_package = uint8_t(Status::Temperature::get(status));
 	}
 
-	void update_cpu_temperature(Nova::Utcb &utcb)
+	void update_cpu_temperature(System_control &system)
 	{
 		enum Registers { IA32_THERM_STATUS = 0x19c };
 
-		unsigned const pos = 0;
+		System_control::State state { };
 
-		utcb.set_msg_word(1);
-		utcb.msg()[pos] = IA32_THERM_STATUS;
+		system.add_rdmsr(state, IA32_THERM_STATUS);
 
-		Nova_msr::msr();
+		state = system.system_control(state);
 
-		auto const status  = utcb.msg()[pos];
-		auto const success = utcb.msg_words();
+		addr_t   success = 0;
+		uint64_t status  = 0;
+
+		bool result = system.get_state(state, success, &status);
 
 		struct Status : Genode::Register<64> {
 			struct Temperature : Bitfield<16, 7> { };
 			struct Valid       : Bitfield<31, 1> { };
 		};
 
-		temp_cpu       = uint8_t(Status::Temperature::get(status));
-		temp_cpu_valid = (success & (1 << pos)) &&
+		temp_cpu_valid = result && (success & 1) &&
 		                 Status::Valid::get(status);
+
+		if (!temp_cpu_valid)
+			return;
+
+		temp_cpu = uint8_t(Status::Temperature::get(status));
 	}
 
-	void target_temperature(Nova::Utcb &utcb)
+	void target_temperature(System_control &system)
 	{
 		enum Registers { MSR_TEMPERATURE_TARGET = 0x1a2 };
 
-		unsigned const pos = 0;
+		System_control::State state { };
 
-		utcb.set_msg_word(1);
-		utcb.msg()[pos] = MSR_TEMPERATURE_TARGET;
+		system.add_rdmsr(state, MSR_TEMPERATURE_TARGET);
 
-		Nova_msr::msr();
+		state = system.system_control(state);
 
-		auto const status  = utcb.msg()[pos];
-		auto const success = utcb.msg_words();
+		addr_t   success = 0;
+		uint64_t target  = 0;
+
+		bool result = system.get_state(state, success, &target);
+
+		temp_tcc_valid = result && (success & 1);
+
+		if (!temp_tcc_valid)
+			return;
 
 		struct Target : Genode::Register<64> {
 			struct Temperature : Bitfield<16, 8> { }; };
 
-		temp_tcc       = uint8_t(Target::Temperature::get(status));
-		temp_tcc_valid = success & (1 << pos);
+		temp_tcc = uint8_t(Target::Temperature::get(target));
 	}
 
-	static bool mperf_aperf(Nova::Utcb &utcb, uint64_t &mperf, uint64_t &aperf)
+	static bool mperf_aperf(System_control &system, uint64_t &mperf, uint64_t &aperf)
 	{
 		enum Registers {
 			IA32_MPERF = 0xe7,
 			IA32_APERF = 0xe8,
 		};
 
-		unsigned const pos_mperf = 0;
-		unsigned const pos_aperf = 1;
+		System_control::State state { };
 
-		utcb.set_msg_word(2);
-		utcb.msg()[pos_mperf] = IA32_MPERF;
-		utcb.msg()[pos_aperf] = IA32_APERF;
+		system.add_rdmsr(state, IA32_MPERF);
+		system.add_rdmsr(state, IA32_APERF);
 
-		if (Nova_msr::msr() != Nova::Status::NOVA_OK)
-			return false;
+		state = system.system_control(state);
 
-		mperf   = utcb.msg()[pos_mperf];
-		aperf   = utcb.msg()[pos_aperf];
+		addr_t success = 0;
 
-		auto const success = utcb.msg_words();
-		return (success & 0x3) == 0x3;
+		return system.get_state(state, success, &mperf, &aperf) &&
+		       (success == 3);
 	}
 
-	void cpu_frequency(Nova::Utcb &utcb, uint64_t tsc_freq_khz)
+	void cpu_frequency(System_control &system, uint64_t const tsc_freq_khz)
 	{
 		uint64_t mcurr = 0ULL, acurr = 0ULL;
-		freq_khz_valid = mperf_aperf(utcb, mcurr, acurr);
+
+		freq_khz_valid = mperf_aperf(system, mcurr, acurr);
 		if (!freq_khz_valid)
 			return;
 
@@ -146,13 +155,13 @@ struct Msr::Monitoring
 		aperf = acurr;
 	}
 
-	static bool supported(Nova::Utcb &utcb, bool const amd, bool const intel)
+	static bool supported(System_control &system, bool const amd, bool const intel)
 	{
 		if (!amd && !intel)
 			return false;
 
 		uint64_t mperf = 0ULL, aperf = 0ULL;
-		return mperf_aperf(utcb, mperf, aperf);
+		return mperf_aperf(system, mperf, aperf);
 	}
 
 	void report(Genode::Xml_generator &xml, unsigned const tcc) const

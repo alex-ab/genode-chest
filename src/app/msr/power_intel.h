@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2021-2022 Genode Labs GmbH
+ * Copyright (C) 2021-2023 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -12,7 +12,6 @@
 
 #pragma once
 
-#include "nova.h"
 #include "cpuid.h"
 
 namespace Msr {
@@ -24,8 +23,6 @@ namespace Msr {
 struct Msr::Power_intel
 {
 	Cpuid cpuid { };
-
-	uint64_t const write_msr = 1u << 29;
 
 	uint64_t hwp_cap       { };
 	uint64_t hwp_req_pkg   { };
@@ -95,115 +92,115 @@ struct Msr::Power_intel
 		 * Minimum Enhanced Intel SpeedStep Technology
 		 * operating point when all execution cores enter MWAIT.
 		 */
-
-/* check spec XXX
-        IA32_ENERGY_PERF_BIAS   = 0x1b0,
-        MSR_HWP_INTERRUPT       = 0x773,
-*/
 	};
 
-	bool hwp_enabled(Nova::Utcb &utcb)
+	bool hwp_enabled(System_control &system)
 	{
-		utcb.set_msg_word(1);
-		utcb.msg()[0] = IA32_PM_ENABLE;
+		System_control::State state { };
 
-		uint8_t res = Nova_msr::msr();
-		if (res != Nova::NOVA_OK)
-			return false;
+		system.add_rdmsr(state, IA32_PM_ENABLE);
 
-		auto const success = utcb.msg_words();
-		return (success & 1) && (utcb.msg()[0] & 1);
+		state = system.system_control(state);
+
+		uint64_t pm_enable = 0;
+		addr_t   success   = 0;
+		bool     result    = system.get_state(state, success, &pm_enable);
+
+		return result && (success & 1) && (pm_enable & 1);
 	}
 
-	void read_epb(Nova::Utcb &utcb)
+	void read_epb(System_control &system)
 	{
-		utcb.set_msg_word(1);
-		utcb.msg()[0] = IA32_ENERGY_PERF_BIAS;
+		System_control::State state { };
 
-		uint8_t const res = Nova_msr::msr();
-		auto const success = utcb.msg_words();
+		system.add_rdmsr(state, IA32_ENERGY_PERF_BIAS);
 
-		epb       = utcb.msg()[0];
-		valid_epb = (res == Nova::NOVA_OK) && ((success & 1) == 1);
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success, &epb);
+
+		valid_epb = result && (success == 1);
 	}
 
-	bool write_epb(Nova::Utcb &utcb, uint64_t const &value)
+	bool write_epb(System_control &system, uint64_t const &value) const
 	{
-		utcb.set_msg_word(2);
-		utcb.msg()[0] = IA32_ENERGY_PERF_BIAS | write_msr;
-		utcb.msg()[1] = value;
+		System_control::State state { };
 
-		uint8_t const res = Nova_msr::msr();
+		system.add_wrmsr(state, IA32_ENERGY_PERF_BIAS, value);
 
-		auto    const success = utcb.msg_words();
-		return (res == Nova::NOVA_OK) && ((success & 3) == 3);
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success);
+
+		return result && (success == 1);
 	}
 
-	bool enable_hwp(Nova::Utcb &utcb)
+	bool enable_hwp(System_control &system) const
 	{
-		utcb.set_msg_word(2);
-		utcb.msg()[0] = IA32_PM_ENABLE | write_msr;
-		utcb.msg()[1] = 1ull;
+		System_control::State state { };
 
-		uint8_t const res     = Nova_msr::msr();
-		auto    const success = utcb.msg_words();
-		return (res == Nova::NOVA_OK) && ((success & 3) == 3);
+		system.add_wrmsr(state, IA32_PM_ENABLE, 1ull);
+
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success);
+
+		return result && (success == 1);
 	}
 
-	bool write_hwp_request(Nova::Utcb &utcb, uint64_t const &value)
+	bool write_hwp_request(System_control &system, uint64_t const &value) const
 	{
-		utcb.set_msg_word(2);
-		utcb.msg()[0] = IA32_HWP_REQUEST | write_msr;
-		utcb.msg()[1] = value;
+		System_control::State state { };
 
-		uint8_t const res = Nova_msr::msr();
+		system.add_wrmsr(state, IA32_HWP_REQUEST, value);
 
-		auto    const success = utcb.msg_words();
-		return (res == Nova::NOVA_OK) && ((success & 3) == 3);
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success);
+
+		return result && (success == 1);
 	}
 
-	void read_hwp(Nova::Utcb &utcb)
+	void read_hwp(System_control &system)
 	{
-		utcb.set_msg_word(3);
-		utcb.msg()[0] = IA32_HWP_CAPABILITIES;
-		utcb.msg()[1] = IA32_HWP_REQUEST_PKG;
-		utcb.msg()[2] = IA32_HWP_REQUEST;
+		System_control::State state { };
 
-		uint8_t res = Nova_msr::msr();
+		system.add_rdmsr(state, IA32_HWP_CAPABILITIES);
+		system.add_rdmsr(state, IA32_HWP_REQUEST_PKG);
+		system.add_rdmsr(state, IA32_HWP_REQUEST);
 
-		if (res != Nova::NOVA_OK) {
-			valid_hwp_cap = valid_hwp_req_pkg = valid_hwp_req = false;
-			return;
-		}
+		state = system.system_control(state);
 
-		auto const success = utcb.msg_words();
+		addr_t success = 0;
+		bool    result = system.get_state(state, success, &hwp_cap,
+		                                  &hwp_req_pkg, &hwp_req);
 
-		hwp_cap     = utcb.msg()[0];
-		hwp_req_pkg = utcb.msg()[1];
-		hwp_req     = utcb.msg()[2];
-
-		valid_hwp_cap     = (res == Nova::NOVA_OK) && (success & (1 << 0));
-		valid_hwp_req_pkg = (res == Nova::NOVA_OK) && (success & (1 << 1));
-		valid_hwp_req     = (res == Nova::NOVA_OK) && (success & (1 << 2));
+		valid_hwp_cap     = result && (success & 1);
+		valid_hwp_req_pkg = result && (success & 2);
+		valid_hwp_req     = result && (success & 4);
 	}
 
-	void update(Nova::Utcb &utcb)
+	void update(System_control &system)
 	{
 		if (cpuid.hwp()) {
 			if (!init_done) {
-				enabled_hwp = hwp_enabled(utcb);
+				enabled_hwp = hwp_enabled(system);
 				init_done   = true;
 			}
 
 			if (enabled_hwp)
-				read_hwp(utcb);
+				read_hwp(system);
 		}
 
 		if (cpuid.hwp_energy_perf_bias())
-			read_epb(utcb);
+			read_epb(system);
 	}
 
-	void update(Nova::Utcb &utcb, Genode::Xml_node const &config, Genode::Affinity::Location const &cpu)
+	void update(System_control &system, Genode::Xml_node const &config, Genode::Affinity::Location const &cpu)
 	{
 		bool const verbose = config.attribute_value("verbose", false);
 
@@ -218,13 +215,14 @@ struct Msr::Power_intel
 
 				uint64_t raw_epb = epb;
 				Epb::Hint::set(raw_epb, epb_set);
-				if (write_epb(utcb, raw_epb))
-					read_epb(utcb);
+
+				if (write_epb(system, raw_epb))
+					read_epb(system);
 				else
-					Genode::warning("epb not updated");
+					Genode::warning(cpu, " epb not updated");
 			} else
 				if (verbose && epb_set != ~0U)
-					Genode::warning("epb out of range [",
+					Genode::warning(cpu, " epb out of range [",
 					                int(Epb::Hint::PERFORMANCE), "-",
 					                int(Epb::Hint::POWER_SAVING), "]");
 		});
@@ -239,13 +237,13 @@ struct Msr::Power_intel
 			bool on = node.attribute_value("enable", false);
 
 			if (on && !enabled_hwp) {
-				bool ok = enable_hwp(utcb);
+				bool ok = enable_hwp(system);
 				Genode::log(cpu, " enabling HWP ", ok ? " succeeded" : " failed");
 			} else
 			if (!on && enabled_hwp)
 				Genode::log(cpu, " disabling HWP not supported - see Intel spec");
 
-			enabled_hwp = hwp_enabled(utcb);
+			enabled_hwp = hwp_enabled(system);
 		});
 
 		config.with_optional_sub_node("hwp_request", [&] (auto const &node) {
@@ -272,7 +270,7 @@ struct Msr::Power_intel
 					Hwp_request::Perf_min::set(raw_hwp, value);
 				else
 					if (verbose)
-						warning("min - out of range - ", value, " [",
+						warning(cpu, " min - out of range - ", value, " [",
 						        low, "-", high, "]");
 			}
 			if (node.has_attribute("max")) {
@@ -281,7 +279,7 @@ struct Msr::Power_intel
 					Hwp_request::Perf_max::set(raw_hwp, value);
 				else
 					if (verbose)
-						warning("max - out of range - ", value, " [",
+						warning(cpu, " max - out of range - ", value, " [",
 						        low, "-", high, "]");
 			}
 			if (node.has_attribute("desired")) {
@@ -290,7 +288,7 @@ struct Msr::Power_intel
 					Hwp_request::Perf_desired::set(raw_hwp, value);
 				else
 					if (verbose)
-						warning("desired - out of range - ", value, " [",
+						warning(cpu, " desired - out of range - ", value, " [",
 						        low, "-", high, "]");
 			}
 			if (node.has_attribute("epp")) {
@@ -299,15 +297,15 @@ struct Msr::Power_intel
 					Hwp_request::Perf_epp::set(raw_hwp, value);
 				else
 					if (verbose)
-						warning("epp - out of range - ", value, " [",
+						warning(cpu, " epp - out of range - ", value, " [",
 						        low, "-", high, "]");
 			}
 
 			if (raw_hwp != hwp_req) {
-				if (write_hwp_request(utcb, raw_hwp))
-					read_hwp(utcb);
+				if (write_hwp_request(system, raw_hwp))
+					read_hwp(system);
 				else
-					warning("hwp_request failed, ",
+					warning(cpu, " hwp_request failed, ",
 					        Hex(hwp_req), " -> ", Hex(raw_hwp));
 			}
 		});

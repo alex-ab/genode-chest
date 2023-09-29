@@ -19,6 +19,7 @@
 #include <timer_session/connection.h>
 #include <util/register.h>
 
+#include "system_control.h"
 #include "temp_freq.h"
 #include "power_amd.h"
 #include "power_intel.h"
@@ -51,6 +52,9 @@ struct Core_thread : Thread, Msr::Monitoring
 	Constructible<Msr::Power_intel> power_intel { };
 	Constructible<Msr::Power_amd>   power_amd   { };
 
+	Capability<Pd_session::System_control> const control_cap;
+	Msr::System_control                          system { control_cap };
+
 	bool intel;
 	bool amd;
 	bool master { };
@@ -63,6 +67,7 @@ struct Core_thread : Thread, Msr::Monitoring
 		Thread(env, Name("msr", location), 4 * 4096 /* STACK_SIZE */,
 	           location, Weight(), env.cpu()),
 		location(location), tsc_freq_khz(tsc_freq_khz),
+		control_cap(env.pd().system_control_cap(location)),
 		intel(intel), amd(amd)
 	{ }
 
@@ -74,33 +79,31 @@ struct Core_thread : Thread, Msr::Monitoring
 		if (amd)
 			power_amd.construct();
 
-		Nova::Utcb &utcb = *reinterpret_cast<Nova::Utcb *>(Thread::utcb());
-
 		if (intel && master)
-			Monitoring::target_temperature(utcb); 
+			Monitoring::target_temperature(system);
 
 		while (true) {
 			barrier.block();
 
 			if (intel)
-				Monitoring::update_cpu_temperature(utcb);
+				Monitoring::update_cpu_temperature(system);
 
-			Monitoring::cpu_frequency(utcb, tsc_freq_khz);
+			Monitoring::cpu_frequency(system, tsc_freq_khz);
 
 			if (intel && master)
-				Monitoring::update_package_temperature(utcb);
+				Monitoring::update_package_temperature(system);
 
 			if (power_intel.constructed()) {
-				power_intel->update(utcb);
+				power_intel->update(system);
 				if (config_node)
-					power_intel->update(utcb, *config_node, location);
+					power_intel->update(system, *config_node, location);
 			}
 
 			if (power_amd.constructed()) {
-				power_amd->update(utcb);
+				power_amd->update(system);
 
 				if (config_node)
-					power_amd->update(utcb, *config_node);
+					power_amd->update(system, *config_node);
 			}
 
 			config_node = nullptr;
@@ -166,23 +169,22 @@ struct Msr::Msr {
 			return;
 		}
 
-		if (kernel != "nova") {
-			error("kernel not supported");
-			return;
-		}
+		{
+			auto cap = env.pd().system_control_cap(Affinity::Location());
 
-		/* get msr cap applied to Nova::SM_MSR */
-		Genode::Pd_session::Managing_system_state state {};
-		state.trapno = Genode::Cpu_state::ACPI_SUSPEND_REQUEST + 1; /* XXX identifier ? */
-		env.pd().managing_system(state);
+			if (cap.valid()) {
+				System_control system { cap };
 
-		/* check for working Nova::SM_MSR cap */
-		if (!Monitoring::supported(*reinterpret_cast<Nova::Utcb *>(Thread::myself()->utcb()),
-		                           amd, intel)) {
-			error("- CPU or used kernel misses MSR access");
-			error("- and/or missing 'managing_system' configuration");
-			log(" -> check alex-ab/genode#sculpt_23_04_power branch");
-			return;
+				/* check for working system control cap */
+				if (!Monitoring::supported(system, amd, intel))
+					cap = { };
+			}
+
+			if (!cap.valid()) {
+				error("- CPU or used kernel misses MSR access support");
+				error("- and/or missing 'managing_system' configuration");
+				return;
+			}
 		}
 
 		log("Detected: ", kernel, " kernel, ", cpus.width(), "x",
