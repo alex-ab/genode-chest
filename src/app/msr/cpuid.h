@@ -36,34 +36,41 @@ struct Msr::Cpuid
 {
 	enum { MAX_LEAF_IDX = 8 };
 
-	unsigned eax[MAX_LEAF_IDX];
-	unsigned ebx[MAX_LEAF_IDX];
-	unsigned ecx[MAX_LEAF_IDX];
-	unsigned edx[MAX_LEAF_IDX];
+	unsigned eax[MAX_LEAF_IDX] { };
+	unsigned ebx[MAX_LEAF_IDX] { };
+	unsigned ecx[MAX_LEAF_IDX] { };
+	unsigned edx[MAX_LEAF_IDX] { };
 
-	unsigned eax_8000[MAX_LEAF_IDX];
-	unsigned ebx_8000[MAX_LEAF_IDX];
-	unsigned ecx_8000[MAX_LEAF_IDX];
-	unsigned edx_8000[MAX_LEAF_IDX];
+	unsigned eax_8000[MAX_LEAF_IDX] { };
+	unsigned ebx_8000[MAX_LEAF_IDX] { };
+	unsigned ecx_8000[MAX_LEAF_IDX] { };
+	unsigned edx_8000[MAX_LEAF_IDX] { };
 
-	void init_leaf(unsigned idx) {
-		cpuid(idx, eax[idx], ebx[idx], ecx[idx], edx[idx]);
-	}
+	uint8_t core_type { };
+
+	enum Core_type
+	{
+		INTEL_ATOM = 0x20,
+		INTEL_CORE = 0x40,
+	};
 
 	Cpuid()
 	{
 		cpuid (0, eax[0], ebx[0], ecx[0], edx[0]);
-		for (unsigned idx = 1; idx <= eax[0] && idx < MAX_LEAF_IDX; idx++) {
-			init_leaf(idx);
+		for (auto idx = 1u; idx <= eax[0] && idx < MAX_LEAF_IDX; idx++) {
+			cpuid (idx, eax[idx], ebx[idx], ecx[idx], edx[idx]);
+		}
+
+		if (eax[0] >= 0x1a) {
+			unsigned eax, ebx, ecx, edx { };
+			cpuid (0x1a, eax, ebx, ecx, edx);
+			core_type = uint8_t((eax >> 24) & 0xffu);
 		}
 
 		cpuid (0x80000000, eax_8000[0], ebx_8000[0], ecx_8000[0], edx_8000[0]);
-		for (unsigned idx = 1; idx < MAX_LEAF_IDX; idx++) {
-			if (idx <= eax_8000[0])
-				cpuid(0x80000000 + idx, eax_8000[idx], ebx_8000[idx],
-				      ecx_8000[idx], edx_8000[idx]);
-			else
-				eax_8000[idx] = ebx_8000[idx] = ecx_8000[idx] = edx_8000[idx] = 0;
+		for (auto idx = 1u; idx <= eax_8000[0] && idx < MAX_LEAF_IDX; idx++) {
+			cpuid(0x80000000 + idx, eax_8000[idx], ebx_8000[idx],
+			      ecx_8000[idx], edx_8000[idx]);
 		}
 	}
 

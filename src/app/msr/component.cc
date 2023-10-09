@@ -248,6 +248,14 @@ struct Msr::Msr {
 					xml.attribute("x", cpu.location.xpos());
 					xml.attribute("y", cpu.location.ypos());
 
+					if (cpu.intel) {
+						if (cpu.power_intel->cpuid.core_type == Cpuid::INTEL_ATOM)
+							xml.attribute("type", "E");
+						else
+						if (cpu.power_intel->cpuid.core_type == Cpuid::INTEL_CORE)
+							xml.attribute("type", "P");
+					}
+
 					cpu.report(xml, tcc);
 
 					if (cpu.power_intel.constructed())
