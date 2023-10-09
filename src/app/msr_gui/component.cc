@@ -684,11 +684,13 @@ unsigned Power::_cpu_name(Xml_generator &xml, Xml_node const &cpu, unsigned last
 {
 	auto const affinity_x = cpu.attribute_value("x", 0U);
 	auto const affinity_y = cpu.attribute_value("y", 0U);
-	bool const same_x     = affinity_x == last_x;
+	auto const core_type  = cpu.attribute_value("type", String<2> (""));
+	bool const same_x     = (affinity_x == last_x) &&
+	                        (core_type != "E");
 
 	xml.node("hbox", [&] {
 		auto const name = String<12>(same_x ? "" : "CPU ", affinity_x, "x",
-		                             affinity_y, " |");
+		                             affinity_y, " ", core_type, " |");
 
 		xml.attribute("name", cpu_id(cpu));
 

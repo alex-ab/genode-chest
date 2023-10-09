@@ -42,7 +42,7 @@ append config {
 	</start>
 
 	<start name="drivers" caps="1500" managing_system="yes">
-		<resource name="RAM" quantum="64M"/>
+		<resource name="RAM" quantum="72M"/>
 		<binary name="init"/>
 		<route>
 			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
@@ -123,7 +123,7 @@ append config {
 			<rom name="info">
 				<inline description="0">
 					<info update_rate_us="4000000">
-						<cpu x="0" y="0" freq_khz="973791" temp_c="58">
+						<cpu x="0" y="0" type="P" freq_khz="973791" temp_c="58">
 							<hwp enable="false"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
@@ -131,7 +131,7 @@ append config {
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
-						<cpu x="0" y="1" freq_khz="1973791" temp_c="64">
+						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
 							<hwp enable="false"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
@@ -139,7 +139,7 @@ append config {
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
-						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
+						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
 							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
 						</cpu>
 					</info>
@@ -147,7 +147,7 @@ append config {
 				<sleep milliseconds="8000" />
 				<inline description="1">
 					<info update_rate_us="4000000">
-						<cpu x="0" y="0" freq_khz="973791" temp_c="58">
+						<cpu x="0" y="0" type="P" freq_khz="973791" temp_c="58">
 							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
@@ -155,7 +155,7 @@ append config {
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
-						<cpu x="0" y="1" freq_khz="1973791" temp_c="64">
+						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
 							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
@@ -163,7 +163,7 @@ append config {
 							<intel_speed_step epb="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
-						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
+						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
 							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
 						</cpu>
 					</info>
