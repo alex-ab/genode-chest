@@ -1,4 +1,4 @@
-<runtime ram="26M" caps="710" binary="init">
+<runtime ram="30M" caps="810" binary="init">
 
 	<requires>
 		<!-- menu_view and battery tool -->
@@ -76,9 +76,9 @@
 			</route>
 		</start>
 
-		<start name="acpica" caps="200">
-			<resource name="RAM" quantum="6M"/>
-			<config reset="yes" poweroff="yes" report="yes" report_period_ms="20000"/>
+		<start name="acpica" caps="300">
+			<resource name="RAM" quantum="10M"/>
+			<config reset="yes" poweroff="yes" report="yes" report_period_ms="20000" use_gpe="false"/>
 			<route>
 				<service name="Report" label="acpi_battery"> <child name="report_rom" /> </service>
 				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
