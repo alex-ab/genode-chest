@@ -88,6 +88,8 @@ class Power
 		bool                    _hover_advanced    { false };
 		bool                    _select_normal     { true  };
 		bool                    _select_advanced   { false };
+		bool                    _hover_rapl_detail  { false };
+		bool                    _select_rapl_detail { false };
 
 		Button_hub<5, 0, 9, 0>  _timer_period { };
 
@@ -117,6 +119,21 @@ class Power
 		void _hover_update();
 		void _settings_period(Xml_generator &);
 		void _settings_mode  (Xml_generator &);
+		void _cpu_energy(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_energy_detail(Xml_generator &, Xml_node const &, unsigned &,
+		                        char const *);
+		void _cpu_power_info(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_power_info_detail(Xml_generator &, Xml_node const &,
+		                            unsigned &, char const *);
+		void _cpu_power_limit(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_power_limit_dram_pp0_pp1(Xml_generator &, Xml_node const &,
+		                                   unsigned &, char const *);
+		void _cpu_power_limit_common(Xml_generator &, Xml_node const &,
+		                             unsigned &, char const *);
+		void _cpu_power_limit_headline(Xml_generator &, unsigned &, char const *);
+		void _cpu_perf_status(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_perf_status_detail(Xml_generator &, Xml_node const &,
+		                             char const *, unsigned &);
 		void _cpu_temp(Xml_generator &, Xml_node const &);
 		void _cpu_freq(Xml_generator &, Xml_node const &);
 		void _cpu_setting(Xml_generator &, Xml_node const &);
@@ -189,6 +206,10 @@ void Power::_hover_update()
 		button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
 		                                 "vbox", "frame", "hbox", "button", "name");
 
+	if (button == "") /* intel rapl button */
+		button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
+		                                 "vbox", "frame", "hbox", "vbox", "hbox", "button", "name");
+
 	bool click_valid = false;
 	Button click = query_attribute<Button>(hover, "button", "left");
 	if (click == "yes") {
@@ -209,9 +230,9 @@ void Power::_hover_update()
 		}
 	}
 
-	if (_apply_select)     _apply_select     = false;
-	if (_apply_all_select) _apply_all_select = false;
-	if (_apply_select_per) _apply_select_per = false;
+	if (_apply_select)      _apply_select     = false;
+	if (_apply_all_select)  _apply_all_select = false;
+	if (_apply_select_per)  _apply_select_per = false;
 
 	bool refresh = false;
 
@@ -228,6 +249,13 @@ void Power::_hover_update()
 
 		if (_hover_normal)   { _select_normal = true; _select_advanced = false; }
 		if (_hover_advanced) { _select_advanced = true; _select_normal = false; }
+
+		refresh = true;
+	}
+
+	if (click_valid && (_hover_rapl_detail)) {
+
+		_select_rapl_detail = !_select_rapl_detail;
 
 		refresh = true;
 	}
@@ -424,6 +452,7 @@ void Power::_hover_update()
 	auto const before_pstate_custom  = _pstate_custom;
 	auto const before_normal         = _hover_normal;
 	auto const before_advanced       = _hover_advanced;
+	auto const before_rapl_detail    = _hover_rapl_detail;
 
 	bool any = button != "";
 
@@ -463,6 +492,8 @@ void Power::_hover_update()
 
 	_hover_normal   = any && (button == "normal") && (!(any = false));
 	_hover_advanced = any && (button == "advanced") && (!(any = false));
+
+	_hover_rapl_detail = any && (button == "info") && (!(any = false));
 
 	if (hovered_setting) {
 		_setting_hovered.value = query_attribute<unsigned>(hover, "dialog", "frame",
@@ -530,6 +561,7 @@ void Power::_hover_update()
 	    (before_hwp_on         != _hwp_on_hovered)    ||
 	    (before_normal         != _hover_normal)      ||
 	    (before_advanced       != _hover_advanced)    ||
+	    (before_rapl_detail    != _hover_rapl_detail) ||
 	    (before_pstate_max     != _pstate_max)        ||
 	    (before_pstate_mid     != _pstate_mid)        ||
 	    (before_pstate_min     != _pstate_min)        ||
@@ -633,8 +665,8 @@ void Power::_generate_msr_cpu(Xml_generator &xml,
 			xml.attribute("epp",     _intel_hwp_epp.value());
 		});
 
-		xml.node("intel_speed_step", [&] {
-			xml.attribute("epb", _intel_epb.value());
+		xml.node("energy_perf_bias", [&] {
+			xml.attribute("raw", _intel_epb.value());
 		});
 
 		if (_hwp_on_selected && !_hwp_enabled_once) {
@@ -702,6 +734,429 @@ unsigned Power::_cpu_name(Xml_generator &xml, Xml_node const &cpu, unsigned last
 	});
 
 	return affinity_x;
+}
+
+
+static String<12> align_string(double const value)
+{
+	String<12> string { };
+
+	if (value >= 1.0d) {
+		string = String<12>(uint64_t(value));
+
+		auto const rest = uint64_t(value * 100) % 100;
+
+		string = String<12>(string, ".", (rest < 10) ? "0" : "", rest);
+	} else {
+		if (value == 0.0d)
+			string = String<12>("0.00");
+		else
+			string = String<12>(value);
+	}
+
+	/* align right */
+	for (auto i = string.length(); i < string.capacity() - 1; i++) {
+		string = String<12>(" ", string);
+	}
+
+	return string;
+}
+
+
+void Power::_cpu_energy_detail(Xml_generator &xml, Xml_node const &node,
+                               unsigned      &id , char     const *text)
+{
+	auto const raw = node.attribute_value("raw", 0ULL);
+	if (!raw)
+		return;
+
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+
+		double joule = 0, watt = 0;
+
+		watt  = node.attribute_value("Watt",  watt);
+		joule = node.attribute_value("Joule", joule);
+
+		xml.node("label", [&] {
+			xml.attribute("name", id++);
+			xml.attribute("align", "left");
+			xml.attribute("text", text);
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<40>(align_string(watt) , " Watt | ",
+			                                 align_string(joule), " Joule"));
+		});
+	});
+}
+
+
+void Power::_cpu_energy(Xml_generator &xml, Xml_node const &energy, unsigned &frames)
+{
+	unsigned id = 0;
+
+	xml.node("vbox", [&] {
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("name", id++);
+				xml.attribute("align", "left");
+				xml.attribute("text", String<30>(" Running Average Power Limit - energy:"));
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "info");
+				xml.node("label", [&] () {
+					xml.attribute("text", "info");
+				});
+
+				if (_hover_rapl_detail)
+					xml.attribute("hovered", true);
+				if (_select_rapl_detail)
+					xml.attribute("selected", true);
+			});
+		});
+
+		energy.with_optional_sub_node("package", [&](auto const &node) {
+			frames++;
+			_cpu_energy_detail(xml, node, id, " Domain package:");
+		});
+
+		energy.with_optional_sub_node("dram", [&](auto const &node) {
+			frames++;
+			_cpu_energy_detail(xml, node, id, " Domain DRAM:");
+		});
+
+		energy.with_optional_sub_node("pp0", [&](auto const &node) {
+			frames++;
+			_cpu_energy_detail(xml, node, id, " Domain PP0: (CPUs)");
+		});
+
+		energy.with_optional_sub_node("pp1", [&](auto const &node) {
+			frames++;
+			_cpu_energy_detail(xml, node, id, " Domain PP1: (GPU?)");
+		});
+	});
+}
+
+
+void Power::_cpu_power_info_detail(Xml_generator &xml, Xml_node const &node,
+                                   unsigned      &id , char     const *text)
+{
+	xml.node("vbox", [&] {
+		xml.attribute("name", id++);
+
+		double spec = 0, min = 0, max = 0, wnd = 0;
+
+		spec = node.attribute_value("ThermalSpecPower" , spec);
+		min  = node.attribute_value("MinimumPower"     , min);
+		max  = node.attribute_value("MaximumPower"     , max);
+		wnd  = node.attribute_value("MaximumTimeWindow", wnd);
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("name", id++);
+				xml.attribute("align", "left");
+				xml.attribute("text", text);
+			});
+		});
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("font", "monospace/regular");
+				xml.attribute("name", id++);
+				xml.attribute("align", "right");
+				xml.attribute("text", String<40>(" Thermal spec. power ", align_string(spec), " Watt"));
+			});
+		});
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("font", "monospace/regular");
+				xml.attribute("name", id++);
+				xml.attribute("align", "right");
+				xml.attribute("text", String<40>(" Minimal power ", align_string(min), " Watt"));
+			});
+		});
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("font", "monospace/regular");
+				xml.attribute("name", id++);
+				xml.attribute("align", "right");
+				xml.attribute("text", String<40>(" Maximum power ", align_string(max), " Watt"));
+			});
+		});
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("font", "monospace/regular");
+				xml.attribute("name", id++);
+				xml.attribute("align", "right");
+				xml.attribute("text", String<40>(" Maximum time window ", align_string(wnd), " s   "));
+			});
+		});
+	});
+}
+
+
+void Power::_cpu_power_info(Xml_generator &xml, Xml_node const &info, unsigned &frames)
+{
+	unsigned id = 0;
+
+	info.with_optional_sub_node("package", [&](auto const &node) {
+		frames ++;
+		_cpu_power_info_detail(xml, node, id, " Package power info:");
+	});
+	info.with_optional_sub_node("dram", [&](auto const &node) {
+		frames ++;
+		_cpu_power_info_detail(xml, node, id, " DRAM power info:");
+	});
+}
+
+
+void Power::_cpu_power_limit_common(Xml_generator &xml, Xml_node const &node,
+                                    unsigned      &id , char     const *text)
+{
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+
+		double power = 0, window = 0;
+		bool   enable = false, clamp = false;
+
+		power  = node.attribute_value("power"       , power);
+		enable = node.attribute_value("enable"      , enable);
+		clamp  = node.attribute_value("clamp"       , clamp);
+		window = node.attribute_value("time_window" , window);
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "left");
+			xml.attribute("text", text);
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<19>(" ", align_string(power), " Watt"));
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", enable ? String<10>(" true    ") : String<10>("false    "));
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", clamp ? String<10>(" true    ") : String<10>("false    "));
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<16>(" ", align_string(window), " s"));
+		});
+	});
+}
+
+
+void Power::_cpu_power_limit_dram_pp0_pp1(Xml_generator      &xml,
+                                          Xml_node     const &node,
+                                          unsigned           &id,
+                                          char const * const  text)
+{
+		bool lock = false;
+
+		lock = node.attribute_value("lock", lock);
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("name", id++);
+				xml.attribute("align", "left");
+				xml.attribute("text", String<32>(text, lock ? " - LOCKED" : ""));
+			});
+		});
+
+		_cpu_power_limit_common(xml, node, id, " -  ");
+}
+
+
+void Power::_cpu_power_limit_headline(Xml_generator      &xml,
+                                      unsigned           &id,
+                                      char const * const  text)
+{
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "left");
+			xml.attribute("text", text);
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<19>("         power"));
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", "enable");
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", "clamp");
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<16>("time window  "));
+		});
+	});
+}
+
+
+void Power::_cpu_power_limit(Xml_generator &xml, Xml_node const &limit, unsigned &)
+{
+	unsigned id = 0;
+
+	xml.node("vbox", [&] {
+		xml.attribute("name", id++);
+
+		limit.with_optional_sub_node("package", [&](auto const &node) {
+
+			bool lock = false;
+
+			lock = node.attribute_value("lock", lock);
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", id++);
+
+				xml.node("label", [&] {
+					xml.attribute("name", id++);
+					xml.attribute("align", "left");
+					xml.attribute("text", String<32>(" Package power limit", lock ? " LOCKED" : ""));
+				});
+			});
+
+			_cpu_power_limit_headline(xml, id, "");
+
+			node.with_optional_sub_node("limit_1", [&](auto const &node) {
+				_cpu_power_limit_common(xml, node, id, " - 1");
+			});
+
+			node.with_optional_sub_node("limit_2", [&](auto const &node) {
+				_cpu_power_limit_common(xml, node, id, " - 2");
+			});
+		});
+
+		limit.with_optional_sub_node("dram", [&](auto const &node) {
+			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " DRAM power limit");
+		});
+
+		limit.with_optional_sub_node("pp0", [&](auto const &node) {
+			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " PP0 power limit");
+		});
+
+		limit.with_optional_sub_node("pp1", [&](auto const &node) {
+			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " PP1 power limit");
+		});
+	});
+}
+
+
+void Power::_cpu_perf_status_detail(Xml_generator &xml, Xml_node const &node,
+                                    char const * text, unsigned &id)
+{
+	double abs = 0, diff = 0;
+
+	abs  = node.attribute_value("throttle_abs",  abs);
+	diff = node.attribute_value("throttle_diff", diff);
+
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+
+		xml.node("label", [&] {
+			xml.attribute("name", id++);
+			xml.attribute("align", "left");
+			xml.attribute("text", text);
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<48>("throttle current ", align_string(diff), "s"));
+		});
+	});
+
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+			xml.attribute("text", String<48>("throttle absolut ", align_string(abs), "s"));
+		});
+	});
+}
+
+
+void Power::_cpu_perf_status(Xml_generator &xml, Xml_node const &status, unsigned &)
+{
+	unsigned id = 0;
+
+	xml.node("vbox", [&] {
+		xml.attribute("name", id++);
+
+		status.with_optional_sub_node("package", [&](auto const &node) {
+			_cpu_perf_status_detail(xml, node, " Package perf status", id);
+		});
+
+		status.with_optional_sub_node("dram", [&](auto const &node) {
+			_cpu_perf_status_detail(xml, node, " DRAM perf status", id);
+		});
+
+		status.with_optional_sub_node("pp0", [&](auto const &node) {
+			_cpu_perf_status_detail(xml, node, " PP0 perf status", id);
+		});
+	});
 }
 
 
@@ -943,7 +1398,7 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
                                 Xml_node const &node,
                                 bool     const  re_read)
 {
-	unsigned epb = node.attribute_value("epb", 0);
+	unsigned const epb = node.attribute_value("raw", 0);
 
 	xml.node("frame", [&] () {
 		xml.attribute("name", "frame_speed_step");
@@ -1389,7 +1844,7 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			return;
 		}
 
-		if (node.type() == "intel_speed_step" && node.has_attribute("epb")) {
+		if (node.type() == "energy_perf_bias" && node.has_attribute("raw")) {
 			frames ++;
 			_settings_intel_epb(xml, node, re_eval);
 			return;
@@ -1487,6 +1942,76 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			});
 		});
 	}
+
+	cpu.with_optional_sub_node("energy", [&](Genode::Xml_node const &energy) {
+		frames ++;
+		xml.node("frame", [&] () {
+			xml.attribute("name", "rafl");
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", "energy");
+
+				_cpu_energy(xml, energy, frames);
+			});
+		});
+	});
+
+	if (_select_rapl_detail) {
+		cpu.with_optional_sub_node("power_info", [&](Genode::Xml_node const &info) {
+			frames ++;
+			xml.node("frame", [&] () {
+				xml.attribute("name", "info");
+
+				xml.node("hbox", [&] {
+					xml.attribute("name", "info");
+
+					_cpu_power_info(xml, info, frames);
+				});
+			});
+		});
+
+		cpu.with_optional_sub_node("power_limit", [&](Genode::Xml_node const &info) {
+			frames ++;
+			xml.node("frame", [&] () {
+				xml.attribute("name", "limit");
+
+				xml.node("hbox", [&] {
+					xml.attribute("name", "limit");
+
+					_cpu_power_limit(xml, info, frames);
+				});
+			});
+		});
+	}
+
+/*
+	<policy pp0="0x10" pp1="0x10"/>
+
+	cpu.with_optional_sub_node("policy", [&](Genode::Xml_node const &info) {
+		frames ++;
+		xml.node("frame", [&] () {
+			xml.attribute("name", "policy");
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", "policy");
+
+			});
+		});
+	});
+*/
+
+	cpu.with_optional_sub_node("perf_status", [&](Genode::Xml_node const &info) {
+		frames ++;
+		xml.node("frame", [&] () {
+			xml.attribute("name", "perf");
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", "perf");
+
+				_cpu_perf_status(xml, info, frames);
+			});
+		});
+	});
 
 	for (unsigned i = 0; i < 1 + ((cpu_count > frames) ? cpu_count - frames : 0); i++) {
 		xml.node("frame", [&] () {

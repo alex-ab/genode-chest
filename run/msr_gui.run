@@ -11,8 +11,13 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/libpng \
                   [depot_user]/src/zlib
 
+set use_msr_native ![have_include "power_on/qemu"]
+
 set build_components { app/msr_gui app/menu_view_ab }
 append boot_modules { msr_gui menu_view_ab }
+
+append_if [expr $use_msr_native] build_components { app/msr }
+append_if [expr $use_msr_native] boot_modules     { msr }
 
 build $build_components
 
@@ -34,7 +39,7 @@ append config {
 		<any-service> <parent/> <any-child/> </any-service>
 	</default-route>
 
-	<default caps="100"/>
+	<default caps="200"/>
 
 	<start name="timer">
 		<resource name="RAM" quantum="1M"/>
@@ -46,7 +51,7 @@ append config {
 		<binary name="init"/>
 		<route>
 			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
+			<service name="Timer">   <child name="timer"/> </service>
 			<service name="Capture"> <child name="nitpicker"/> </service>
 			<service name="Event">   <child name="nitpicker"/> </service>
 			<any-service> <parent/> </any-service>
@@ -83,6 +88,8 @@ append config {
 		<config verbose="no">
 			<policy label="menu_view -> dialog" report="msr_gui -> dialog"/>
 			<policy label="msr_gui -> hover" report="menu_view -> hover"/>
+			<policy label="msr_gui -> info"     report="msr -> info"/>
+			<policy label="msr -> config"       report="msr_gui -> config"/>
 		</config>
 	</start>
 
@@ -98,7 +105,7 @@ append config {
 
 	<start name="menu_view" caps="200">
 		<binary name="menu_view_ab"/>
-		<resource name="RAM" quantum="8M"/>
+		<resource name="RAM" quantum="9M"/>
 		<config xpos="200" ypos="100">
 			<report hover="yes"/>
 			<libc stderr="/dev/log"/>
@@ -109,13 +116,14 @@ append config {
 			</vfs>
 		</config>
 		<route>
-			<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
-			<service name="Report" label="hover"> <child name="report_rom"/> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
+			<service name="ROM"         label="dialog"> <child name="report_rom" /> </service>
+			<service name="Report"      label="hover">  <child name="report_rom"/> </service>
+			<service name="File_system" label="fonts">  <child name="fonts_fs"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>
+	</start>}
 
+append_if [expr !$use_msr_native] config {
 	<start name="dynamic_rom">
 		<resource name="RAM" quantum="4M"/>
 		<provides> <service name="ROM"/> </provides>
@@ -128,15 +136,39 @@ append config {
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
+
+							<energy timestamp_ms="86923">
+								<units raw="658947" power="3" energy="14" time="10"/>
+								<package raw="15276100" Joule="932.379150" Watt="9.104591"/>
+								<pp0 raw="3830080" Joule="233.769531" Watt="1.982696"/>
+								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
+							</energy>
+							<power_info>
+								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
+							</power_info>
+							<power_limit>
+								<package raw="0x8042814000dd80e0" lock="true">
+									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
+									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
+								</package>
+								<dram raw="0x8042814000dd80e0"/>
+							</power_limit>
+							<policy pp0="0x10" pp1="0x10"/>
+							<perf_status>
+								<package raw="0x0" throttle_abs="10" throttle_diff="5"/>
+								<dram raw="0x0" throttle_abs="10" throttle_diff="5"/>
+								<pp0 raw="0x0" throttle_abs="10" throttle_diff="5"/>
+							</perf_status>
+
 						</cpu>
 						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
 							<hwp enable="false"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
@@ -152,15 +184,37 @@ append config {
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
+
+							<energy timestamp_ms="91923">
+								<units raw="658947" power="3" energy="14" time="10"/>
+								<package raw="16013183" Joule="977.367126" Watt="8.999395"/>
+								<pp0 raw="3986842" Joule="243.337524" Watt="1.913981"/>
+								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
+							</energy>
+							<power_info>
+								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
+							</power_info>
+							<power_limit>
+								<package raw="0x8042814000dd80e0" lock="true">
+									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
+									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
+								</package>
+								<pp0 raw="0x8042814000dd80e0"/>
+							</power_limit>
+							<policy pp0="0x10" pp1="0x10"/>
+							<perf_status>
+								<package raw="0x0" throttle_abs="20" throttle_diff="10"/>
+							</perf_status>
+
 						</cpu>
 						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
 							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
@@ -176,15 +230,37 @@ append config {
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x0fffffff8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
+
+							<energy timestamp_ms="96923">
+								<units raw="658947" power="3" energy="14" time="10"/>
+								<package raw="16746906" Joule="1022.150024" Watt="8.815519"/>
+								<pp0 raw="4143408" Joule="252.893554" Watt="1.776392"/>
+								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
+							</energy>
+							<power_info>
+								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
+							</power_info>
+							<power_limit>
+								<package raw="0x8042814000dd80e0" lock="true">
+									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
+									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
+								</package>
+								<pp1 raw="0x8042814000dd80e0"/>
+							</power_limit>
+							<policy pp0="0x10" pp1="0x10"/>
+							<perf_status>
+								<package raw="0x0" throttle_abs="40" throttle_diff="20"/>
+							</perf_status>
+
 						</cpu>
 						<cpu x="0" y="1" freq_khz="2973791" temp_c="74">
 							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
@@ -200,15 +276,38 @@ append config {
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="0" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
+
+							<energy timestamp_ms="66923">
+								<units raw="658947" power="3" energy="14" time="10"/>
+								<package raw="12218055" Joule="745.730895" Watt="9.350352"/>
+								<pp0 raw="3138820" Joule="191.578369" Watt="2.020531"/>
+								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
+							</energy>
+							<power_info>
+								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
+							</power_info>
+							<power_limit>
+								<package raw="0x8042814000dd80e0" lock="true">
+									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
+									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
+								</package>
+								<dram raw="0x80dd80e0" lock="true" power="12.0" enable="false" clamp="false" time_window="18.0"/>
+								<pp1 raw="0x80dd80e0"/>
+								<pp0 raw="0x00dd80e0"/>
+							</power_limit>
+							<policy pp0="0x10" pp1="0x10"/>
+							<perf_status>
+								<package raw="0x0" throttle_abs="47" throttle_diff="7"/>
+							</perf_status>
 						</cpu>
 						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
 							<hwp enable="true"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
@@ -221,15 +320,36 @@ append config {
 					<info update_rate_us="4000000">
 						<cpu x="0" y="0" freq_khz="173991" temp_c="28">
 							<hwp enable="true"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
+
+							<energy timestamp_ms="76923">
+								<units raw="658947" power="3" energy="14" time="10"/>
+								<package raw="13768707" Joule="840.375183" Watt="9.222867"/>
+								<pp0 raw="3494162" Joule="213.266723" Watt="1.979049"/>
+								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
+							</energy>
+							<power_info>
+								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
+							</power_info>
+							<power_limit>
+								<package raw="0x8042814000dd80e0" lock="true">
+									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
+									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
+								</package>
+							</power_limit>
+							<policy pp0="0x10" pp1="0x10"/>
+							<perf_status>
+								<package raw="0x0" throttle_abs="60" throttle_diff="13"/>
+							</perf_status>
+
 						</cpu>
 						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
 							<hwp enable="false"/>
 							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
 							<hwp_request_package raw="0x8000ff01"/>
 							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<intel_speed_step epb="0"/>
+							<energy_perf_bias raw="0"/>
 							<hwp_coord_feed_cap/>
 						</cpu>
 						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
@@ -240,16 +360,40 @@ append config {
 				<sleep milliseconds="4000" />
 			</rom>
 		</config>
-	</start>
+	</start>}
 
+append config {
 	<start name="msr_gui">
 		<resource name="RAM" quantum="2M"/>
 		<route>
-			<service name="ROM" label="info">  <child name="dynamic_rom" /> </service>
-			<service name="ROM" label="hover"> <child name="report_rom" /> </service>
+			<service name="ROM" label="hover"> <child name="report_rom" /> </service>}
+
+append_if [expr $use_msr_native] config {
+			<service name="ROM" label="info">  <child name="report_rom" /> </service>}
+
+append_if [expr !$use_msr_native] config {
+			<service name="ROM" label="info">  <child name="dynamic_rom" /> </service>}
+
+append config {
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>
+	</start>}
+
+append_if [expr $use_msr_native] config {
+	<start name="msr" caps="100" ld="yes" managing_system="yes">
+		<resource name="RAM" quantum="2M"/>
+		<route>
+			<service name="ROM" label="config">
+				<child name="report_rom"/> </service>
+			<service name="ROM" label="platform_info">
+				<parent label="platform_info"/> </service>
+			<service name="Report"> <child name="report_rom" /> </service>
+			<service name="Timer">  <child name="timer" />      </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>}
+
+append config {
 </config>
 }
 
