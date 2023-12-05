@@ -1799,10 +1799,6 @@ struct App::Main
 {
 	static unsigned _default_period_ms() { return 5000; }
 
-	enum {
-		PARENT_LEVELS   = 0
-	};
-
 	Env &_env;
 
 	size_t arg_buffer_ram  { 64 * 4096 }; /* sufficient for 1000 trace ids */
@@ -1810,8 +1806,7 @@ struct App::Main
 
 	Reconstructible<Trace::Connection> _trace { _env,
 	                                            trace_ram_quota,
-	                                            arg_buffer_ram,
-	                                            PARENT_LEVELS };
+	                                            arg_buffer_ram };
 
 	unsigned               _period_trace  { _default_period_ms() };
 	unsigned               _period_view   { _default_period_ms() };
@@ -2152,7 +2147,7 @@ void App::Main::_handle_trace(Duration time)
 	_subjects.flush(*_trace, _heap);
 
 	_trace.destruct();
-	_trace.construct(_env, trace_ram_quota, arg_buffer_ram, PARENT_LEVELS);
+	_trace.construct(_env, trace_ram_quota, arg_buffer_ram);
 }
 
 void App::Main::_generate_report()

@@ -190,6 +190,7 @@ append config {
 		</config>
 
 		<route>
+			<service name="TRACE"> <parent label=""/> </service>
 			<service name="ROM" label="hover"> <child name="report_rom_hover" /> </service>
 			<service name="Report" label="dialog"> <child name="report_rom_dialog" /> </service>
 			<service name="Report" label="graph"> <child name="report_rom_graph" /> </service>
