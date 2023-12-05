@@ -24,6 +24,7 @@
 #include "graph_widget.h"
 
 /* Genode includes */
+#include <base/sleep.h>
 #include <input/event.h>
 #include <os/reporter.h>
 #include <timer_session/connection.h>
@@ -446,29 +447,41 @@ void Menu_view::Main::_handle_frame_timer()
 }
 
 
-Menu_view::Widget *
-Menu_view::Widget_factory::create(Xml_node node)
+Menu_view::Widget &
+Menu_view::Widget_factory::create(Xml_node const &node)
 {
-	Widget *w = nullptr;
-
 	Widget::Unique_id const unique_id(++_unique_id_cnt);
 
-	if (node.has_type("label"))    w = new (alloc) Label_widget      (*this, node, unique_id);
-	if (node.has_type("button"))   w = new (alloc) Button_widget     (*this, node, unique_id);
-	if (node.has_type("vbox"))     w = new (alloc) Box_layout_widget (*this, node, unique_id);
-	if (node.has_type("hbox"))     w = new (alloc) Box_layout_widget (*this, node, unique_id);
-	if (node.has_type("frame"))    w = new (alloc) Frame_widget      (*this, node, unique_id);
-	if (node.has_type("float"))    w = new (alloc) Float_widget      (*this, node, unique_id);
-	if (node.has_type("depgraph")) w = new (alloc) Depgraph_widget   (*this, node, unique_id);
-	if (node.has_type("bar"))      w = new (alloc) Bar_widget        (*this, node, unique_id);
-	if (node.has_type("graph"))    w = new (alloc) Graph_widget      (*this, node, unique_id);
+	if (node.has_type("label"))    return *new (alloc) Label_widget      (*this, node, unique_id);
+	if (node.has_type("button"))   return *new (alloc) Button_widget     (*this, node, unique_id);
+	if (node.has_type("vbox"))     return *new (alloc) Box_layout_widget (*this, node, unique_id);
+	if (node.has_type("hbox"))     return *new (alloc) Box_layout_widget (*this, node, unique_id);
+	if (node.has_type("frame"))    return *new (alloc) Frame_widget      (*this, node, unique_id);
+	if (node.has_type("float"))    return *new (alloc) Float_widget      (*this, node, unique_id);
+	if (node.has_type("depgraph")) return *new (alloc) Depgraph_widget   (*this, node, unique_id);
+	if (node.has_type("bar"))      return *new (alloc) Bar_widget        (*this, node, unique_id);
+	if (node.has_type("graph"))    return *new (alloc) Graph_widget      (*this, node, unique_id);
 
-	if (!w) {
-		Genode::error("unknown widget type '", node.type(), "'");
-		return 0;
-	}
+	/*
+	 * This cannot occur because the 'List_model' ensures that 'create' is only
+	 * called for nodes that passed 'node_type_known'.
+	 */
+	error("unknown widget type '", node.type(), "'");
+	sleep_forever();
+}
 
-	return w;
+
+bool Menu_view::Widget_factory::node_type_known(Xml_node const &node)
+{
+	return node.has_type("label")
+	    || node.has_type("button")
+	    || node.has_type("vbox")
+	    || node.has_type("hbox")
+	    || node.has_type("frame")
+	    || node.has_type("float")
+	    || node.has_type("depgraph")
+	    || node.has_type("bar")
+	    || node.has_type("graph");
 }
 
 
