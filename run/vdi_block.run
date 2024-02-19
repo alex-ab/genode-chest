@@ -10,6 +10,11 @@ if {![have_spec linux]} {
 	exit 0
 }
 
+create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src] \
+                  [depot_user]/src/init
+
 set small_test 1
 
 #
@@ -23,15 +28,13 @@ if {![file exists bin/block.vdi]} {
 # Build
 #
 set build_components {
-	core init timer
 	server/vdi_block
 	server/lx_fs
+	lib/vfs
 	app/block_tester
 }
 
 build $build_components
-
-create_boot_directory
 
 #
 # Generate config
@@ -165,11 +168,9 @@ if {![file exists bin/block.vdi]} {
 # Boot modules
 #
 
-set boot_modules {
-	core init timer lx_fs vdi_block
-	ld.lib.so vfs.lib.so block_tester
-	block.vdi
-}
+set boot_modules { block.vdi }
+
+lappend boot_modules {*}[build_artifacts]
 
 build_boot_image $boot_modules
 

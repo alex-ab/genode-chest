@@ -14,10 +14,8 @@ import_from_depot [depot_user]/src/[base_src] \
 set use_msr_native ![have_include "power_on/qemu"]
 
 set build_components { app/msr_gui app/menu_view_ab }
-append boot_modules { msr_gui menu_view_ab }
 
 append_if [expr $use_msr_native] build_components { app/msr }
-append_if [expr $use_msr_native] boot_modules     { msr }
 
 build $build_components
 
@@ -401,10 +399,11 @@ set fb_cfg_fd [open "bin/fb_drv.config" w]
 puts $fb_cfg_fd { <config width="1280" height="1024"/> }
 close $fb_cfg_fd
 
-append boot_modules { fb_drv.config }
+set boot_modules { fb_drv.config }
 
 install_config $config
 
+lappend boot_modules {*}[build_artifacts]
 build_boot_image $boot_modules
 
 run_genode_until forever

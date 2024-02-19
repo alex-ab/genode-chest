@@ -192,13 +192,13 @@ install_config $config
 #
 # Boot modules
 #
-set boot_modules {
-	block_compare block_tester
-	vdi_block
-	block.vdi
-}
+
+set boot_modules { block.vdi }
+
+lappend boot_modules {*}[build_artifacts]
 
 build_boot_image $boot_modules
+
 
 append qemu_args " -nographic -m 2048 "
 append qemu_args " -device ahci,id=ahci "

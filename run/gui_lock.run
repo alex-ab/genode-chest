@@ -164,12 +164,6 @@ install_config $config
 # Boot modules
 #
 
-# generic modules
-set boot_modules {
-	gui_lock
-	nano3d
-}
-
-build_boot_image $boot_modules
+build_boot_image [build_artifacts]
 
 run_genode_until forever

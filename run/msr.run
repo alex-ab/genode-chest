@@ -78,7 +78,7 @@ install_config {
 	</config>
 }
 
-build_boot_image "core ld.lib.so init timer msr report_rom dynamic_rom hypervisor"
+build_boot_image [build_artifacts]
 
 if {[have_include "power_on/qemu"]} {
 	# in general we want to have at least 2 CPUs
