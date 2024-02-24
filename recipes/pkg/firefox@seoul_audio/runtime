@@ -40,8 +40,8 @@
 			<service name="Audio_out"/>
 		</parent-provides>
 
-		<start name="vfs_block" caps="240">
-			<resource name="RAM" quantum="270M" />
+		<start name="vfs_block" caps="260">
+			<resource name="RAM" quantum="340M" />
 			<provides><service name="Block"/></provides>
 			<config>
 				<vfs>
