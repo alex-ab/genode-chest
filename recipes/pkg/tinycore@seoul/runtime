@@ -19,7 +19,7 @@
 		<rom label="vfs_import.lib.so"/>
 		<rom label="ld.lib.so"/>
 		<rom label="vdi_block"/>
-		<rom label="tc14.vdi"/>
+		<rom label="tc15.vdi"/>
 		<rom label="seoul"/>
 	</content>
 
@@ -43,11 +43,11 @@
 		<start name="vdi_block" ram="8M" caps="100">
 			<resource name="RAM" quantum="8M" />
 			<provides> <service name="Block"/> </provides>
-			<config file="/tc14.vdi" writeable="yes">
+			<config file="/tc15.vdi" writeable="yes">
 				<vfs>
 					<fs label="vdi" buffer_size="2M"/>
 					<import overwrite="no">
-						<rom name="tc14.vdi" binary="yes"/>
+						<rom name="tc15.vdi" binary="yes"/>
 					</import>
 				</vfs>
 			</config>
