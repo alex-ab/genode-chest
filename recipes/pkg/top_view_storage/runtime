@@ -35,7 +35,7 @@
 		<start name="menu_view" caps="200" priority="-1">
 			<binary name="menu_view_ab"/>
 			<resource name="RAM" quantum="24M"/>
-			<config xpos="200" ypos="100">
+			<config>
 				<report hover="yes"/>
 				<libc stderr="/dev/log"/>
 				<vfs>
@@ -43,6 +43,7 @@
 					<dir name="dev"> <log/> </dir>
 					<dir name="fonts"> <fs label="fonts"/> </dir>
 				</vfs>
+				<dialog name="dialog" xpos="200" ypos="100"/>
 			</config>
 			<route>
 				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
