@@ -13,7 +13,7 @@
 	</requires>
 
 	<content>
-		<rom label="vm_seoul_boot_0.cfg"/>
+		<rom label="vm_seoul.cfg"/>
 		<rom label="init"/>
 		<rom label="vfs.lib.so"/>
 		<rom label="vfs_import.lib.so"/>
@@ -65,7 +65,7 @@
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
 				<service name="ROM" label="config">
-					<parent label="vm_seoul_boot_0.cfg"/> </service>
+					<parent label="vm_seoul.cfg"/> </service>
 				<service name="Block" label="disk0">
 					<child name="vdi_block"/> </service>
 				<service name="Report" label="shape">

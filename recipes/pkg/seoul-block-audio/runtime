@@ -10,7 +10,7 @@
 		<rm/>
 		<timer/>
 		<report label="shape"/>
-		<audio_out/>
+		<play/>
 	</requires>
 
 	<content>
@@ -33,7 +33,7 @@
 			<service name="Timer"/>
 			<service name="Block"/>
 			<service name="Report"/>
-			<service name="Audio_out"/>
+			<service name="Play"/>
 		</parent-provides>
 
 		<start name="seoul" caps="920">

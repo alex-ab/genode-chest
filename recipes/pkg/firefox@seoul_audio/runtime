@@ -9,7 +9,7 @@
 		<rm/>
 		<timer/>
 		<report label="shape"/>
-		<audio_out/>
+		<play/>
 	</requires>
 
 	<content>
@@ -37,7 +37,7 @@
 			<service name="Nic"/>
 			<service name="Timer"/>
 			<service name="Report"/>
-			<service name="Audio_out"/>
+			<service name="Play"/>
 		</parent-provides>
 
 		<start name="vfs_block" caps="260">

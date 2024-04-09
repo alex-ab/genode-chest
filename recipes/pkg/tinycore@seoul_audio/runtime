@@ -10,7 +10,7 @@
 		<timer/>
 		<gui/>
 		<report label="shape"/>
-		<audio_out/>
+		<play/>
 	</requires>
 
 	<content>
@@ -39,7 +39,7 @@
 			<service name="Timer"/>
 			<service name="Report"/>
 			<service name="File_system"/>
-			<service name="Audio_out"/>
+			<service name="Play"/>
 		</parent-provides>
 
 		<start name="vdi_block" ram="8M" caps="100">
