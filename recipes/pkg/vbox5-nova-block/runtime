@@ -15,7 +15,6 @@
 		<rm/>
 		<rtc/>
 		<timer/>
-		<rom label="usb_devices"/>
 		<usb/>
 	</requires>
 
@@ -73,12 +72,10 @@
 				<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc"/>
 			</config>
 			<route>
-				<service name="Audio_out"> <parent/> </service>
 				<service name="Block"       label="block0"> <parent label="block0"/> </service>
 				<service name="Block"       label="block1"> <parent label="block1"/> </service>
 				<service name="File_system" label="shared"> <parent label="shared"/> </service>
 				<service name="File_system">                <parent label="vm"/> </service>
-				<service name="ROM" label="usb_devices"> <parent label="usb_devices"/> </service>
 				<service name="ROM" label="capslock"> <parent label="capslock"/> </service>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>

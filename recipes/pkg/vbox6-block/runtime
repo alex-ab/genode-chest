@@ -7,9 +7,7 @@
 		<block       label="block1"/>
 		<vm/>
 		<timer/>
-<!--
 		<gpu/>
--->
 		<gui/>
 		<nic/>
 		<rom label="capslock"/>
@@ -22,10 +20,8 @@
 		<rtc/>
 		<rom label="usb_devices"/>
 		<usb/>
-<!--
-		<audio_out/>
-		<audio_in/>
--->
+		<play/>
+		<record/>
 	</requires>
 
 	<config verbose="yes">
@@ -38,19 +34,15 @@
 			<service name="LOG"/>
 			<service name="VM"/>
 			<service name="Gui"/>
-<!--
 			<service name="Gpu"/>
--->
 			<service name="Timer"/>
 			<service name="Rtc"/>
 			<service name="Report"/>
 			<service name="File_system"/>
 			<service name="Usb"/>
 			<service name="Nic"/>
-<!--
-			<service name="Audio_out"/>
-			<service name="Audio_in"/>
--->
+			<service name="Play"/>
+			<service name="Record"/>
 			<service name="Block"/>
 		</parent-provides>
 
@@ -84,7 +76,7 @@
 				<arg value="virtualbox"/>
 				<env key="VBOX_USER_HOME" value="/"/>
 				<env key="VBOX_LOG_DEST"          value="file=/dev/log"/>
-				<env key="VBOX_LOG"               value=""/>
+				<env key="VBOX_LOG"               value="+dbgf+gim"/>
 				<env key="VBOX_LOG_FLAGS"         value="thread"/>
 				<env key="VBOX_RELEASE_LOG_DEST"  value="file=/dev/log"/>
 				<env key="VBOX_RELEASE_LOG"       value=""/>
@@ -93,10 +85,8 @@
 			<route>
 				<service name="Block"       label="block0"> <parent label="block0"/>        </service>
 				<service name="Block"       label="block1"> <parent label="block1"/>        </service>
-				<service name="Audio_out">                  <parent/>                       </service>
 				<service name="File_system" label="shared"> <parent label="shared"/>        </service>
 				<service name="File_system">                <parent label="vm"/>            </service>
-				<service name="ROM" label="usb_devices">    <parent label="usb_devices"/>   </service>
 				<service name="ROM" label="capslock">       <parent label="capslock"/>      </service>
 				<service name="ROM" label="platform_info">  <parent label="platform_info"/> </service>
 				<service name="ROM" label="VBoxSharedClipboard.so">
