@@ -6,6 +6,12 @@ if {$use_wm} {
 	set gui_name "wm"
 }
 
+if {[have_include "power_on/qemu"]} {
+	set use_framebuffer "vesa_fb_drv"
+} else {
+	set use_framebuffer "boot_fb_drv"
+
+}
 create_boot_directory
 
 proc depot_user {} { return [get_cmd_arg --depot-user genodelabs] }
@@ -14,6 +20,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/pkg/[drivers_interactive_pkg] \
                   [depot_user]/pkg/themed_wm \
                   [depot_user]/pkg/fonts_fs \
+                  [depot_user]/src/boot_fb_drv \
                   [depot_user]/src/init \
                   [depot_user]/src/report_rom \
                   [depot_user]/src/nitpicker \
@@ -22,8 +29,8 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/zlib \
                   [depot_user]/src/vfs
 
-set config {
-<config prio_levels="2">
+append config {
+<config prio_levels="4">
 	<parent-provides>
 		<service name="PD"/>
 		<service name="CPU"/>
@@ -47,19 +54,20 @@ set config {
 		<provides><service name="Timer"/></provides>
 	</start>
 
-	<start name="drivers" caps="1500" managing_system="yes">
-		<resource name="RAM" quantum="64M"/>
+	<start name="drivers" caps="1500" managing_system="yes" priority="-2">
+		<resource name="RAM" quantum="72M"/>
 		<binary name="init"/>
 		<route>
 			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
 			<service name="Timer"> <child name="timer"/> </service>
 			<service name="Capture"> <child name="nitpicker"/> </service>
 			<service name="Event">   <child name="nitpicker"/> </service>
+			<service name="ROM" label="vesa_fb_drv"> <parent label="} $use_framebuffer {"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
 
-	<start name="nitpicker">
+	<start name="nitpicker" priority="-1">
 		<resource name="RAM" quantum="4M"/>
 		<provides>
 			<service name="Gui"/>
@@ -78,7 +86,7 @@ set config {
 		</config>
 	</start>
 
-	<start name="pointer">
+	<start name="pointer" priority="-1">
 		<resource name="RAM" quantum="1M"/>
 		<route>
 			<service name="Gui"> <child name="nitpicker" /> </service>
@@ -87,7 +95,7 @@ set config {
 	</start>}
 
 append_if [expr $use_wm] config {
-	<start name="wm" caps="1000">
+	<start name="wm" caps="1000" priority="-2">
 		<resource name="RAM" quantum="32M"/>
 		<binary name="init"/>
 		<provides> <service name="Gui"/> <service name="Report"/> </provides>
@@ -99,7 +107,7 @@ append_if [expr $use_wm] config {
 	</start>}
 
 append_if [expr $report_config eq "yes"] config {
-	<start name="report_rom_config">
+	<start name="report_rom_config" priority="-1">
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
@@ -108,7 +116,7 @@ append_if [expr $report_config eq "yes"] config {
 	</start>}
 
 append config {
-	<start name="report_rom_hover">
+	<start name="report_rom_hover" priority="-1">
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
@@ -117,7 +125,7 @@ append config {
 		</config>
 	</start>
 
-	<start name="report_rom_dialog">
+	<start name="report_rom_dialog" priority="-1">
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
@@ -126,7 +134,7 @@ append config {
 		</config>
 	</start>
 
-	<start name="report_rom_graph">
+	<start name="report_rom_graph" priority="-1">
 		<binary name="report_rom"/>
 		<resource name="RAM" quantum="1M"/>
 		<provides> <service name="Report"/> <service name="ROM"/> </provides>
@@ -135,7 +143,7 @@ append config {
 		</config>
 	</start>
 
-	<start name="fonts_fs" caps="300">
+	<start name="fonts_fs" caps="300" priority="-2">
 		<resource name="RAM" quantum="8M"/>
 		<binary name="vfs"/>
 		<route>
@@ -145,7 +153,7 @@ append config {
 		<provides> <service name="File_system"/> </provides>
 	</start>
 
-	<start name="ram_fs">
+	<start name="ram_fs" priority="-3">
 		<binary name="vfs"/>
 		<resource name="RAM" quantum="32M"/>
 		<provides> <service name="File_system"/> </provides>
@@ -156,7 +164,7 @@ append config {
 		</config>
 	</start>
 
-	<start name="menu_view" caps="200" priority="-1">
+	<start name="menu_view" caps="200" priority="-3">
 		<binary name="menu_view_ab"/>
 		<resource name="RAM" quantum="16M"/>
 		<config>
@@ -178,7 +186,7 @@ append config {
 		</route>
 	</start>
 
-	<start name="top_view" priority="-1">
+	<start name="top_view" priority="-3">
 		<resource name="RAM" quantum="2M"/>
 		<config view_ms="9000" trace_ms="3000" report="yes" log="no"
 		        store="yes" report_config="} $report_config {"
@@ -201,7 +209,7 @@ append config {
 		</route>
 	</start>
 
-	<start name="graph" priority="-1">
+	<start name="graph" priority="-3">
 		<resource name="RAM" quantum="6M"/>
 		<config store="yes" verbose="no" freq_khz="2000000">
 			<vfs> <dir name="fonts"> <fs label="fonts"/> </dir> </vfs>
