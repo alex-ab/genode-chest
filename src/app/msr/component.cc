@@ -57,7 +57,7 @@ struct Core_thread : Thread, Msr::Monitoring
 
 	bool intel;
 	bool amd;
-	bool master { };
+	bool main { };
 
 	Xml_node const *config_node { };
 
@@ -79,7 +79,7 @@ struct Core_thread : Thread, Msr::Monitoring
 		if (amd)
 			power_amd.construct();
 
-		if (intel && master)
+		if (intel && main)
 			Monitoring::target_temperature(system);
 
 		while (true) {
@@ -90,7 +90,7 @@ struct Core_thread : Thread, Msr::Monitoring
 
 			Monitoring::cpu_frequency(system, tsc_freq_khz);
 
-			if (intel && master)
+			if (intel && main)
 				Monitoring::update_package_temperature(system);
 
 			if (power_intel.constructed()) {
@@ -99,7 +99,7 @@ struct Core_thread : Thread, Msr::Monitoring
 					power_intel->update(system, *config_node, location);
 
 				/* features are homogen across all CPUs, e.g. P/E ? */
-				if (master)
+				if (main)
 					power_intel->update_package(system);
 			}
 
@@ -204,7 +204,7 @@ struct Msr::Msr {
 
 				/* the first thread will read out TCC && package temperature */
 				if (x == 0 && y == 0)
-					threads[i]->master = true;
+					threads[i]->main = true;
 
 				threads[i]->start();
 			}

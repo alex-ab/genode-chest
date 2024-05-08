@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2022-2023 Genode Labs GmbH
+ * Copyright (C) 2022-2024 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -39,6 +39,7 @@ struct State
 class Power
 {
 	private:
+
 		enum { CPU_MUL = 10000 };
 
 		Env                    &_env;
@@ -54,6 +55,14 @@ class Power
 		State                   _setting_cpu       { };
 		State                   _setting_hovered   { };
 		unsigned                _last_cpu          { ~0U };
+
+		String<16>              _mwait_button_hovered  { };
+		String<16>              _mwait_button_selected { "mwait_hlt" };
+		uint8_t                 _mwait_c_state         { };
+		uint8_t                 _mwait_c_sub_state     { };
+
+		struct Seho { bool hover; bool select; };
+
 		bool                    _initial_hwp_cap   { false };
 		bool                    _none_hovered      { false };
 		bool                    _apply_period      { false };
@@ -90,6 +99,8 @@ class Power
 		bool                    _select_advanced   { false };
 		bool                    _hover_rapl_detail  { false };
 		bool                    _select_rapl_detail { false };
+		bool _hover_mwait { false };
+		Seho _residency   { .hover = false, .select = true };
 
 		Button_hub<5, 0, 9, 0>  _timer_period { };
 
@@ -134,6 +145,11 @@ class Power
 		void _cpu_perf_status(Xml_generator &, Xml_node const &, unsigned &);
 		void _cpu_perf_status_detail(Xml_generator &, Xml_node const &,
 		                             char const *, unsigned &);
+		void _cpu_residency(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_residency_detail(Xml_generator &, Xml_node const &,
+		                           char const *, unsigned &);
+		void _cpu_mwait(Xml_generator &, Xml_node const &, unsigned &);
+		void _cpu_mwait_detail(Xml_generator &, String<4> const &, uint8_t, uint8_t);
 		void _cpu_temp(Xml_generator &, Xml_node const &);
 		void _cpu_freq(Xml_generator &, Xml_node const &);
 		void _cpu_setting(Xml_generator &, Xml_node const &);
@@ -202,7 +218,7 @@ void Power::_hover_update()
 	typedef Genode::String<20> Button;
 	Button button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
 	                                        "vbox", "hbox", "button", "name");
-	if (button == "") /* intel hwp, epb, epp & AMD pstate buttons */
+	if (button == "") /* mwait, intel hwp, epb, epp & AMD pstate buttons */
 		button = query_attribute<Button>(hover, "dialog", "frame", "hbox",
 		                                 "vbox", "frame", "hbox", "button", "name");
 
@@ -254,9 +270,11 @@ void Power::_hover_update()
 	}
 
 	if (click_valid && (_hover_rapl_detail)) {
-
 		_select_rapl_detail = !_select_rapl_detail;
-
+		refresh = true;
+	} else
+	if (click_valid && (_residency.hover)) {
+		_residency.select = !_residency.select;
 		refresh = true;
 	}
 
@@ -340,8 +358,13 @@ void Power::_hover_update()
 				refresh = refresh || _intel_hwp_epp.update_dec();
 		}
 
-		if (click_valid && _hwp_on_hovered) {
+		if (_hwp_on_hovered) {
 			_hwp_on_selected = true;
+			refresh = true;
+		}
+
+		if (_hover_mwait) {
+			_mwait_button_selected = _mwait_button_hovered;
 			refresh = true;
 		}
 
@@ -453,6 +476,8 @@ void Power::_hover_update()
 	auto const before_normal         = _hover_normal;
 	auto const before_advanced       = _hover_advanced;
 	auto const before_rapl_detail    = _hover_rapl_detail;
+	auto const before_mwait          = _hover_mwait;
+	auto const before_residency      = _residency.hover;
 
 	bool any = button != "";
 
@@ -494,6 +519,10 @@ void Power::_hover_update()
 	_hover_advanced = any && (button == "advanced") && (!(any = false));
 
 	_hover_rapl_detail = any && (button == "info") && (!(any = false));
+	_residency.hover = any && (button == "info_res") && (!(any = false));
+
+	_hover_mwait = any && (String<7>(button) == "mwait_") && (!(any = false));
+	if (_hover_mwait) _mwait_button_hovered = button;
 
 	if (hovered_setting) {
 		_setting_hovered.value = query_attribute<unsigned>(hover, "dialog", "frame",
@@ -562,10 +591,12 @@ void Power::_hover_update()
 	    (before_normal         != _hover_normal)      ||
 	    (before_advanced       != _hover_advanced)    ||
 	    (before_rapl_detail    != _hover_rapl_detail) ||
+	    (before_residency      != _residency.hover)   ||
 	    (before_pstate_max     != _pstate_max)        ||
 	    (before_pstate_mid     != _pstate_mid)        ||
 	    (before_pstate_min     != _pstate_min)        ||
-	    (before_pstate_custom  != _pstate_custom))
+	    (before_pstate_custom  != _pstate_custom)     ||
+	    (before_mwait          != _hover_mwait))
 		refresh = true;
 
 	if (refresh)
@@ -674,6 +705,18 @@ void Power::_generate_msr_cpu(Xml_generator &xml,
 				xml.attribute("enable", _hwp_on_selected);
 			});
 		}
+
+		if (_mwait_button_selected != "") {
+
+			xml.node("mwait", [&] {
+				if (_mwait_button_selected == "mwait_hlt")
+					xml.attribute("off", "yes");
+				else {
+					xml.attribute("c_state",     _mwait_c_state);
+					xml.attribute("c_sub_state", _mwait_c_sub_state);
+				}
+			});
+		}
 	});
 }
 
@@ -737,22 +780,15 @@ unsigned Power::_cpu_name(Xml_generator &xml, Xml_node const &cpu, unsigned last
 }
 
 
-static String<12> align_string(double const value)
+static String<12> align_string(auto const value)
 {
 	String<12> string { };
 
-	if (value >= 1.0d) {
-		string = String<12>(uint64_t(value));
+	string = String<12>(uint64_t(value));
 
-		auto const rest = uint64_t(value * 100) % 100;
+	auto const rest = uint64_t(value * 100) % 100;
 
-		string = String<12>(string, ".", (rest < 10) ? "0" : "", rest);
-	} else {
-		if (value == 0.0d)
-			string = String<12>("0.00");
-		else
-			string = String<12>(value);
-	}
+	string = String<12>(string, ".", (rest < 10) ? "0" : "", rest);
 
 	/* align right */
 	for (auto i = string.length(); i < string.capacity() - 1; i++) {
@@ -1157,6 +1193,172 @@ void Power::_cpu_perf_status(Xml_generator &xml, Xml_node const &status, unsigne
 			_cpu_perf_status_detail(xml, node, " PP0 perf status", id);
 		});
 	});
+}
+
+
+void Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
+                                  char const * const text, unsigned &id)
+{
+	uint64_t tsc_raw = 0, ms_abs = 0, ms_diff = 0;
+
+	tsc_raw = node.attribute_value("raw"    , tsc_raw);
+	ms_abs  = node.attribute_value("abs_ms" , ms_abs);
+	ms_diff = node.attribute_value("diff_ms", ms_diff);
+
+	xml.node("hbox", [&] {
+		xml.attribute("name", id++);
+
+		xml.node("label", [&] {
+			xml.attribute("name", id++);
+			xml.attribute("align", "left");
+			xml.attribute("text", text);
+		});
+
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", id++);
+			xml.attribute("align", "right");
+
+			String<4> unity_abs (ms_abs  >= 10'000 ? "  s" : " ms");
+			String<4> unity_diff(ms_diff >= 10'000 ? "  s" : " ms");
+
+			auto abs  = (ms_abs  >= 10'000) ? ms_abs  / 1000 : ms_abs;
+			auto diff = (ms_diff >= 10'000) ? ms_diff / 1000 : ms_diff;
+
+			xml.attribute("text", String<60>("diff=",
+			                                 align_string(diff), unity_diff,
+			                                 " abs=",
+			                                 align_string(abs), unity_abs));
+		});
+	});
+}
+
+
+void Power::_cpu_residency(Xml_generator &xml, Xml_node const &status, unsigned &)
+{
+	unsigned id = 0;
+
+	unsigned const core[] = { 1, 3, 6, 7 };
+	unsigned const pkg [] = { 2, 3, 6, 7, 8, 9, 10 };
+
+	xml.node("vbox", [&] {
+		xml.attribute("name", id++);
+
+		xml.node("hbox", [&] {
+			xml.attribute("name", id++);
+
+			xml.node("label", [&] {
+				xml.attribute("name", id++);
+				xml.attribute("align", "left");
+				xml.attribute("text", String<60>(" Package/Core C-state residency counters (try mwait!):"));
+			});
+
+			xml.node("button", [&] () {
+				xml.attribute("align", "right");
+				xml.attribute("name", "info_res");
+				xml.node("label", [&] () {
+					xml.attribute("text", "info");
+				});
+
+				if (_residency.hover)
+					xml.attribute("hovered", true);
+				if (_residency.select)
+					xml.attribute("selected", true);
+			});
+		});
+
+		if (!_residency.select)
+			return;
+
+		unsigned count = 0;
+		auto id_before = id;
+
+		for (auto const &entry : core) {
+			status.with_optional_sub_node(String<8>("core_c", entry).string(), [&](auto const &node) {
+				_cpu_residency_detail(xml, node, String<16>(" Core C", entry).string(), id);
+				count ++;
+			});
+		}
+
+		for (auto const &entry : pkg) {
+			status.with_optional_sub_node(String<8>("pkg_c", entry).string(), [&](auto const &node) {
+				_cpu_residency_detail(xml, node, String<16>(" Package C", entry).string(), id);
+				count ++;
+			});
+		}
+
+		if (!count || id == id_before) {
+			xml.node("hbox", [&] {
+				xml.attribute("name", id++);
+
+				xml.node("label", [&] {
+					xml.attribute("name", id++);
+					xml.attribute("align", "left");
+					xml.attribute("text", String<40>(" no counters available"));
+				});
+			});
+		}
+	});
+}
+
+
+void Power::_cpu_mwait_detail(Xml_generator &xml, String<4> const &text,
+                              uint8_t const c_state, uint8_t const sub_state)
+{
+		xml.node("label", [&] {
+			xml.attribute("font", "monospace/regular");
+			xml.attribute("name", "mwait");
+			xml.attribute("align", "left");
+			xml.attribute("text", String<16>(" MWAIT hint "));
+		});
+
+		xml.node("button", [&] () {
+			xml.attribute("name", "mwait_hlt");
+			xml.node("label", [&] () {
+				xml.attribute("text", "hlt");
+			});
+
+			if (_hover_mwait && _mwait_button_hovered == "mwait_hlt")
+				xml.attribute("hovered", true);
+			if (_mwait_button_selected == "mwait_hlt")
+				xml.attribute("selected", true);
+		});
+
+		for (uint8_t i = 0; i < sub_state; i++) {
+			xml.node("button", [&] () {
+				auto name = sub_state > 1 ? String<16>("mwait_", text, "_", i)
+				                          : String<16>("mwait_", text);
+				xml.attribute("name", name);
+				xml.node("label", [&] () {
+					xml.attribute("text",
+					              sub_state > 1 ? String<16>(text, "_", i)
+					                            : String<16>(text));
+				});
+
+				if (_hover_mwait && _mwait_button_hovered == name)
+					xml.attribute("hovered", true);
+				if (_mwait_button_selected == name) {
+					xml.attribute("selected", true);
+					_mwait_c_state     = c_state;
+					_mwait_c_sub_state = i;
+				}
+			});
+		}
+}
+
+
+void Power::_cpu_mwait(Xml_generator &xml, Xml_node const &status, unsigned &)
+{
+	for (uint8_t c = 0; c < 8; c++) {
+		String<4> mwait_c_state("c", c);
+		status.with_optional_sub_node(mwait_c_state.string(), [&](auto const &node) {
+			auto sub_count = node.attribute_value("sub_state_count", uint8_t(0u));
+			if (!sub_count)
+				return;
+
+			_cpu_mwait_detail(xml, mwait_c_state, c, sub_count);
+		});
+	}
 }
 
 
@@ -1999,6 +2201,32 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 		});
 	});
 */
+
+	cpu.with_optional_sub_node("msr_residency", [&](Genode::Xml_node const &info) {
+		frames ++;
+		xml.node("frame", [&] () {
+			xml.attribute("name", "residency");
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", "residency");
+
+				_cpu_residency(xml, info, frames);
+			});
+		});
+	});
+
+	cpu.with_optional_sub_node("mwait_support", [&](Genode::Xml_node const &info) {
+		frames ++;
+		xml.node("frame", [&] () {
+			xml.attribute("name", "mwait");
+
+			xml.node("hbox", [&] {
+				xml.attribute("name", "mwait");
+
+				_cpu_mwait(xml, info, frames);
+			});
+		});
+	});
 
 	cpu.with_optional_sub_node("perf_status", [&](Genode::Xml_node const &info) {
 		frames ++;

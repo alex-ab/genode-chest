@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2021-2023 Genode Labs GmbH
+ * Copyright (C) 2021-2024 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -64,6 +64,32 @@ struct Msr::Power_intel
 	uint64_t msr_pp0_policy { };
 	uint64_t msr_pp1_policy { };
 
+	uint64_t msr_core_c1 { };
+	uint64_t msr_core_c3 { };
+	uint64_t msr_core_c6 { };
+	uint64_t msr_core_c7 { };
+
+	uint64_t msr_core_c1_prev { };
+	uint64_t msr_core_c3_prev { };
+	uint64_t msr_core_c6_prev { };
+	uint64_t msr_core_c7_prev { };
+
+	uint64_t msr_pkg_c2  { };
+	uint64_t msr_pkg_c3  { };
+	uint64_t msr_pkg_c6  { };
+	uint64_t msr_pkg_c7  { };
+	uint64_t msr_pkg_c8  { };
+	uint64_t msr_pkg_c9  { };
+	uint64_t msr_pkg_c10 { };
+
+	uint64_t msr_pkg_c2_prev  { };
+	uint64_t msr_pkg_c3_prev  { };
+	uint64_t msr_pkg_c6_prev  { };
+	uint64_t msr_pkg_c7_prev  { };
+	uint64_t msr_pkg_c8_prev  { };
+	uint64_t msr_pkg_c9_prev  { };
+	uint64_t msr_pkg_c10_prev { };
+
 	bool valid_hwp_cap     { };
 	bool valid_hwp_req_pkg { };
 	bool valid_hwp_req     { };
@@ -98,11 +124,37 @@ struct Msr::Power_intel
 	bool valid_msr_pp0_policy  { };
 	bool valid_msr_pp1_policy  { };
 
-	bool features_server          { true };
+	bool features_perf_server     { true };
 	bool features_rapl            { true };
-	bool features_status          { true };
+	bool features_perf_status     { true };
 	bool features_dram            { true };
 	bool features_dram_power_info { true };
+
+	bool valid_core_c1 { };
+	bool valid_core_c3 { };
+	bool valid_core_c6 { };
+	bool valid_core_c7 { };
+
+	bool features_core_c1 { true };
+	bool features_core_c3 { true };
+	bool features_core_c6 { true };
+	bool features_core_c7 { true };
+
+	bool valid_pkg_c2  { };
+	bool valid_pkg_c3  { };
+	bool valid_pkg_c6  { };
+	bool valid_pkg_c7  { };
+	bool valid_pkg_c8  { };
+	bool valid_pkg_c9  { };
+	bool valid_pkg_c10 { };
+
+	bool features_pkg_c2  { true };
+	bool features_pkg_c3  { true };
+	bool features_pkg_c6  { true };
+	bool features_pkg_c7  { true };
+	bool features_pkg_c8  { true };
+	bool features_pkg_c9  { true };
+	bool features_pkg_c10 { true };
 
 	Trace::Timestamp energy_timestamp      { };
 	Trace::Timestamp energy_timestamp_prev { };
@@ -177,6 +229,8 @@ struct Msr::Power_intel
 	};
 
 	enum {
+		SET_MWAIT_HINT = 0,
+
 		/*
 		 * Intel Speed Step - chapter 14.1
 		 *
@@ -221,7 +275,7 @@ struct Msr::Power_intel
 		IA32_PM_ENABLE        = 0x770, 
 		IA32_HWP_CAPABILITIES = 0x771, 
 		IA32_HWP_REQUEST_PKG  = 0x772, 
-		IA32_HWP_REQUEST      = 0x774
+		IA32_HWP_REQUEST      = 0x774,
 
 		/*
 		 * Intel spec
@@ -232,6 +286,19 @@ struct Msr::Power_intel
 		 * Minimum Enhanced Intel SpeedStep Technology
 		 * operating point when all execution cores enter MWAIT.
 		 */
+
+		MSR_CORE_C1_RESIDENCY   = 0x660,
+		MSR_CORE_C3_RESIDENCY   = 0x3fc,
+		MSR_CORE_C6_RESIDENCY   = 0x3fd,
+		MSR_CORE_C7_RESIDENCY   = 0x3fe,
+
+		MSR_PKG_C2_RESIDENCY    = 0x60d,
+		MSR_PKG_C3_RESIDENCY    = 0x3f8,
+		MSR_PKG_C6_RESIDENCY    = 0x3f9,
+		MSR_PKG_C7_RESIDENCY    = 0x3fa,
+		MSR_PKG_C8_RESIDENCY    = 0x630,
+		MSR_PKG_C9_RESIDENCY    = 0x631,
+		MSR_PKG_C10_RESIDENCY   = 0x632,
 	};
 
 	bool hwp_enabled(System_control &system)
@@ -390,13 +457,14 @@ struct Msr::Power_intel
 		if (!features_rapl)
 			return;
 
-		if (!features_status)
+		if (!features_perf_status && !features_perf_server && !features_dram)
 			return;
 
 		System_control::State state { };
 
-		system.add_rdmsr(state, MSR_PKG_PERF_STATUS);
-		if (features_server)
+		if (features_perf_status)
+			system.add_rdmsr(state, MSR_PKG_PERF_STATUS);
+		if (features_perf_server)
 			system.add_rdmsr(state, MSR_PP0_PERF_STATUS);
 		if (features_dram)
 			system.add_rdmsr(state, MSR_DRAM_PERF_STATUS);
@@ -410,25 +478,37 @@ struct Msr::Power_intel
 		perf_timestamp_prev = perf_timestamp;
 		perf_timestamp      = Trace::timestamp();
 
+		uint64_t msr_values[3] { };
+
 		addr_t success = 0;
-		bool        ok = system.get_state(state, success, &msr_pkg_perf,
-		                                  &msr_pp0_perf, &msr_dram_perf);
+		bool const  ok = system.get_state(state, success, &msr_values[0],
+		                                  &msr_values[1], &msr_values[2]);
 
-		valid_msr_pkg_perf      = ok && (success & (1u << 0));
-		if (features_server)
-			valid_msr_pp0_perf  = ok && (success & (1u << 1));
-		if (features_dram)
-			valid_msr_dram_perf = ok && (success & (1u << 2));
+		unsigned bit = 0;
 
+		if (features_perf_status) {
+			msr_pkg_perf       = msr_values[bit];
+			valid_msr_pkg_perf = ok && (success & (1u << bit++));
+		}
+
+		if (features_perf_server) {
+			msr_pp0_perf       = msr_values[bit];
+			valid_msr_pp0_perf = ok && (success & (1u << bit++));
+		}
+
+		if (features_dram) {
+			msr_dram_perf       = msr_values[bit];
+			valid_msr_dram_perf = ok && (success & (1u << bit++));
+		}
 
 		if (features_dram && !valid_msr_dram_perf)
 			features_dram = false;
 
-		if (features_server && !valid_msr_pp0_perf)
-			features_server = false;
+		if (features_perf_server && !valid_msr_pp0_perf)
+			features_perf_server = false;
 
-		if (features_status && !valid_msr_pkg_perf)
-			features_status = false;
+		if (features_perf_status && !valid_msr_pkg_perf)
+			features_perf_status = false;
 	}
 
 	void read_power_limits(System_control &system)
@@ -506,6 +586,146 @@ struct Msr::Power_intel
 		valid_msr_pp1_policy = ok && (success & (1u << 1));
 	}
 
+	void read_mwait_core(System_control &system)
+	{
+		if (!features_core_c1 && !features_core_c3 &&
+		    !features_core_c6 && !features_core_c7)
+			return;
+
+		System_control::State state { };
+
+		if (features_core_c1) system.add_rdmsr(state, MSR_CORE_C1_RESIDENCY);
+		if (features_core_c3) system.add_rdmsr(state, MSR_CORE_C3_RESIDENCY);
+		if (features_core_c6) system.add_rdmsr(state, MSR_CORE_C6_RESIDENCY);
+		if (features_core_c7) system.add_rdmsr(state, MSR_CORE_C7_RESIDENCY);
+
+		state = system.system_control(state);
+
+		uint64_t msr_core_c[4] {};
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success,
+		                                  &msr_core_c[0], &msr_core_c[1],
+		                                  &msr_core_c[2], &msr_core_c[3]);
+
+		unsigned bit = 0;
+
+		if (features_core_c1) {
+			msr_core_c1_prev = msr_core_c1;
+			msr_core_c1      = msr_core_c[bit];
+			valid_core_c1    = result && (success & (1 << bit++));
+		}
+		if (features_core_c3) {
+			msr_core_c3_prev = msr_core_c3;
+			msr_core_c3      = msr_core_c[bit];
+			valid_core_c3    = result && (success & (1 << bit++));
+		}
+		if (features_core_c6) {
+			msr_core_c6_prev = msr_core_c6;
+			msr_core_c6      = msr_core_c[bit];
+			valid_core_c6    = result && (success & (1 << bit++));
+		}
+		if (features_core_c7) {
+			msr_core_c7_prev = msr_core_c7;
+			msr_core_c7      = msr_core_c[bit];
+			valid_core_c7    = result && (success & (1 << bit++));
+		}
+
+		if (features_core_c1 && !valid_core_c1) features_core_c1 = false;
+		if (features_core_c3 && !valid_core_c3) features_core_c3 = false;
+		if (features_core_c6 && !valid_core_c6) features_core_c6 = false;
+		if (features_core_c7 && !valid_core_c7) features_core_c7 = false;
+	}
+
+	void read_mwait_pkg(System_control &system)
+	{
+		if (!features_pkg_c2 && !features_pkg_c3 && !features_pkg_c6 &&
+		    !features_pkg_c7 && !features_pkg_c8 && !features_pkg_c9 &&
+		    !features_pkg_c10)
+			return;
+
+		System_control::State state { };
+
+		if (features_pkg_c2)  system.add_rdmsr(state, MSR_PKG_C2_RESIDENCY);
+		if (features_pkg_c3)  system.add_rdmsr(state, MSR_PKG_C3_RESIDENCY);
+		if (features_pkg_c6)  system.add_rdmsr(state, MSR_PKG_C6_RESIDENCY);
+		if (features_pkg_c7)  system.add_rdmsr(state, MSR_PKG_C7_RESIDENCY);
+		if (features_pkg_c8)  system.add_rdmsr(state, MSR_PKG_C8_RESIDENCY);
+		if (features_pkg_c9)  system.add_rdmsr(state, MSR_PKG_C9_RESIDENCY);
+		if (features_pkg_c10) system.add_rdmsr(state, MSR_PKG_C10_RESIDENCY);
+
+		state = system.system_control(state);
+
+		uint64_t msr_pkg_c[7] {};
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success,
+		                                  &msr_pkg_c[0], &msr_pkg_c[1],
+		                                  &msr_pkg_c[2], &msr_pkg_c[3],
+		                                  &msr_pkg_c[4], &msr_pkg_c[5],
+		                                  &msr_pkg_c[6]);
+
+		unsigned bit = 0;
+
+		if (features_pkg_c2) {
+			msr_pkg_c2_prev = msr_pkg_c2;
+			msr_pkg_c2      = msr_pkg_c[bit];
+			valid_pkg_c2    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c3) {
+			msr_pkg_c3_prev = msr_pkg_c3;
+			msr_pkg_c3      = msr_pkg_c[bit];
+			valid_pkg_c3    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c6) {
+			msr_pkg_c6_prev = msr_pkg_c6;
+			msr_pkg_c6      = msr_pkg_c[bit];
+			valid_pkg_c6    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c7) {
+			msr_pkg_c7_prev = msr_pkg_c7;
+			msr_pkg_c7      = msr_pkg_c[bit];
+			valid_pkg_c7    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c8) {
+			msr_pkg_c8_prev = msr_pkg_c8;
+			msr_pkg_c8      = msr_pkg_c[bit];
+			valid_pkg_c8    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c9) {
+			msr_pkg_c9_prev = msr_pkg_c9;
+			msr_pkg_c9      = msr_pkg_c[bit];
+			valid_pkg_c9    = result && (success & (1 << bit++));
+		}
+		if (features_pkg_c10) {
+			msr_pkg_c10_prev = msr_pkg_c10;
+			msr_pkg_c10      = msr_pkg_c[bit];
+			valid_pkg_c10    = result && (success & (1 << bit++));
+		}
+
+		if (features_pkg_c2  && !valid_pkg_c2)  features_pkg_c2  = false;
+		if (features_pkg_c3  && !valid_pkg_c3)  features_pkg_c3  = false;
+		if (features_pkg_c6  && !valid_pkg_c6)  features_pkg_c6  = false;
+		if (features_pkg_c7  && !valid_pkg_c7)  features_pkg_c7  = false;
+		if (features_pkg_c8  && !valid_pkg_c8)  features_pkg_c8  = false;
+		if (features_pkg_c9  && !valid_pkg_c9)  features_pkg_c9  = false;
+		if (features_pkg_c10 && !valid_pkg_c10) features_pkg_c10 = false;
+	}
+
+	bool write_mwait_hint(System_control &system, uint64_t const &value) const
+	{
+		System_control::State state { };
+
+		system.add_wrmsr(state, SET_MWAIT_HINT, value);
+
+		state = system.system_control(state);
+
+		addr_t success = 0;
+		bool   result  = system.get_state(state, success);
+
+		return result && (success == 1);
+	}
+
 	void update(System_control &system)
 	{
 		if (cpuid.hwp()) {
@@ -540,6 +760,8 @@ struct Msr::Power_intel
 		read_power_info    (system);
 		read_power_limits  (system);
 		read_policy        (system);
+		read_mwait_core    (system);
+		read_mwait_pkg     (system);
 	}
 
 	void update(System_control &system, Genode::Xml_node const &config, Genode::Affinity::Location const &cpu)
@@ -651,14 +873,55 @@ struct Msr::Power_intel
 					        Hex(hwp_req), " -> ", Hex(raw_hwp));
 			}
 		});
+
+		config.with_optional_sub_node("mwait", [&] (auto const &node) {
+
+			bool off = node.attribute_value("off", false);
+			if (off) {
+				if (!write_mwait_hint(system, ~0U))
+					error ("changing to hlt failed");
+				return;
+			}
+
+			if (!node.has_attribute("c_state"))
+				return;
+
+			unsigned c_state = node.attribute_value("c_state", 0u);
+			unsigned c_sub   = node.attribute_value("c_sub_state", 0u);
+
+			if (c_state >= 8) {
+				error("mwait hint ", c_state, " ", c_sub, " is invalid");
+				return;
+			}
+
+			cpuid.intel_mwait_ext([&](auto const & c_sub_states) {
+				auto const sub_state_cnt = (c_sub_states >> (c_state * 4)) & 0xfu;
+
+				/* Table 4-11. MWAIT Hints Register (EAX) */
+				if (!sub_state_cnt || c_sub >= sub_state_cnt) {
+					error("mwait hint ", c_state, " ", c_sub, " is invalid");
+					return;
+				}
+
+				/*
+				 * Intel spec - Table 4-11. MWAIT Hints Register (EAX)
+				 *
+				 * C0 -> 1111b, C1 = 0, C2 = 1, ...
+				 */
+				c_state = (c_state == 0) ? 0xf : c_state - 1;
+
+				unsigned mwait_eax = (c_sub & 0xfu) | (c_state << 4);
+
+				if (!write_mwait_hint(system, mwait_eax))
+					error ("setting mwait hint failed");
+			});
+		});
 	}
 
-	template <typename T>
-	T time_diff(T const now, T const prev) const {
+	auto time_diff(auto const now, auto const prev) const {
 		return (now > prev) ? now - prev : prev - now; }
 
-	template <typename T>
-	T _pow(T value, unsigned long rounds) const
+	double _pow(double value, unsigned long rounds) const
 	{
 		if (rounds == 0) return 1;
 		if (rounds == 1) return value;
@@ -841,6 +1104,26 @@ struct Msr::Power_intel
 		});
 	}
 
+	void _report_residency(Genode::Xml_generator & xml,
+	                       uint64_t const tsc_freq_khz,
+	                       char const * const name,
+	                       uint64_t const value,
+	                       uint64_t const value_prev,
+	                       bool     const valid) const
+	{
+		if (!valid)
+			return;
+
+		auto const  abs_ms = time_diff(value,       0ull) / tsc_freq_khz;
+		auto const diff_ms = time_diff(value, value_prev) / tsc_freq_khz;
+
+		xml.node(name, [&] () {
+			xml.attribute("raw",     value);
+			xml.attribute("abs_ms",  abs_ms);
+			xml.attribute("diff_ms", diff_ms);
+		});
+	}
+
 	void report(Genode::Xml_generator &xml, uint64_t const tsc_freq_khz) const
 	{
 		using Genode::String;
@@ -972,6 +1255,48 @@ struct Msr::Power_intel
 					                   msr_dram_perf_prev, tsc_freq_khz);
 			});
 		}
+
+		xml.node("mwait_support", [&] () {
+			cpuid.intel_mwait_ext([&](auto const &value) {
+				auto const c_sub_states = value;
+
+				for (unsigned i = 0; i < 8; i++) {
+					auto const sub_state_cnt = (c_sub_states >> (i * 4)) & 0xf;
+
+					if (!sub_state_cnt)
+						continue;
+
+					xml.node(Genode::String<4>("c", i).string(), [&] () {
+						xml.attribute("sub_state_count", sub_state_cnt);
+					});
+				}
+			});
+		});
+
+		xml.node("msr_residency", [&] () {
+			_report_residency(xml, tsc_freq_khz, "core_c1",
+			                  msr_core_c1, msr_core_c1_prev, valid_core_c1);
+			_report_residency(xml, tsc_freq_khz, "core_c3",
+			                  msr_core_c3, msr_core_c3_prev, valid_core_c3);
+			_report_residency(xml, tsc_freq_khz, "core_c6",
+			                  msr_core_c6, msr_core_c6_prev, valid_core_c6);
+			_report_residency(xml, tsc_freq_khz, "core_c7",
+			                  msr_core_c7, msr_core_c7_prev, valid_core_c7);
+			_report_residency(xml, tsc_freq_khz, "pkg_c2",
+			                  msr_pkg_c2, msr_pkg_c2_prev, valid_pkg_c2);
+			_report_residency(xml, tsc_freq_khz, "pkg_c3",
+			                  msr_pkg_c3, msr_pkg_c3_prev, valid_pkg_c3);
+			_report_residency(xml, tsc_freq_khz, "pkg_c6",
+			                  msr_pkg_c6, msr_pkg_c6_prev, valid_pkg_c6);
+			_report_residency(xml, tsc_freq_khz, "pkg_c7",
+			                  msr_pkg_c7, msr_pkg_c7_prev, valid_pkg_c7);
+			_report_residency(xml, tsc_freq_khz, "pkg_c8",
+			                  msr_pkg_c8, msr_pkg_c8_prev, valid_pkg_c8);
+			_report_residency(xml, tsc_freq_khz, "pkg_c9",
+			                  msr_pkg_c9, msr_pkg_c9_prev, valid_pkg_c9);
+			_report_residency(xml, tsc_freq_khz, "pkg_c10",
+			                  msr_pkg_c9, msr_pkg_c10_prev, valid_pkg_c10);
+		});
 	}
 };
 

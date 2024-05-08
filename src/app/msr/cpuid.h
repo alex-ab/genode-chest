@@ -182,4 +182,20 @@ struct Msr::Cpuid
 
 		return !!(edx_8000[7] & (1 << 12));
 	}
+
+	bool intel_mwait_ext(auto const &fn) const
+	{
+		if (eax[0] < 5)
+			return false;
+
+		if (!(ecx[1] & (1 << 3))) /* MWAIT support */
+			return false;
+
+		if (!(ecx[5] & (1 << 0))) /* MWAIT EXT support */
+			return false;
+
+		fn(edx[5]);
+
+		return true;
+	}
 };
