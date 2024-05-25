@@ -7,18 +7,19 @@
 		<gui/>
 		<rtc/>
 		<vm/>
+		<usb/>
 		<rm/>
 		<timer/>
 		<report label="shape"/>
 	</requires>
 
 	<content>
-		<rom label="vm_seoul.cfg"/>
+		<rom label="vm_seoul_usb.cfg"/>
 		<rom label="init"/>
 		<rom label="seoul"/>
 	</content>
 
-	<config verbose="yes">
+	<config verbose="no">
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="PD"/>
@@ -32,16 +33,17 @@
 			<service name="Timer"/>
 			<service name="Block"/>
 			<service name="Report"/>
+			<service name="Usb"/>
 		</parent-provides>
 
-		<start name="seoul" caps="920">
+		<start name="seoul" caps="5000">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="3G"/>
+			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
 				<service name="ROM" label="config">
-					<parent label="vm_seoul.cfg"/> </service>
+					<parent label="vm_seoul_usb.cfg"/> </service>
 				<service name="Report" label="shape">
 					<parent label="shape"/> </service>
 				<service name="Gui" label="fb1.0">

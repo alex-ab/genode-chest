@@ -9,6 +9,7 @@
 		<gui/>
 		<rtc/>
 		<vm/>
+		<usb/>
 		<rm/>
 		<timer/>
 		<report label="shape"/>
@@ -20,7 +21,7 @@
 		<rom label="seoul"/>
 	</content>
 
-	<config verbose="yes">
+	<config verbose="no">
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="PD"/>
@@ -34,11 +35,12 @@
 			<service name="Timer"/>
 			<service name="Block"/>
 			<service name="Report"/>
+			<service name="Usb"/>
 		</parent-provides>
 
-		<start name="seoul" caps="1220">
+		<start name="seoul" caps="5000">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="8224M"/>
+			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
