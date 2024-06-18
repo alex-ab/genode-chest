@@ -39,7 +39,7 @@ struct Subjects
 		Genode::Avl_tree<Top::Thread> _threads    { };
 		Genode::Trace::Timestamp      _timestamp  { 0 };
 
-		Top::Thread *_lookup_thread(Genode::Trace::Subject_id const id)
+		Top::Thread *_lookup_thread(Genode::Trace::Subject_id const & id)
 		{
 			Top::Thread * thread = _threads.first();
 			if (thread)
@@ -672,7 +672,7 @@ struct Subjects
 			if (!_hovered_subject.id)
 				return false;
 
-			Top::Thread * thread = _lookup_thread(_hovered_subject.id);
+			Top::Thread * thread = _lookup_thread(_hovered_subject);
 			if (!thread)
 				return false;
 
@@ -879,7 +879,7 @@ struct Subjects
 				_pd_scroll.hovered = false;
 				_pd_scroll.prev = id.id == PD_SCROLL_UP;
 				_pd_scroll.next = id.id == PD_SCROLL_DOWN;
-				_hovered_subject = 0;
+				_hovered_subject = { };
 				_hovered_sub_id  = 0;
 			} else {
 				_pd_scroll.reset();
@@ -1981,7 +1981,7 @@ void App::Main::_handle_hover()
 	if (!id.id) {
 		sub_id = query_attribute<unsigned>(hover, "dialog", "frame", "vbox",
 		                                  "hbox", "vbox", "button", "name");
-		id = sub_id / 10;
+		id.id = sub_id / 10;
 		sub_id = sub_id % 10;
 	}
 

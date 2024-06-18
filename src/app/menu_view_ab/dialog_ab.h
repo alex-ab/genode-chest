@@ -65,7 +65,7 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 
 	Gui::Connection _gui { _env, _name };
 
-	Attached_dataspace _input_ds { _env.rm(), _gui.input()->dataspace() };
+	Attached_dataspace _input_ds { _env.rm(), _gui.input.dataspace() };
 
 	Signal_handler<Dialog> _input_handler = {
 		_env.ep(), *this, &Dialog::_handle_input};
@@ -74,7 +74,8 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 
 	Constructible<Gui_buffer> _buffer { };
 
-	Gui::Session::View_handle const _view_handle = _gui.create_view();
+	Gui::View_ref _view_ref { };
+	Gui::View_ids::Element const _view { _view_ref, _gui.view_ids };
 
 	Point _position { };
 
@@ -97,22 +98,21 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 	Area _root_widget_size() const
 	{
 		Area const min_size = _root_widget.min_size();
-		return Area(max(_configured_size.w(), min_size.w()),
-		            max(_configured_size.h(), min_size.h()));
+		return Area(max(_configured_size.w, min_size.w),
+		            max(_configured_size.h, min_size.h));
 	}
 
 	void _update_view(Rect geometry)
 	{
-		if (_view_geometry.p1()   == geometry.p1()
-		 && _view_geometry.area() == geometry.area())
+		if (_view_geometry.p1() == geometry.p1()
+		 && _view_geometry.area == geometry.area)
 			return;
 
-		using Command     = Gui::Session::Command;
-		using View_handle = Gui::Session::View_handle;
+		using Command = Gui::Session::Command;
 
 		_view_geometry = geometry;
-		_gui.enqueue<Command::Geometry>(_view_handle, _view_geometry);
-		_gui.enqueue<Command::To_front>(_view_handle, View_handle());
+		_gui.enqueue<Command::Geometry>(_view.id(), _view_geometry);
+		_gui.enqueue<Command::Front>(_view.id());
 		_gui.execute();
 	}
 
@@ -131,10 +131,14 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 		_env(env), _global_widget_factory(widget_factory), _action(action),
 		_name(_name_from_attr(node))
 	{
+		_gui.view(_view.id(), { });
+
 		_dialog_rom.sigh(_dialog_handler);
 		_dialog_handler.local_submit();
-		_gui.input()->sigh(_input_handler);
+		_gui.input.sigh(_input_handler);
 	}
+
+	~Dialog() { _gui.destroy_view(_view.id()); }
 
 	Widget::Hovered hovered_widget() const
 	{
@@ -171,13 +175,13 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 
 		Area const size = _root_widget_size();
 
-		unsigned const buffer_w = _buffer.constructed() ? _buffer->size().w() : 0,
-		               buffer_h = _buffer.constructed() ? _buffer->size().h() : 0;
+		unsigned const buffer_w = _buffer.constructed() ? _buffer->size().w : 0,
+		               buffer_h = _buffer.constructed() ? _buffer->size().h : 0;
 
-		Area const max_size(max(buffer_w, size.w()), max(buffer_h, size.h()));
+		Area const max_size(max(buffer_w, size.w), max(buffer_h, size.h));
 
-		bool const size_increased = (max_size.w() > buffer_w)
-		                         || (max_size.h() > buffer_h);
+		bool const size_increased = (max_size.w > buffer_w)
+		                         || (max_size.h > buffer_h);
 
 		if (!_buffer.constructed() || size_increased)
 			_buffer.construct(_gui, max_size, _env.ram(), _env.rm(),
@@ -195,7 +199,7 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 		});
 
 		_buffer->flush_surface();
-		_gui.framebuffer()->refresh(0, 0, _buffer->size().w(), _buffer->size().h());
+		_gui.framebuffer.refresh(0, 0, _buffer->size().w, _buffer->size().h);
 		_update_view(Rect(_position, size));
 
 		_redraw_scheduled = false;
@@ -261,7 +265,7 @@ void Menu_view::Dialog::_handle_input()
 
 	bool seq_number_changed = false;
 
-	_gui.input()->for_each_event([&] (Input::Event const &ev) {
+	_gui.input.for_each_event([&] (Input::Event const &ev) {
 
 		ev.handle_seq_number([&] (Input::Seq_number seq_number) {
 			seq_number_changed = true;

@@ -7,9 +7,9 @@ if {$use_wm} {
 }
 
 if {[have_include "power_on/qemu"]} {
-	set use_framebuffer "vesa_fb_drv"
+	set use_framebuffer "vesa_fb"
 } else {
-	set use_framebuffer "boot_fb_drv"
+	set use_framebuffer "boot_fb"
 
 }
 create_boot_directory
@@ -20,7 +20,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/pkg/[drivers_interactive_pkg] \
                   [depot_user]/pkg/themed_wm \
                   [depot_user]/pkg/fonts_fs \
-                  [depot_user]/src/boot_fb_drv \
+                  [depot_user]/src/boot_fb \
                   [depot_user]/src/init \
                   [depot_user]/src/report_rom \
                   [depot_user]/src/nitpicker \
@@ -62,7 +62,7 @@ append config {
 			<service name="Timer"> <child name="timer"/> </service>
 			<service name="Capture"> <child name="nitpicker"/> </service>
 			<service name="Event">   <child name="nitpicker"/> </service>
-			<service name="ROM" label="vesa_fb_drv"> <parent label="} $use_framebuffer {"/> </service>
+			<service name="ROM" label="vesa_fb"> <parent label="} $use_framebuffer {"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>

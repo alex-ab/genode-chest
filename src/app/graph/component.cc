@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2019 Genode Labs GmbH
+ * Copyright (C) 2019-2024 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -36,14 +36,15 @@ enum { MAX_GRAPHS = 8 };
 
 struct Checkpoint
 {
-	Gui::Point       _points[MAX_GRAPHS];
-	uint64_t         _values[MAX_GRAPHS];
-	Subject_id       _id[MAX_GRAPHS];
-	uint64_t         _time { 0 };
-	Genode::uint8_t  _used { 0 };
-	bool             _done { false };
+	Gui::Point       _points [MAX_GRAPHS] { };
+	uint64_t         _values [MAX_GRAPHS] { };
+	Subject_id       _id     [MAX_GRAPHS] { };
+	uint64_t         _time                { };
+	Genode::uint8_t  _used                { };
+	bool             _done                { };
 
-	bool unused(unsigned const i) const { return i < MAX_GRAPHS && !_points[i].x() && !_points[i].y(); }
+	bool unused(unsigned const i) const {
+		return i < MAX_GRAPHS && !_points[i].x && !_points[i].y; }
 };
 
 typedef Genode::Constructible<Genode::Attached_dataspace> Reconstruct_ds;
@@ -57,15 +58,14 @@ class Graph
 		Genode::Heap                     _heap       { _env.ram(), _env.rm() };
 		Genode::Attached_rom_dataspace   _config     { _env, "config" };
 		Gui::Connection                  _gui        { _env };
-		Input::Session_client           &_input      { *_gui.input() };
-		Gui::Session::View_handle        _view_all   { _gui.create_view() };
-		Gui::Session::View_handle        _view       { _gui.create_view(_view_all) };
-		Gui::Session::View_handle        _view_2     { _gui.create_view(_view_all) };
-		Gui::Session::View_handle        _view_text  { _gui.create_view(_view_all) };
-		Gui::Session::View_handle        _view_scale { _gui.create_view(_view_all) };
+		Gui::View_id const               _view_all   { 1 };
+		Gui::View_id const               _view       { 2 };
+		Gui::View_id const               _view_2     { 3 };
+		Gui::View_id const               _view_text  { 4 };
+		Gui::View_id const               _view_scale { 5 };
 
 		Genode::Avl_tree<Entry>    _entries   { };
-		Entry const                _entry_unknown { 0, "unknown", "", "" };
+		Entry const                _entry_unknown { { 0 }, "unknown", "", "" };
 
 		unsigned       _width        { 1000 };
 		unsigned       _height       { 425 };
@@ -98,11 +98,11 @@ class Graph
 
 		Signal_handler _config_handler = { _env.ep(), *this, &Graph::_handle_config};
 
-		Genode::Color const           _white     { 255, 255, 255 };
-		Genode::Color const           _red       { 255,   0,   0 };
-		Genode::Color const           _green     {   0, 255,   0 };
-		Genode::Color const           _blue      {   0,   0, 255 };
-		Genode::Color const           _black     {   0,   0,   0 };
+		Genode::Color const           _white     { 255, 255, 255,  255 };
+		Genode::Color const           _red       { 255,   0,   0,  255 };
+		Genode::Color const           _green     {   0, 255,   0,  255 };
+		Genode::Color const           _blue      {   0,   0, 255,  255 };
+		Genode::Color const           _black     {   0,   0,   0,  255 };
 
 		Checkpoint                    _column[256];
 		static unsigned constexpr     _column_max { sizeof(_column) / sizeof(_column[0]) };
@@ -125,36 +125,39 @@ class Graph
 		/**
 		 * GUI data initialisation
 		 */
-		Genode::Dataspace_capability _setup(int width, int height)
+		Genode::Dataspace_capability _setup(unsigned const width, unsigned const height)
 		{
 			using namespace Gui;
 
-			Framebuffer::Mode const mode { Area(width, height_mode()) };
+			using Command = Gui::Session::Command;
+
+			Framebuffer::Mode const mode { Gui::Area(width, height_mode()) };
 
 			_gui.buffer(mode, false /* no alpha */);
 
-			Point const p_start(0,0);
+			Gui::Point const p_start(0,0);
 
-			Rect const r_all(p_start, Area(width, height));
-			_gui.enqueue<Session::Command::Geometry>(_view_all, r_all);
+			Gui::Rect r_all  (p_start, Gui::Area(width, height));
+			Gui::Rect r_view (Gui::Point(_x_root + 1, 0), Gui::Area(width - _x_root - 1, height));
+			Gui::Rect r_view2(Gui::Point(_x_root + _step_width + 1, 0),
+			                  Gui::Area(width - _step_width - _x_root - 1, height));
+			Gui::Rect r_scale(p_start, Gui::Area(_x_scale, height));
+			Gui::Rect r_text { 0, 0, 10, 10 };
 
-			Rect const r_view(Point(_x_root + 1, 0), Area(width - _x_root - 1, height));
-			_gui.enqueue<Session::Command::Geometry>(_view, r_view);
+			_gui.      view(_view_all  ,            { .title = { }, .rect = r_all,   .front = true  });
+			_gui.child_view(_view      , _view_all, { .title = { }, .rect = r_view,  .front = false });
+			_gui.child_view(_view_2    , _view_all, { .title = { }, .rect = r_view2, .front = false });
+			_gui.child_view(_view_scale, _view_all, { .title = { }, .rect = r_scale, .front = false });
+			_gui.child_view(_view_text , _view_all, { .title = { }, .rect = r_text,  .front = false });
 
-			Rect const r_view2(Point(_x_root + _step_width + 1, 0), Area(width - _step_width - _x_root - 1, height));
-			_gui.enqueue<Session::Command::Geometry>(_view_2, r_view2);
+			_gui.enqueue<Command::Offset  >(_view  , Gui::Point(-_x_root - 1, 0));
+			_gui.enqueue<Command::Offset  >(_view_2, Gui::Point(_width, 0));
+			_gui.enqueue<Command::Front_of>(_view      , _view_2);
+			_gui.enqueue<Command::Front_of>(_view_scale, _view);
 
-			_gui.enqueue<Session::Command::Offset>(_view, Point(-_x_root - 1, 0));
-			_gui.enqueue<Session::Command::Offset>(_view_2, Point(_width, 0));
-
-			Rect const r_scale(p_start, Area(_x_scale, height));
-			_gui.enqueue<Session::Command::Geometry>(_view_scale, r_scale);
-
-			_gui.enqueue<Session::Command::To_front>(_view, _view_2);
-			_gui.enqueue<Session::Command::To_front>(_view_scale, _view);
 			_gui.execute();
 
-			return _gui.framebuffer()->dataspace();
+			return _gui.framebuffer.dataspace();
 		}
 
 		Signal_handler _graph_handler { _env.ep(), *this, &Graph::_handle_graph};
@@ -170,15 +173,14 @@ class Graph
 		{
 			i %= MAX_GRAPHS;
 			switch (i) {
-			case 0: return _red;
-			case 1: return _green;
-			case 2: return _blue;
-			case 3: return Genode::Color {   0, 255, 255 };
-			case 4: return Genode::Color { 255,   0, 255 };
-			case 5: return Genode::Color { 255,   0, 128 };
-			case 6: return Genode::Color { 255, 128,   0 };
-			default:
-				return Genode::Color { 255, 255,   0 };
+			case  0: return _red;
+			case  1: return _green;
+			case  2: return _blue;
+			case  3: return Genode::Color::rgb(  0, 255, 255);
+			case  4: return Genode::Color::rgb(255,   0, 255);
+			case  5: return Genode::Color::rgb(255,   0, 128);
+			case  6: return Genode::Color::rgb(255, 128,   0);
+			default: return Genode::Color::rgb(255, 255,   0);
 			}
 		}
 
@@ -198,7 +200,7 @@ class Graph
 
 				Genode::String<4> text(((y_root() - i) / scale_10()) * 10);
 
-				auto const text_size = _font.bounding_box().w() *
+				auto const text_size = _font.bounding_box().w *
 				                       (text.length() - 1) + _scale_10_len;
 				int xpos = 0;
 				int ypos = 0;
@@ -231,7 +233,7 @@ class Graph
 			                          percent, ".", rest < 10 ? "0" : "", rest, "%");
 		}
 
-		Entry * find_by_id(Subject_id const id) {
+		Entry * find_by_id(Subject_id const & id) {
 			Entry * entry = _entries.first();
 			if (entry)
 				entry = entry->find_by_id(id);
@@ -246,7 +248,7 @@ class Graph
 
 			_graph.sigh(_graph_handler);
 			_gui.mode_sigh(_signal_mode);
-			_input.sigh(_signal_input);
+			_gui.input.sigh(_signal_input);
 			_config.sigh(_config_handler);
 
 			_handle_config();
@@ -255,7 +257,7 @@ class Graph
 	private:
 
 		Pixel_rgb888 * _pixel(Gui::Point const &p) {
-			return _ds->local_addr<Pixel_rgb888>() + p.y() * _width + p.x(); }
+			return _ds->local_addr<Pixel_rgb888>() + p.y * _width + p.x; }
 
 		Pixel_rgb888 * _pixel(int x, int y) {
 			return _ds->local_addr<Pixel_rgb888>() + y * _width + x; }
@@ -346,15 +348,15 @@ class Graph
 			vline(x1, color);
 			vline(x2, color);
 
-			_gui.framebuffer()->refresh(x1, 0, 1, _height);
-			_gui.framebuffer()->refresh(x2, 0, 1, _height);
+			_gui.framebuffer.refresh(x1, 0, 1, _height);
+			_gui.framebuffer.refresh(x2, 0, 1, _height);
 		}
 
 		void marker(Gui::Point const point, int len,
 		            Genode::Color const &color)
 		{
 			Pixel_rgb888 * pixel = _ds->local_addr<Pixel_rgb888>()
-			                       + point.y() * _width + point.x();
+			                       + point.y * _width + point.x;
 
 			Pixel_rgb888 const dot(color.r, color.g, color.b, color.a);
 /*
@@ -375,13 +377,13 @@ class Graph
 
 			Pixel_rgb888 const dot(color.r, color.g, color.b, color.a);
 
-			int w = to.x() - fr.x() + 1;
+			int w = to.x - fr.x + 1;
 			if (w <= 0) {
-				w = to.x() - _x_root;
-				p_f = _pixel(_x_root + 1, fr.y());
+				w = to.x - _x_root;
+				p_f = _pixel(_x_root + 1, fr.y);
 			}
 
-			int const height = to.y() - fr.y();
+			int const height = to.y - fr.y;
 			int const h = (height < 0) ? height - 1 : height + 1;
 			int const start = (height < 0) ? h : 0;
 			int const end = (height < 0) ? 0 : h;
@@ -527,7 +529,7 @@ class Graph
 
 					Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
 					_init_screen();
-					_gui.framebuffer()->refresh(0, 0, _width, _height);
+					_gui.framebuffer.refresh(0, 0, _width, _height);
 				}
 #endif
 			}
@@ -551,7 +553,7 @@ public:
 
 		bool new_data(unsigned long long, unsigned const, unsigned long long);
 
-		bool id_available(Subject_id const id)
+		bool id_available(Subject_id const & id)
 		{
 			Entry * entry = _entries.first();
 			if (entry)
@@ -594,19 +596,19 @@ void Graph::_handle_mode()
 {
 	Framebuffer::Mode const mode = _gui.mode();
 
-	if (mode.area.w() == _width && mode.area.h() == _height)
+	if (mode.area.w == _width && mode.area.h == _height)
 		return;
 
-	if (mode.area.w() < 100 || mode.area.h() < 100)
+	if (mode.area.w < 100 || mode.area.h < 100)
 		return;
 
-	if (mode.area.w() * mode.area.h() > _max_width * _max_height) {
-		unsigned diff = (mode.area.w() * mode.area.h() -
+	if (mode.area.w * mode.area.h > _max_width * _max_height) {
+		unsigned diff = (mode.area.w * mode.area.h -
 		                 _max_width * _max_height) * sizeof(Pixel_rgb888);
 		if (diff > _env.pd().avail_ram().value + 0x2000) {
 			Genode::warning("no memory left for mode change - ",
 			                _width, "x", _height, " -> ",
-			                mode.area.w(), "x", mode.area.h(), " - ",
+			                mode.area.w, "x", mode.area.h, " - ",
 			                _env.pd().avail_ram(), " (available) < ",
 			                diff, " (required)");
 			return;
@@ -615,8 +617,8 @@ void Graph::_handle_mode()
 		_max_height = _height;
 	}
 
-	_width = mode.area.w();
-	_height = mode.area.h();
+	_width  = mode.area.w;
+	_height = mode.area.h;
 
 	if (!_ds.constructed())
 		return;
@@ -628,7 +630,8 @@ void Graph::_handle_mode()
 	/* XXX - column calculation in hovered line is off when not reseting -> _column_offset ? */
 	_init_screen(_sliding);
 	_replay_data();
-	_gui.framebuffer()->refresh(0, 0, _width, _height);
+
+	_gui.framebuffer.refresh(0, 0, _width, _height);
 }
 
 void Graph::_slide()
@@ -638,7 +641,7 @@ void Graph::_slide()
 //	if (_sliding_offset > 1) return;
 
 	/* clear old graphic content */
-	unsigned const x = _apply_data_point(10 /* does not matter value */, _graph_pos(_column_cur)).x();
+	unsigned const x = _apply_data_point(10 /* does not matter value */, _graph_pos(_column_cur)).x;
 	if (x < _step_width)
 		Genode::error("x < _step_width ", x);
 	else {
@@ -654,7 +657,8 @@ void Graph::_slide()
 
 	Point const p_view2(-_x_root - 1 + (_sliding_size() - _sliding_offset - 1) * _step_width, 0);
 	_gui.enqueue<Gui::Session::Command::Offset>(_view_2, p_view2);
-	_gui.enqueue<Gui::Session::Command::To_front>(_view_2, _view_all);
+
+	_gui.enqueue<Gui::Session::Command::Front_of>(_view_2, _view_all);
 
 	/* XXX - w/o marker_half on replay the last element is only half the value */
 	/* XXX   w   marker_half the connecting lines are distracted -> marker code would need adjustments */
@@ -664,10 +668,10 @@ void Graph::_slide()
 	_sliding_offset ++;
 
 	_gui.enqueue<Gui::Session::Command::Offset>(_view, Point(-_x_root - 1 - _sliding_offset * _step_width, 0));
-	_gui.enqueue<Gui::Session::Command::To_front>(_view, _view_all);
-	_gui.enqueue<Gui::Session::Command::To_front>(_view, _view_2);
-	_gui.enqueue<Gui::Session::Command::To_front>(_view_scale, _view_2);
 
+	_gui.enqueue<Gui::Session::Command::Front_of>(_view, _view_all);
+	_gui.enqueue<Gui::Session::Command::Front_of>(_view, _view_2);
+	_gui.enqueue<Gui::Session::Command::Front_of>(_view_scale, _view_2);
 	_gui.execute();
 
 	/* refresh will be triggered by handle_data */
@@ -845,7 +849,7 @@ void Graph::_handle_graph()
 		Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
 		_init_screen(false);
 		_replay_data();
-		_gui.framebuffer()->refresh(0, 0, _width, _height);
+		_gui.framebuffer.refresh(0, 0, _width, _height);
 		done = true;
 		//return;
 	}
@@ -869,7 +873,7 @@ void Graph::_handle_graph()
 	if (!_ds.constructed()) {
 		_ds.construct(_env.rm(), _setup(_width, _height));
 		_init_screen();
-		_gui.framebuffer()->refresh(0, 0, _width, _height);
+		_gui.framebuffer.refresh(0, 0, _width, _height);
 	}
 
 	if (_storage.constructed()) {
@@ -914,28 +918,22 @@ void Graph::_handle_data()
 			if (data_cnt >= MAX_GRAPHS)
 				return;
 
-			unsigned value = 0;
-			unsigned id = 0;
-			uint64_t tsc = 0;
-
-			node.attribute("value").value(value);
-			node.attribute("id").value(id);
-			node.attribute("tsc").value(tsc);
+			unsigned const value = node.attribute_value("value", 0);
+			unsigned const id    = node.attribute_value("id",    0);
+			uint64_t const tsc   = node.attribute_value("tsc",   0ull);
 
 			{
-				Entry * entry = find_by_id(id);
+				Entry * entry = find_by_id({id});
 				/* XXX - read out from storage if available */
 				if (!entry) {
-					Genode::String<12> cpu;
-					Genode::String<64> session_label;
-					Genode::Trace::Thread_name thread_name;
 
-					node.attribute("cpu").value(cpu);
-					node.attribute("label").value(session_label);
-					node.attribute("thread").value(thread_name);
+					auto cpu  = node.attribute_value("cpu", Genode::String<12>(""));
+					auto lab  = node.attribute_value("label", Genode::String<64>(""));
+					auto name = node.attribute_value("thread", Genode::Trace::Thread_name(""));
 
-					Genode::Session_label const label(session_label);
-					add_entry(id, label, thread_name, cpu);
+					Genode::Session_label const label(lab);
+
+					add_entry({id}, label, name, cpu);
 				}
 			}
 
@@ -975,16 +973,16 @@ void Graph::_handle_data()
 	}
 
 	if (refresh_all) {
-		_gui.framebuffer()->refresh(0, 0, _width, _height);
+		_gui.framebuffer.refresh(0, 0, _width, _height);
 		return;
 	}
 
 	/* XXX optimize not only for 1 step width update */
-	unsigned xpos_s = _apply_data_point(10 /* does not matter value */, graph_last).x();
-	unsigned xpos_e = _apply_data_point(10 /* does not matter value */, graph_cur).x();
+	unsigned xpos_s = _apply_data_point(10 /* does not matter value */, graph_last).x;
+	unsigned xpos_e = _apply_data_point(10 /* does not matter value */, graph_cur).x;
 
-	_gui.framebuffer()->refresh(xpos_s - _marker_half, 0,
-	                            xpos_e - xpos_s + 2 * _marker_half + 1, _height);
+	_gui.framebuffer.refresh(xpos_s - _marker_half, 0,
+	                         xpos_e - xpos_s + 2 * _marker_half + 1, _height);
 }
 
 void Graph::_handle_input()
@@ -994,7 +992,7 @@ void Graph::_handle_input()
 	unsigned hovered_old   = _hovered_vline;
 	unsigned last_y        = 0;
 
-	_input.for_each_event([&] (Input::Event const &ev) {
+	_gui.input.for_each_event([&] (Input::Event const &ev) {
 		ev.handle_absolute_motion([&] (int x, int y) {
 
 			/* consume events but drop it if we have no data to show */
@@ -1052,9 +1050,9 @@ void Graph::_handle_input()
 		using namespace Gui;
 
 		/* HACK - wm does not work properly for destroy_view ... nor to_back XXX */
-		Point point(0, _height);
-		Rect geometry_text(point, Area { 1, 1 });
-		_gui.enqueue<Session::Command::Geometry>(_view_text, geometry_text);
+		Gui::Point point(0, _height);
+		Gui::Rect geometry_text(point, Gui::Area { 1, 1 });
+		_gui.enqueue<Gui::Session::Command::Geometry>(_view_text, geometry_text);
 		_gui.execute();
 		return;
 	}
@@ -1137,12 +1135,10 @@ void Graph::_handle_input()
 		text_count ++;
 	}
 
-	unsigned const width = Genode::min(_width, (_font.bounding_box().w() - 1) * max_len);
+	unsigned const width = Genode::min(_width, (_font.bounding_box().w - 1) * max_len);
 	unsigned const height = Genode::min(height_mode() - _height, (_font.height() + 5) * text_count);
 
-	using namespace Gui;
-
-	Area area_text { width, height };
+	Gui::Area area_text { width, height };
 
 	unsigned xpos = x + _step_width;
 	if ((xpos + width > _width)) {
@@ -1154,16 +1150,19 @@ void Graph::_handle_input()
 		else
 			xpos = 0;
 	}
-	int ypos = last_y;
-	if (last_y + area_text.h() >= _height)
-		ypos = _height - area_text.h();
 
-	Point point(xpos, ypos);
-	Rect geometry_text(point, area_text);
+	auto ypos = last_y;
+	if (last_y + area_text.h >= _height)
+		ypos = _height - area_text.h;
 
-	_gui.enqueue<Session::Command::Offset>(_view_text, Point(0, -_height));
-	_gui.enqueue<Session::Command::Geometry>(_view_text, geometry_text);
-	_gui.enqueue<Session::Command::To_front>(_view_text, Gui::Session::View_handle());
+	Gui::Point point        (xpos,  ypos);
+	Gui::Rect  geometry_text(point, area_text);
+
+	using Command = Gui::Session::Command;
+
+	_gui.enqueue<Command::Offset  >(_view_text, Gui::Point(0, -_height));
+	_gui.enqueue<Command::Geometry>(_view_text, geometry_text);
+	_gui.enqueue<Command::Front>   (_view_text);
 	_gui.execute();
 }
 
