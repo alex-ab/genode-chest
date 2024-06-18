@@ -227,7 +227,7 @@ class Top::Storage
 					_apply<Type_c>(packet, _select, [&] (Type_c const & type) {
 
 						/* XXX better tsc transfer ? */
-						if (type.id == INVALID_ID) {
+						if (type.id.id == INVALID_ID) {
 							if (_state == IDLE) {
 								_state = WAIT_FOR_TSC_0;
 								return true;

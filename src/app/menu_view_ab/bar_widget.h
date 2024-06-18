@@ -70,11 +70,11 @@ struct Menu_view::Bar_widget : Widget
 		unsigned int h = node.attribute_value("height", 0U);
 
 		if (_font && !h) h = _font->height();
-		if (!w) w = _size.w();
-		if (!h) h = _size.h();
+		if (!w) w = _size.w;
+		if (!h) h = _size.h;
 
 		_size   = Area(w, h);
-		_length = percent ? _size.w() / (100u / percent) : 0;
+		_length = percent ? _size.w / (100u / percent) : 0;
 	}
 
 	Area min_size() const override
@@ -86,7 +86,7 @@ struct Menu_view::Bar_widget : Widget
 	          Surface<Pixel_alpha8> &alpha_surface,
 	          Point at) const override
 	{
-		Rect const rect(at, Area(_length, _size.h()));
+		Rect const rect(at, Area(_length, _size.h));
 
 		Box_painter::paint(pixel_surface, rect, _color);
 		Box_painter::paint(alpha_surface, rect, _color);
@@ -97,17 +97,17 @@ struct Menu_view::Bar_widget : Widget
 		Area const text_size(_font->string_width(_text.string()).decimal(),
 		                     _font->height());
 
-		int const dx = (int)geometry().w() - text_size.w(),
-		          dy = (int)geometry().h() - text_size.h();
+		auto const dx = geometry().w() - text_size.w,
+		           dy = geometry().h() - text_size.h;
 
 		Point const centered = at + Point(dx/2, dy/2);
 
 		Text_painter::paint(pixel_surface,
-		                    Text_painter::Position(centered.x(), centered.y()),
+		                    Text_painter::Position(centered.x, centered.y),
 		                    *_font, _color_text, _text.string());
 
 		Text_painter::paint(alpha_surface,
-		                    Text_painter::Position(centered.x(), centered.y()),
+		                    Text_painter::Position(centered.x, centered.y),
 		                    *_font, Color(255, 255, 255), _text.string());
 	}
 

@@ -88,8 +88,8 @@ struct Menu_view::Graph_widget : Widget
 		}
 
 		if (_font && !h) h = _font->height();
-		if (!w) w = _size.w();
-		if (!h) h = _size.h();
+		if (!w) w = _size.w;
+		if (!h) h = _size.h;
 
 		_size   = Area(w, h);
 	}
@@ -116,11 +116,11 @@ struct Menu_view::Graph_widget : Widget
 			Point const centered = at; // + Point(dx/2, dy/2);
 
 			Text_painter::paint(pixel_surface,
-			                    Text_painter::Position(centered.x(), centered.y()),
+			                    Text_painter::Position(centered.x, centered.y),
 			                    *_font, _color_text, _text.string());
 
 			Text_painter::paint(alpha_surface,
-			                    Text_painter::Position(centered.x(), centered.y()),
+			                    Text_painter::Position(centered.x, centered.y),
 			                    *_font, Color(255, 255, 255), _text.string());
 		}
 
@@ -129,10 +129,10 @@ struct Menu_view::Graph_widget : Widget
 		for (uint8_t i = _entries - 1; i > 1; i--) {
 			uint8_t prev = uint8_t((_px_c + i - 1) % _entries);
 			uint8_t curr = uint8_t((_px_c + i) % _entries);
-			Point f { at.x() + int(5 + (i + 0) * (geometry().w() - 10) / _entries),
-			          at.y() + int(geometry().h() - 5 - (geometry().h() - 10) * _px[prev] / 100) };
-			Point t { at.x() + int(5 + (i + 1) * (geometry().w() - 10) / _entries),
-			          at.y() + int(geometry().h() - 5 - (geometry().h() - 10) * _px[curr] / 100) };
+			Point f { at.x + int(5 + (i + 0) * (geometry().w() - 10) / _entries),
+			          at.y + int(geometry().h() - 5 - (geometry().h() - 10) * _px[prev] / 100) };
+			Point t { at.x + int(5 + (i + 1) * (geometry().w() - 10) / _entries),
+			          at.y + int(geometry().h() - 5 - (geometry().h() - 10) * _px[curr] / 100) };
 
 			line.paint(pixel_surface, f, t, _color_text);
 		}
