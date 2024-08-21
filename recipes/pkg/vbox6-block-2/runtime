@@ -10,15 +10,14 @@
 		<gpu/>
 		<gui/>
 		<nic/>
+		<rom label="mesa_gpu_drv.lib.so"/>
 		<rom label="capslock"/>
 		<rom label="platform_info"/>
 		<report label="shape"/>
 		<report label="clipboard"/>
 		<rom    label="clipboard"/>
-		<rom label="mesa_gpu_drv.lib.so"/>
 		<rm/>
 		<rtc/>
-		<rom label="usb_devices"/>
 		<usb/>
 		<play/>
 		<record/>
@@ -33,8 +32,8 @@
 			<service name="CPU"/>
 			<service name="LOG"/>
 			<service name="VM"/>
-			<service name="Gui"/>
 			<service name="Gpu"/>
+			<service name="Gui"/>
 			<service name="Timer"/>
 			<service name="Rtc"/>
 			<service name="Report"/>
@@ -57,10 +56,8 @@
 			<config vbox_file="machine.vbox6" xhci="yes" vm_name="linux" capslock="rom" ld_verbose="yes">
 				<vfs>
 					<dir name="dev">
-<!--
-						<log/> <rtc/> <null/> <gpu/> <zero/> <oss name="dsp"/>
--->
-						<log/> <rtc/> <null/> <zero/>
+						<log/> <rtc/> <null/> <gpu/> <zero/>
+						<oss name="dsp" min_ofrag_size="8192" min_ifrag_size="8192"/>
 						<block name="block0" label="block0" block_buffer_count="128"/>
 						<block name="block1" label="block1" block_buffer_count="128"/>
 					</dir>
@@ -93,8 +90,8 @@
 				  <parent label="virtualbox6-sharedclipboard.lib.so"/> </service>
 				<service name="ROM" label="VBoxSharedFolders.so">
 				  <parent label="virtualbox6-sharedfolders.lib.so"/> </service>
-				<service name="ROM" label="mesa_gpu_drv.lib.so">
-				  <parent label="mesa_gpu_drv.lib.so"/> </service>
+				<service name="ROM" label="mesa_gpu.lib.so">
+				  <parent label="mesa_gpu.lib.so"/> </service>
 				<service name="Nic">                        <parent/>                       </service>
 				<service name="Report" label="shape">       <parent label="shape"/>         </service>
 				<service name="ROM"    label="clipboard">   <parent label="clipboard"/>     </service>
@@ -109,10 +106,9 @@
 		<rom label="egl.lib.so"/>
 		<rom label="expat.lib.so"/>
 		<rom label="glapi.lib.so"/>
-		<rom label="ld.lib.so"/>
 		<rom label="init"/>
-		<rom label="virtualbox6"/>
 		<rom label="jpeg.lib.so"/>
+		<rom label="ld.lib.so"/>
 		<rom label="libc.lib.so"/>
 		<rom label="libdrm.lib.so"/>
 		<rom label="libiconv.lib.so"/>
@@ -125,6 +121,7 @@
 		<rom label="vfs_gpu.lib.so"/>
 		<rom label="vfs_oss.lib.so"/>
 		<rom label="vfs_pipe.lib.so"/>
+		<rom label="virtualbox6"/>
 		<rom label="virtualbox6-shaderlib.lib.so"/>
 		<rom label="virtualbox6-sharedclipboard.lib.so"/>
 		<rom label="virtualbox6-sharedfolders.lib.so"/>
