@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (C) 2018-2023 Genode Labs GmbH
+ * Copyright (C) 2018-2024 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -70,6 +70,10 @@ struct Vdi::Block_session_component : Rpc_object<::Block::Session>,
 	{
 		vdi.set_notify_cap(Genode::Signal_context_capability());
 
+		bool progress = handle_request(true /* closing */);
+		if (progress)
+			wakeup_client_if_needed();
+
 		env.ep().dissolve(*this);
 	}
 
@@ -77,80 +81,96 @@ struct Vdi::Block_session_component : Rpc_object<::Block::Session>,
 
 	Capability<Tx> tx_cap() override { return Request_stream::tx_cap(); }
 
-	void handle_requests() override
-	{
-		while (true) {
+	void handle_requests() override;
+	bool handle_request(bool closing);
+};
 
-			bool progress = false;
 
-			with_requests([&] (::Block::Request request) {
+void Vdi::Block_session_component::handle_requests()
+{
+	while (true) {
 
-				Response response = Response::RETRY;
+		bool const progress = handle_request(false);
 
-				with_payload([&] (Request_stream::Payload const &payload) {
-					response = vdi.handle(request, payload);
+		if (progress == false) break;
+	}
 
-					if (response == Response::ACCEPTED) {
+	/* poke */
+	wakeup_client_if_needed();
+}
 
-						progress = true;
-						request.success = true;
 
-						bool done = false;
-						try_acknowledge([&](Ack &ack) {
+bool Vdi::Block_session_component::handle_request(bool closing)
+{
+	bool progress = false;
 
-							if (done) return;
+	with_requests([&] (::Block::Request request) {
 
-							ack.submit(request);
-							done = true;
-						});
+		Response response = Response::RETRY;
 
-						if (!done)
-							Genode::error("ack missing ... stall ahead");
+		with_payload([&] (Request_stream::Payload const &payload) {
+			response = vdi.handle(request, payload);
 
-#if 0
-						Genode::log("request ", (int)request.operation.type,
-						            request.operation.type == ::Block::Operation::Type::WRITE ? " write" : "",
-						            request.operation.type == ::Block::Operation::Type::READ  ? " read" : "",
-						            " request offset=",request.offset,
-						            " block=", request.operation.block_number,
-						            " count=", request.operation.count,
-						            " done");
-#endif
-					} else {
-						if (response == Response::RETRY)
-							return;
+			if (response == Response::ACCEPTED) {
 
-						Genode::error("unknown state - request ", (int)request.operation.type,
-						              request.operation.type == ::Block::Operation::Type::WRITE ? " write" : "",
-						              request.operation.type == ::Block::Operation::Type::READ  ? " read" : "",
-						              " request offset=",request.offset,
-						              " block=", request.operation.block_number,
-						              " count=", request.operation.count);
-						Genode::Mutex mutex;
-						while (true) { mutex.acquire(); }
-					}
+				progress = true;
+				request.success = true;
+
+				bool done = false;
+				try_acknowledge([&](Ack &ack) {
+
+					if (done) return;
+
+					ack.submit(request);
+					done = true;
 				});
 
-				return response;
-			});
+				if (!done)
+					Genode::error("ack missing ... stall ahead");
 
-			if (progress == false) break;
-		}
+#if 0
+				Genode::log("request ", (int)request.operation.type,
+				            request.operation.type == ::Block::Operation::Type::WRITE ? " write" : "",
+				            request.operation.type == ::Block::Operation::Type::READ  ? " read" : "",
+				            " request offset=",request.offset,
+				            " block=", request.operation.block_number,
+				            " count=", request.operation.count,
+				            " done");
+#endif
+			} else {
+				if (response == Response::RETRY)
+					return;
 
-		/* poke */
-		wakeup_client_if_needed();
-	}
-};
+				Genode::error("unknown state - request ", (int)request.operation.type,
+				              request.operation.type == ::Block::Operation::Type::WRITE ? " write" : "",
+				              request.operation.type == ::Block::Operation::Type::READ  ? " read" : "",
+				              " request offset=",request.offset,
+				              " block=", request.operation.block_number,
+				              " count=", request.operation.count);
+				Genode::Mutex mutex;
+				while (true) { mutex.acquire(); }
+			}
+		});
+
+		if (response == Response::RETRY && closing)
+			Genode::warning("session is closing but still work to do ...");
+
+		return response;
+	});
+
+	return progress;
+}
+
 
 struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 {
-	Env                                    &env;
-	Attached_rom_dataspace                  config { env, "config" };
+	Env                                   & env;
+	Attached_rom_dataspace                  config   { env, "config" };
 	Constructible<Attached_ram_dataspace>   block_ds { };
 	Constructible<Vdi::File>                vdi_file { };
-	Constructible<Block_session_component>  client { };
-	Signal_handler<Main>                    notify { env.ep(), *this,
-	                                                 &Main::init};
+	Constructible<Block_session_component>  client   { };
+	Signal_handler<Main>                    notify   { env.ep(), *this,
+	                                                   &Main::init};
 
 	void init()
 	{
@@ -159,8 +179,7 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 			env.parent().announce(env.ep().manage(*this));
 	}
 
-	Main(Env &env)
-	: env(env)
+	Main(Env &env) : env(env)
 	{
 		log("--- Starting VDI driver ---");
 
@@ -169,14 +188,12 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 	}
 
 	Session_capability session(Root::Session_args const &args,
-	                           Affinity const &) override
+	                           Affinity           const &     ) override
 	{
-		if (client.constructed())
-			throw Service_denied();
-		if (block_ds.constructed())
-			throw Service_denied();
+		if (client  .constructed()) throw Service_denied();
+		if (block_ds.constructed()) throw Service_denied();
 
-		Session_label  const label = label_from_args(args.string());
+		Session_label const label = label_from_args(args.string());
 
 		Ram_quota const ram_quota = ram_quota_from_args(args.string());
 		size_t const tx_buf_size =
@@ -205,12 +222,10 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 	void upgrade(Session_capability, Root::Upgrade_args const&) override {
 		Genode::warning(__func__, " not implemented"); }
 
-	void close(Session_capability cap) override {
-		Genode::warning(__func__, " not implemented ", cap);
-		if (block_ds.constructed())
-			block_ds.destruct();
-		if (client.constructed())
-			client.destruct();
+	void close(Session_capability) override
+	{
+		if (client  .constructed()) client  .destruct();
+		if (block_ds.constructed()) block_ds.destruct();
 	}
 };
 
