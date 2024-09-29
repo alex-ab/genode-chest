@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2018-2023 Genode Labs GmbH
+ * Copyright (C) 2018-2024 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -96,7 +96,7 @@ struct Subjects
 		/* state whether topmost threads w/o idle should be reported to graph */
 		bool _cpu_graph_top_no_idle [MAX_CPUS_X][MAX_CPUS_Y] { };
 
-		Button_hub<1, 1, 20, 2> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
+		Button_hub<1, 1, 20, 4> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
 
 		bool & cpu_show(Location const &loc) {
 			return _cpu_show[loc.xpos()][loc.ypos()]; }
@@ -110,10 +110,10 @@ struct Subjects
 		bool & cpu_online(Location const &loc) {
 			return _cpu_online[loc.xpos()][loc.ypos()]; }
 
-		Button_hub<1, 1, 20, 2> & _cpu_number(Location const &loc) {
+		Button_hub<1, 1, 20, 4> & _cpu_number(Location const &loc) {
 			return _cpu_num[loc.xpos()][loc.ypos()]; }
 
-		Button_hub<1, 1, 20, 2> const & _cpu_number(Location const &loc) const {
+		Button_hub<1, 1, 20, 4> const & _cpu_number(Location const &loc) const {
 			return _cpu_num[loc.xpos()][loc.ypos()]; }
 
 		bool & _graph_top_most(Location const &loc) {
@@ -122,9 +122,9 @@ struct Subjects
 		bool & _graph_top_most_no_idle(Location const &loc) {
 			return _cpu_graph_top_no_idle[loc.xpos()][loc.ypos()]; }
 
-		unsigned _num_subjects                { 0 };
-		unsigned _num_pds                     { 0 };
-		unsigned _config_pds_per_cpu      { 20 };
+		unsigned _num_subjects       {  0 };
+		unsigned _num_pds            {  0 };
+		unsigned _config_pds_per_cpu { 20 };
 
 		Genode::Trace::Subject_id _hovered_subject    { };
 		unsigned                  _hovered_sub_id     { 0 };

@@ -131,9 +131,7 @@ class Graph
 
 			using Command = Gui::Session::Command;
 
-			Framebuffer::Mode const mode { Gui::Area(width, height_mode()) };
-
-			_gui.buffer(mode, false /* no alpha */);
+			_gui.buffer({ .area = { width, height_mode() }, .alpha = false });
 
 			Gui::Point const p_start(0,0);
 
@@ -247,7 +245,7 @@ class Graph
 			Genode::memset(_column, 0, sizeof(_column));
 
 			_graph.sigh(_graph_handler);
-			_gui.mode_sigh(_signal_mode);
+			_gui.info_sigh(_signal_mode);
 			_gui.input.sigh(_signal_input);
 			_config.sigh(_config_handler);
 
@@ -594,7 +592,8 @@ void Graph::_handle_config()
 
 void Graph::_handle_mode()
 {
-	Framebuffer::Mode const mode = _gui.mode();
+	auto mode = _gui.window().convert<Gui::Rect>([&] (Gui::Rect rect) { return rect; },
+                                                     [&] (Gui::Undefined) { return Gui::Rect { { }, { 1, 1 } }; });
 
 	if (mode.area.w == _width && mode.area.h == _height)
 		return;
@@ -624,7 +623,14 @@ void Graph::_handle_mode()
 		return;
 
 	_ds.destruct();
-	_ds.construct(_env.rm(), _setup(_width, _height));
+
+	auto const gui_ds_buffer = _setup(mode.area.w, mode.area.h);
+	if (!gui_ds_buffer.valid()) {
+		Genode::error("gui buffer allocation failed");
+		return;
+	}
+
+	_ds.construct(_env.rm(), gui_ds_buffer);
 
 	Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
 	/* XXX - column calculation in hovered line is off when not reseting -> _column_offset ? */
