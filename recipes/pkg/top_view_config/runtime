@@ -1,4 +1,4 @@
-<runtime ram="40M" caps="900" binary="init">
+<runtime ram="44M" caps="900" binary="init">
 
 	<requires>
 		<gui/>
@@ -52,27 +52,6 @@
 			</route>
 		</start>
 
-		<start name="menu_view" caps="200">
-			<binary name="menu_view_ab"/>
-			<resource name="RAM" quantum="24M"/>
-			<config>
-				<report hover="yes"/>
-				<libc stderr="/dev/log"/>
-				<vfs>
-					<tar name="menu_view_styles.tar" />
-					<dir name="dev"> <log/> </dir>
-					<dir name="fonts"> <fs label="fonts"/> </dir>
-				</vfs>
-				<dialog name="dialog" xpos="200" ypos="100"/>
-			</config>
-			<route>
-				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
-				<service name="Report" label="hover"> <child name="report_rom"/> </service>
-				<service name="File_system" label="fonts"> <parent label="fonts"/> </service>
-				<any-service> <parent/> <any-child/> </any-service>
-			</route>
-		</start>
-
 		<start name="graph" caps="100">
 			<resource name="RAM" quantum="8M"/>
 			<config>
@@ -98,6 +77,28 @@
 				<any-service> <parent/> </any-service>
 			</route>
 		</start>
+
+		<start name="menu_view" caps="200">
+			<binary name="menu_view_ab"/>
+			<resource name="RAM" quantum="28M"/>
+			<config>
+				<report hover="yes"/>
+				<libc stderr="/dev/log"/>
+				<vfs>
+					<tar name="menu_view_styles.tar" />
+					<dir name="dev"> <log/> </dir>
+					<dir name="fonts"> <fs label="fonts"/> </dir>
+				</vfs>
+				<dialog name="dialog" xpos="200" ypos="100"/>
+			</config>
+			<route>
+				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
+				<service name="Report" label="hover"> <child name="report_rom"/> </service>
+				<service name="File_system" label="fonts"> <parent label="fonts"/> </service>
+				<any-service> <parent/> <any-child/> </any-service>
+			</route>
+		</start>
+
 	</config>
 
 	<content>
