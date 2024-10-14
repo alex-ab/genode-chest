@@ -72,7 +72,7 @@
 
 		<start name="seoul" caps="10000">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="3G"/>
+			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
