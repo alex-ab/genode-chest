@@ -4,16 +4,17 @@
 		<file_system writeable="yes" label="vdi"/>
 		<nic/>
 		<rom label="platform_info"/>
-		<vm/>
-		<rm/>
-		<rtc/>
-		<timer/>
 		<gui/>
+		<rtc/>
+		<vm/>
+		<usb/>
+		<rm/>
+		<timer/>
 		<report label="shape"/>
 	</requires>
 
 	<content>
-		<rom label="vm_seoul.cfg"/>
+		<rom label="vm_seoul_usb.cfg"/>
 		<rom label="init"/>
 		<rom label="vfs.lib.so"/>
 		<rom label="vfs_import.lib.so"/>
@@ -23,8 +24,7 @@
 		<rom label="seoul"/>
 	</content>
 
-	<config verbose="yes">
-
+	<config verbose="no">
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="PD"/>
@@ -38,6 +38,7 @@
 			<service name="Timer"/>
 			<service name="Report"/>
 			<service name="File_system"/>
+			<service name="Usb"/>
 		</parent-provides>
 
 		<start name="vdi_block" ram="8M" caps="100">
@@ -58,14 +59,14 @@
 			</route>
 		</start>
 
-		<start name="seoul" caps="920">
+		<start name="seoul" caps="5000">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="3G"/>
+			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
 				<service name="ROM" label="config">
-					<parent label="vm_seoul.cfg"/> </service>
+					<parent label="vm_seoul_usb.cfg"/> </service>
 				<service name="Block" label="disk0">
 					<child name="vdi_block"/> </service>
 				<service name="Report" label="shape">

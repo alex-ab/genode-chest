@@ -4,11 +4,12 @@
 		<file_system writeable="yes" label="vdi"/>
 		<nic/>
 		<rom label="platform_info"/>
-		<vm/>
-		<rm/>
-		<rtc/>
-		<timer/>
 		<gui/>
+		<rtc/>
+		<vm/>
+		<usb/>
+		<rm/>
+		<timer/>
 		<report label="shape"/>
 		<play/>
 	</requires>
@@ -24,8 +25,7 @@
 		<rom label="seoul"/>
 	</content>
 
-	<config verbose="yes">
-
+	<config verbose="no">
 		<parent-provides>
 			<service name="ROM"/>
 			<service name="PD"/>
@@ -39,6 +39,7 @@
 			<service name="Timer"/>
 			<service name="Report"/>
 			<service name="File_system"/>
+			<service name="Usb"/>
 			<service name="Play"/>
 		</parent-provides>
 
@@ -60,9 +61,9 @@
 			</route>
 		</start>
 
-		<start name="seoul" caps="920">
+		<start name="seoul" caps="5000">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="3G"/>
+			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>
