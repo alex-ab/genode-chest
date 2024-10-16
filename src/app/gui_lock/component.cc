@@ -15,6 +15,11 @@
 #include <base/component.h>
 #include <gui_session/connection.h>
 
+#include <nitpicker_gfx/tff_font.h>
+#include <nitpicker_gfx/box_painter.h>
+
+extern char _binary_mono_tff_start[];
+
 struct Lock
 {
 	typedef Gui::Session::Command     Command;
@@ -25,21 +30,26 @@ struct Lock
 	typedef Genode::Constructible<Genode::Attached_dataspace> Fb;
 	typedef Genode::Attached_rom_dataspace                    Rom;
 	typedef Genode::Color                                     Color;
+	typedef Genode::Pixel_rgb888                              Pixel_rgb888;
 
 	Genode::Env    &_env;
 	View_id         _handle         { 1 };
 	Gui_con         _gui            { };
-	Fb              _framebuffer    { };
+	Fb              _fb             { };
 	Signal_handler  _input_handler  { _env.ep(), *this, &Lock::_handle_input };
 	Signal_handler  _mode_handler   { _env.ep(), *this, &Lock::_handle_mode };
 	Rom             _config_rom     { _env, "config" };
 	Signal_handler  _config_handler { _env.ep(), *this, &Lock::_update_config };
 
+	Tff_font::Static_glyph_buffer<4096> _glyph_buffer { };
+	Tff_font                            _default_font;
+
+	short int const hs              { 10 };
 	bool            _transparent    { };
 	bool            _cmp_valid      { };
 
 	/* pwd state */
-	enum { WAIT_CLICK, RECORD_PWD, COMPARE_PWD } state { WAIT_CLICK };
+	enum State { WAIT_CLICK, RECORD_PWD, BEFORE_COMPARE, COMPARE_PWD } state { WAIT_CLICK };
 
 	struct {
 		unsigned chars [128];
@@ -47,15 +57,31 @@ struct Lock
 		unsigned max;
 	} _pwd { };
 
-	void _update_view(auto const &color)
+	void _update_view(auto const &bg_color, auto const &fg_color,
+	                  unsigned const offset,
+	                  char const * const text, unsigned const text_len)
 	{
-		unsigned *pixels = _framebuffer->local_addr<unsigned>();
-		for (unsigned i = 0; i < _framebuffer->size() / sizeof(*pixels); i++)
-			pixels[i] = *(unsigned *)(&color);
+		unsigned   * const pixels = _fb->local_addr<unsigned>();
+		auto         const size   = _fb->size() / sizeof(*pixels);
 
-		using namespace Gui;
+		for (unsigned i = 0; i < size; i++)
+			pixels[i] = *(unsigned *)(&bg_color);
 
-		auto mode = _mode();
+		auto const mode = _mode();
+
+		Genode::Surface<Pixel_rgb888> surface(reinterpret_cast<Pixel_rgb888 *>(pixels),
+		                                      mode.area);
+
+		if (text && text_len) {
+			auto const size  = _default_font.bounding_box();
+			auto const sub_w = size.w * text_len / 2;
+			auto const sub_h = size.h / 2;
+
+			Text_painter::Position where(int(mode.area.w / 2 - sub_w),
+			                             int(mode.area.h / 2 - sub_h - offset));
+			Text_painter::paint(surface, where, _default_font,
+			                    fg_color, text);
+		}
 
 		_gui->view(_handle, { .title = { }, .rect = mode, .front = true });
 
@@ -66,51 +92,35 @@ struct Lock
 
 	void _switch_view_record_pwd()
 	{
-		_update_view(Color::rgb(0xff, 0xff, 0xff));
+		char const buffer[] = "Recording password ...";
+		auto const bg_black = Color::rgb(255, 255, 255);
+		auto const fg_white = Color::rgb(  0,   0,   0);
+
+		_update_view(bg_black, fg_white, hs * 2, buffer, sizeof(buffer) - 1);
 
 		state = RECORD_PWD;
 		_cmp_valid = false;
 	}
 
-	void _show_box(unsigned const chars, Genode::uint8_t const cc, unsigned const sc)
+	void _switch_view_before_compare()
 	{
-		if (!chars) return;
+		auto const bg_trans = Color::clamped_rgba(16, 16, 16, 16);
 
-		unsigned * const pixels = _framebuffer->local_addr<unsigned>();
+		_update_view(_transparent ? bg_trans : Color::black(), Color::black(),
+		             0, nullptr, 0);
 
-		auto const mode = _mode();
-
-		int const hs = 10;
-		int const hsa = hs + 2;
-
-		unsigned const offset = (chars - 1) * hsa;
-		if (offset + hsa * 2 >= mode.area.w / 2)
-			return;
-
-		unsigned const xpos = mode.area.w / 2 - offset;
-		unsigned const ypos = mode.area.h / 2;
-
-		for (int y=-hs; y < hs; y++)
-			Genode::memset(pixels + mode.area.w * (ypos + y) + xpos - hs,
-			               cc, (chars * hsa * 2 + hs) * sizeof(*pixels));
-
-		for (int y=-hs; y < hs; y++) {
-			for (unsigned c = 0; c < chars; c++) {
-				unsigned x = xpos + c * hsa * 2;
-				for (int i=-hs; i < hs; i++) {
-					pixels[mode.area.w * (ypos + y) + x + i ] = sc;
-				}
-			}
-		}
-
-		_gui->framebuffer.refresh(xpos - hs, ypos - hs,
-		                          chars * hsa * 2 + hs * 2, hs * 2);
+		state = BEFORE_COMPARE;
 	}
 
 	void _switch_view_compare_pwd()
 	{
-		_update_view(_transparent ? Color::clamped_rgba(16, 16, 16, 16)
-		                          : Color::rgb(0, 0, 0) /* white */);
+		char const buffer[] = "Provide password to unlock screen ...";
+		auto const bg_white = Color::rgb(0, 0, 0);
+		auto const bg_trans = Color::clamped_rgba(16, 16, 16, 16);
+		auto const fg_black = Color::rgb(255, 255, 255);
+
+		_update_view(_transparent ? bg_trans : bg_white, fg_black,
+		             hs * 2, buffer, sizeof(buffer) - 1);
 
 		state = COMPARE_PWD;
 
@@ -120,9 +130,12 @@ struct Lock
 
 	void _switch_view_initial()
 	{
-		auto const red = Color::rgb(0, 0, 0xac);
+		char const buffer[] = "After the next text input,"
+		                      " password recording starts ...";
+		auto const bg_red   = Color::rgb(0, 0, 0xac);
+		auto const fg_black = Color::rgb(255, 255, 255);
 
-		_update_view(red);
+		_update_view(bg_red, fg_black, 0, buffer, sizeof(buffer) - 1);
 
 		state = WAIT_CLICK;
 		_cmp_valid = false;
@@ -131,7 +144,7 @@ struct Lock
 	void _inc_pwd_i()
 	{
 		_pwd.i ++;
-		if (_pwd.i >= sizeof(_pwd.chars) / sizeof(_pwd.chars[0]))
+		if (_pwd.i >= sizeof(_pwd.chars))
 			_pwd.i = 0;
 	}
 
@@ -148,26 +161,23 @@ struct Lock
 
 		_gui->buffer({ .area = _mode().area, .alpha = _transparent });
 
-		_framebuffer.construct(_env.rm(),
-		                       _gui->framebuffer.dataspace());
+		_fb.construct(_env.rm(), _gui->framebuffer.dataspace());
 
 		switch (state) {
-		case COMPARE_PWD :
-			_switch_view_compare_pwd();
-			break;
-		case RECORD_PWD :
-			_switch_view_record_pwd();
-			break;
-		case WAIT_CLICK :
-			_switch_view_initial();
-			break;
+		case BEFORE_COMPARE : _switch_view_before_compare(); break;
+		case COMPARE_PWD    : _switch_view_compare_pwd();    break;
+		case RECORD_PWD     : _switch_view_record_pwd();     break;
+		case WAIT_CLICK     : _switch_view_initial();        break;
 		}
 	}
 
 	void _update_config();
 	void _handle_input();
+	void _show_box(unsigned, Genode::uint8_t, unsigned);
 
-	Lock(Genode::Env &env) : _env(env)
+	Lock(Genode::Env &env)
+	:
+		_env(env), _default_font(_binary_mono_tff_start, _glyph_buffer)
 	{
 		_gui.construct(_env, "screen");
 
@@ -184,6 +194,49 @@ struct Lock
 };
 
 
+void Lock::_show_box(unsigned const chars, Genode::uint8_t const cc, unsigned const sc)
+{
+	if (!chars) return;
+
+	unsigned * const pixels  = _fb->local_addr<unsigned>();
+	auto       const fb_size = _fb->size();
+
+	auto const mode = _mode();
+	int  const hsa  = hs + 2;
+
+	unsigned const offset = (chars - 1) * hsa;
+	if (offset + hsa * 2 >= mode.area.w / 2)
+		return;
+
+	unsigned const xpos = mode.area.w / 2 - offset;
+	unsigned const ypos = mode.area.h / 2;
+
+	for (int y = -hs; y < hs; y++) {
+		auto buf  = pixels + mode.area.w * (ypos + y) + xpos - hs;
+		auto size = (chars * hsa * 2 + hs) * sizeof(*pixels);
+
+		if (buf < pixels || size > fb_size)
+			continue;
+		if ((char *)buf > (char *)pixels + fb_size - size)
+			continue;
+
+		Genode::memset(buf, cc, size);
+	}
+
+	for (int y = -hs; y < hs; y++) {
+		for (unsigned c = 0; c < chars; c++) {
+			unsigned x = xpos + c * hsa * 2;
+			for (int i = -hs; i < hs; i++) {
+				pixels[mode.area.w * (ypos + y) + x + i ] = sc;
+			}
+		}
+	}
+
+	_gui->framebuffer.refresh(xpos - hs, ypos - hs,
+	                          chars * hsa * 2 + hs * 2, hs * 2);
+}
+
+
 void Lock::_handle_input()
 {
 	if (!_gui.constructed())
@@ -192,7 +245,7 @@ void Lock::_handle_input()
 	bool unlock = false;
 
 	_gui->input.for_each_event([&] (Input::Event const &ev) {
-		ev.handle_press([&] (Input::Keycode key, Input::Codepoint cp) {
+		ev.handle_press([&] (Input::Keycode const &key, Input::Codepoint const &cp) {
 			if (!ev.key_press(key) || !cp.valid())
 				return;
 
@@ -212,19 +265,25 @@ void Lock::_handle_input()
 			if (key == Input::Keycode::KEY_ESC) {
 				reset = _pwd.i > 0;
 				_pwd.i = 0;
+
 			} else
 			if (key == Input::Keycode::KEY_ENTER) {
 				if (state == COMPARE_PWD) {
 					unlock = _cmp_valid && (_pwd.i == _pwd.max);
 					reset = true;
+
+					_switch_view_before_compare();
 				}
 				if (_pwd.i > 0 && state == RECORD_PWD) {
 					_pwd.max = _pwd.i;
-					_switch_view_compare_pwd();
+					_switch_view_before_compare();
 				}
 
 				_pwd.i = 0;
 			} else {
+				if (state == BEFORE_COMPARE) {
+					_switch_view_compare_pwd();
+				}
 				if (state == RECORD_PWD) {
 					_pwd.chars[_pwd.i] = cp.value;
 					_inc_pwd_i();
@@ -238,11 +297,10 @@ void Lock::_handle_input()
 					_show_box(_pwd.i, 0, ~0);
 				}
 			}
+
 			if (reset) {
-				if (state == RECORD_PWD)
-					_switch_view_record_pwd();
-				if (state == COMPARE_PWD)
-					_switch_view_compare_pwd();
+				if (state == COMPARE_PWD) _switch_view_before_compare();
+				if (state == RECORD_PWD)  _switch_view_record_pwd();
 			}
 		});
 	});
@@ -256,8 +314,8 @@ void Lock::_handle_input()
 	_gui->info_sigh ({});
 	_gui->input.sigh({});
 
-	_framebuffer.destruct();
-	_gui        .destruct();
+	_fb .destruct();
+	_gui.destruct();
 
 	Genode::memset(&_pwd, 0, sizeof(_pwd));
 
@@ -275,7 +333,7 @@ void Lock::_update_config()
 	if (!_config_rom.valid())
 		return;
 
-	Genode::String<sizeof(_pwd.chars)/sizeof(_pwd.chars[0])> passwd;
+	Genode::String<sizeof(_pwd.chars)> passwd;
 
 	Genode::Xml_node node = _config_rom.xml();
 	passwd = node.attribute_value("password", passwd);
