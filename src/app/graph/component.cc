@@ -104,7 +104,7 @@ class Graph
 		Genode::Color const           _blue      {   0,   0, 255,  255 };
 		Genode::Color const           _black     {   0,   0,   0,  255 };
 
-		Checkpoint                    _column[256];
+		Checkpoint                    _column[256] { };
 		static unsigned constexpr     _column_max { sizeof(_column) / sizeof(_column[0]) };
 		unsigned                      _column_warp { 0 };
 		unsigned                      _column_offset { 0 };
@@ -133,6 +133,8 @@ class Graph
 
 			_gui.buffer({ .area = { width, height_mode() }, .alpha = false });
 
+			bool const hide = !width && !height;
+
 			Gui::Point const p_start(0,0);
 
 			Gui::Rect r_all  (p_start, Gui::Area(width, height));
@@ -140,13 +142,13 @@ class Graph
 			Gui::Rect r_view2(Gui::Point(_x_root + _step_width + 1, 0),
 			                  Gui::Area(width - _step_width - _x_root - 1, height));
 			Gui::Rect r_scale(p_start, Gui::Area(_x_scale, height));
-			Gui::Rect r_text { 0, 0, 10, 10 };
+			Gui::Rect r_text { 0, 0, 0, 0 };
 
-			_gui.      view(_view_all  ,            { .title = { }, .rect = r_all,   .front = true  });
-			_gui.child_view(_view      , _view_all, { .title = { }, .rect = r_view,  .front = false });
-			_gui.child_view(_view_2    , _view_all, { .title = { }, .rect = r_view2, .front = false });
-			_gui.child_view(_view_scale, _view_all, { .title = { }, .rect = r_scale, .front = false });
-			_gui.child_view(_view_text , _view_all, { .title = { }, .rect = r_text,  .front = false });
+			_gui.enqueue<Gui::Session::Command::Geometry>(_view_all   , r_all);
+			_gui.enqueue<Gui::Session::Command::Geometry>(_view       , hide ? r_all : r_view);
+			_gui.enqueue<Gui::Session::Command::Geometry>(_view_2     , hide ? r_all : r_view2);
+			_gui.enqueue<Gui::Session::Command::Geometry>(_view_scale , hide ? r_all : r_scale);
+			_gui.enqueue<Gui::Session::Command::Geometry>(_view_text  , hide ? r_all : r_text);
 
 			_gui.enqueue<Command::Offset  >(_view  , Gui::Point(-_x_root - 1, 0));
 			_gui.enqueue<Command::Offset  >(_view_2, Gui::Point(_width, 0));
@@ -242,12 +244,18 @@ class Graph
 
 		Graph(Genode::Env &env) : _env(env)
 		{
-			Genode::memset(_column, 0, sizeof(_column));
+			_graph    .sigh     (_graph_handler);
+			_gui      .info_sigh(_signal_mode);
+			_gui.input.sigh     (_signal_input);
+			_config   .sigh     (_config_handler);
 
-			_graph.sigh(_graph_handler);
-			_gui.info_sigh(_signal_mode);
-			_gui.input.sigh(_signal_input);
-			_config.sigh(_config_handler);
+			Gui::Rect r_all  (Gui::Point(0, 0), Gui::Area(0, 0));
+
+			_gui.      view(_view_all  ,            { .title = { }, .rect = r_all, .front = true  });
+			_gui.child_view(_view      , _view_all, { .title = { }, .rect = r_all, .front = false });
+			_gui.child_view(_view_2    , _view_all, { .title = { }, .rect = r_all, .front = false });
+			_gui.child_view(_view_scale, _view_all, { .title = { }, .rect = r_all, .front = false });
+			_gui.child_view(_view_text , _view_all, { .title = { }, .rect = r_all, .front = false });
 
 			_handle_config();
 		}
@@ -644,6 +652,10 @@ void Graph::_slide()
 {
 	if (!_sliding) return;
 
+	if (_hovered_vline != ~0U) {
+		_hover_entry(_hovered_vline, _black);
+		_hovered_vline = ~0U;
+	}
 //	if (_sliding_offset > 1) return;
 
 	/* clear old graphic content */
@@ -1016,7 +1028,7 @@ void Graph::_handle_input()
 			x -= _x_root + _step_width - _line_half;
 
 			int vline = x / _step_width;
-			if (x > vline * int(_step_width + 2*_line_half)) {
+			if (x > int(2 * _line_half + vline * _step_width)) {
 				hovered = false;
 				return;
 			}
@@ -1056,8 +1068,7 @@ void Graph::_handle_input()
 		using namespace Gui;
 
 		/* HACK - wm does not work properly for destroy_view ... nor to_back XXX */
-		Gui::Point point(0, _height);
-		Gui::Rect geometry_text(point, Gui::Area { 1, 1 });
+		Gui::Rect geometry_text({ 0, 0 }, { 0, 0 });
 		_gui.enqueue<Gui::Session::Command::Geometry>(_view_text, geometry_text);
 		_gui.execute();
 		return;
