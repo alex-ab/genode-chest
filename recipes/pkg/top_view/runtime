@@ -1,4 +1,4 @@
-<runtime ram="42M" caps="700" binary="init">
+<runtime ram="82M" caps="700" binary="init">
 
 	<requires>
 		<gui/>
@@ -55,7 +55,7 @@
 
 		<start name="menu_view" caps="200">
 			<binary name="menu_view_ab"/>
-			<resource name="RAM" quantum="28M"/>
+			<resource name="RAM" quantum="68M"/>
 			<config>
 				<report hover="yes"/>
 				<libc stderr="/dev/log"/>

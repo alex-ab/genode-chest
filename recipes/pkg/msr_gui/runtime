@@ -1,4 +1,4 @@
-<runtime ram="32M" caps="650" binary="init">
+<runtime ram="37M" caps="650" binary="init">
 
 	<requires>
 		<!-- menu_view -->
@@ -51,7 +51,7 @@
 		</start>
 
 		<start name="msr_gui" caps="100">
-			<resource name="RAM" quantum="2M"/>
+			<resource name="RAM" quantum="7M"/>
 			<route>
 				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
 				<service name="ROM" label="info">  <child name="report_rom" /> </service>
