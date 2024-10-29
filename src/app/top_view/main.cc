@@ -96,7 +96,7 @@ struct Subjects
 		/* state whether topmost threads w/o idle should be reported to graph */
 		bool _cpu_graph_top_no_idle [MAX_CPUS_X][MAX_CPUS_Y] { };
 
-		Button_hub<1, 1, 20, 4> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
+		Button_hub<1, 1, 20, 2> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
 
 		bool & cpu_show(Location const &loc) {
 			return _cpu_show[loc.xpos()][loc.ypos()]; }
@@ -110,10 +110,10 @@ struct Subjects
 		bool & cpu_online(Location const &loc) {
 			return _cpu_online[loc.xpos()][loc.ypos()]; }
 
-		Button_hub<1, 1, 20, 4> & _cpu_number(Location const &loc) {
+		Button_hub<1, 1, 20, 2> & _cpu_number(Location const &loc) {
 			return _cpu_num[loc.xpos()][loc.ypos()]; }
 
-		Button_hub<1, 1, 20, 4> const & _cpu_number(Location const &loc) const {
+		Button_hub<1, 1, 20, 2> const & _cpu_number(Location const &loc) const {
 			return _cpu_num[loc.xpos()][loc.ypos()]; }
 
 		bool & _graph_top_most(Location const &loc) {
@@ -124,7 +124,7 @@ struct Subjects
 
 		unsigned _num_subjects       {  0 };
 		unsigned _num_pds            {  0 };
-		unsigned _config_pds_per_cpu { 20 };
+		unsigned _config_pds_per_cpu { 40 };
 
 		Genode::Trace::Subject_id _hovered_subject    { };
 		unsigned                  _hovered_sub_id     { 0 };
@@ -179,6 +179,8 @@ struct Subjects
 		void init()
 		{
 			Genode::memset(_cpu_show, 1, sizeof(_cpu_show));
+
+			_button_cpus.max = 8;
 		}
 
 		void read_config(Genode::Xml_node &);

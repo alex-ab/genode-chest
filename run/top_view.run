@@ -63,6 +63,7 @@ append config {
 			<service name="Capture"> <child name="nitpicker"/> </service>
 			<service name="Event">   <child name="nitpicker"/> </service>
 			<service name="ROM" label="vesa_fb"> <parent label="} $use_framebuffer {"/> </service>
+			<service name="ROM" label="fb.config"> <parent label="fb.config"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 	</start>
@@ -164,28 +165,6 @@ append config {
 		</config>
 	</start>
 
-	<start name="menu_view" caps="200" priority="-3">
-		<binary name="menu_view_ab"/>
-		<resource name="RAM" quantum="16M"/>
-		<config>
-			<report hover="yes"/>
-			<libc stderr="/dev/log"/>
-			<vfs>
-				<tar name="menu_view_styles.tar" />
-				<dir name="dev"> <log/> </dir>
-				<dir name="fonts"> <fs label="fonts"/> </dir>
-			</vfs>
-			<dialog name="dialog" xpos="200" ypos="100"/>
-		</config>
-		<route>
-			<service name="ROM" label="dialog"> <child name="report_rom_dialog" /> </service>
-			<service name="Report" label="hover"> <child name="report_rom_hover"/> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
-			<service name="Gui"> <child name="} $gui_name {"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-
 	<start name="top_view" priority="-3">
 		<resource name="RAM" quantum="2M"/>
 		<config view_ms="9000" trace_ms="3000" report="yes" log="no"
@@ -223,13 +202,43 @@ append config {
 		</route>
 	</start>
 
+	<start name="menu_view" caps="200" priority="-3">
+		<binary name="menu_view_ab"/>
+		<resource name="RAM" quantum="28M"/>
+		<config>
+			<report hover="yes"/>
+			<libc stderr="/dev/log"/>
+			<vfs>
+				<tar name="menu_view_styles.tar" />
+				<dir name="dev"> <log/> </dir>
+				<dir name="fonts"> <fs label="fonts"/> </dir>
+			</vfs>
+			<dialog name="dialog" xpos="200" ypos="100"/>
+		</config>
+		<route>
+			<service name="ROM" label="dialog"> <child name="report_rom_dialog" /> </service>
+			<service name="Report" label="hover"> <child name="report_rom_hover"/> </service>
+			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
+			<service name="Gui"> <child name="} $gui_name {"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
 </config>}
 
 install_config $config
 
+set cfg_fd [open "bin/fb.config" w]
+puts $cfg_fd { <config width="1280" height="1024" buffered="yes"/> }
+close $cfg_fd
+
 build { app/menu_view_ab app/top_view app/graph }
 
-build_boot_image [build_artifacts]
+set boot_modules { fb.config }
+lappend boot_modules {*}[build_artifacts]
+build_boot_image $boot_modules
 
-append qemu_args " -smp 4,cores=4"
+append qemu_args " -smp 32,cores=16,threads=2"
+append qemu_args " -accel kvm -cpu host"
+
 run_genode_until forever
