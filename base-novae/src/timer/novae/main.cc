@@ -117,7 +117,10 @@ class Timer::Device
 
 				auto down(Tsc deadline)
 				{
-					return Novae::sm_ctrl(value, Novae::SEMAPHORE_DOWN, deadline.tsc);
+					error(__func__, " tsc=", Hex(deadline.tsc), " now=", Hex(Trace::timestamp()));
+					auto res = Novae::sm_ctrl(value, Novae::SEMAPHORE_DOWN, deadline.tsc);
+					error(__func__, " res=", res);
+					return res;
 				}
 
 				auto up()
@@ -267,6 +270,8 @@ struct Timer::Session_component : Session_object<Timer::Session, Session_compone
 	 */
 	void handle_wakeup()
 	{
+		error(__func__);
+
 		if (_sigh.valid())
 			Signal_transmitter(_sigh).submit();
 
@@ -290,6 +295,8 @@ struct Timer::Session_component : Session_object<Timer::Session, Session_compone
 	{
 		Mutex::Guard guard(_alarms_mutex);
 
+		error(__func__, " ", rel_us);
+
 		_period.destruct();
 		_alarm.destruct();
 
@@ -304,6 +311,8 @@ struct Timer::Session_component : Session_object<Timer::Session, Session_compone
 	void trigger_periodic(uint64_t period_us) override
 	{
 		Mutex::Guard guard(_alarms_mutex);
+
+		error(__func__, " ", period_us);
 
 		_period.destruct();
 		_alarm.destruct();
