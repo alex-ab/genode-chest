@@ -138,9 +138,9 @@ append_if [expr $use_wm] config {
 append config {
 	<start name="gui_lock">
 		<resource name="RAM" quantum="8M"/>
-<!--
-		<config password="secret" transparent="yes"/>
--->
+
+		<config name="User: Alex" password="secret" transparent="no"/>
+
 		<route>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
