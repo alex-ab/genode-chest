@@ -171,17 +171,17 @@ append_if [expr !$use_msr_native] config {
 							</perf_status>
 
 							<msr_residency>
-								<core_c1 raw="1" abs_ms="10" diff_ms="1"/>
-								<core_c3 raw="3"/>
-								<core_c6 raw="6"/>
-								<core_c7 raw="7"/>
-								<pkg_c2 raw="2"/>
-								<pkg_c3 raw="3"/>
-								<pkg_c6 raw="6"/>
-								<pkg_c7 raw="7"/>
-								<pkg_c8 raw="8"/>
-								<pkg_c9 raw="9"/>
-								<pkg_c10 raw="10"/>
+								<core_c1 raw="1" abs_ms="10" diff_ms="11"/>
+								<core_c3 raw="3" abs_ms="12" diff_ms="10"/>
+								<core_c6 raw="6" abs_ms="13" diff_ms="9"/>
+								<core_c7 raw="7" abs_ms="14" diff_ms="8"/>
+								<pkg_c2 raw="2" abs_ms="15" diff_ms="7"/>
+								<pkg_c3 raw="3" abs_ms="11" diff_ms="6"/>
+								<pkg_c6 raw="6" abs_ms="15" diff_ms="5"/>
+								<pkg_c7 raw="7" abs_ms="14" diff_ms="4"/>
+								<pkg_c8 raw="8" abs_ms="13" diff_ms="3"/>
+								<pkg_c9 raw="9" abs_ms="12" diff_ms="2"/>
+								<pkg_c10 raw="10" abs_ms="11" diff_ms="1"/>
 							</msr_residency>
 
 							<mwait_support>
@@ -241,17 +241,17 @@ append_if [expr !$use_msr_native] config {
 							</perf_status>
 
 							<msr_residency>
-								<core_c1 raw="1"/>
-								<core_c3 raw="3"/>
-								<core_c6 raw="6"/>
-								<core_c7 raw="7"/>
-								<pkg_c2 raw="2"/>
-								<pkg_c3 raw="3"/>
-								<pkg_c6 raw="6"/>
-								<pkg_c7 raw="7"/>
-								<pkg_c8 raw="8"/>
-								<pkg_c9 raw="9"/>
-								<pkg_c10 raw="10"/>
+								<core_c1 raw="1" abs_ms="4000000" diff_ms="11"/>
+								<core_c3 raw="3" abs_ms="150000" diff_ms="10"/>
+								<core_c6 raw="6" abs_ms="13" diff_ms="9"/>
+								<core_c7 raw="7" abs_ms="14" diff_ms="8"/>
+								<pkg_c2 raw="2" abs_ms="15" diff_ms="7"/>
+								<pkg_c3 raw="3" abs_ms="11" diff_ms="6"/>
+								<pkg_c6 raw="6" abs_ms="15" diff_ms="5"/>
+								<pkg_c7 raw="7" abs_ms="14" diff_ms="4"/>
+								<pkg_c8 raw="8" abs_ms="13" diff_ms="3"/>
+								<pkg_c9 raw="9" abs_ms="0" diff_ms="2"/>
+								<pkg_c10 raw="10" abs_ms="11" diff_ms="1"/>
 							</msr_residency>
 
 							<mwait_support>
