@@ -146,7 +146,7 @@ class Power
 		void _cpu_perf_status_detail(Xml_generator &, Xml_node const &,
 		                             char const *, unsigned &);
 		void _cpu_residency(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_residency_detail(Xml_generator &, Xml_node const &,
+		bool _cpu_residency_detail(Xml_generator &, Xml_node const &,
 		                           char const *, unsigned &);
 		void _cpu_mwait(Xml_generator &, Xml_node const &, unsigned &);
 		void _cpu_mwait_detail(Xml_generator &, String<4> const &, uint8_t, uint8_t);
@@ -1196,7 +1196,7 @@ void Power::_cpu_perf_status(Xml_generator &xml, Xml_node const &status, unsigne
 }
 
 
-void Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
+bool Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
                                   char const * const text, unsigned &id)
 {
 	uint64_t tsc_raw = 0, ms_abs = 0, ms_diff = 0;
@@ -1204,6 +1204,9 @@ void Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
 	tsc_raw = node.attribute_value("raw"    , tsc_raw);
 	ms_abs  = node.attribute_value("abs_ms" , ms_abs);
 	ms_diff = node.attribute_value("diff_ms", ms_diff);
+
+	if (ms_abs == 0)
+		return false;
 
 	xml.node("hbox", [&] {
 		xml.attribute("name", id++);
@@ -1219,18 +1222,24 @@ void Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
 			xml.attribute("name", id++);
 			xml.attribute("align", "right");
 
-			String<4> unity_abs (ms_abs  >= 10'000 ? "  s" : " ms");
-			String<4> unity_diff(ms_diff >= 10'000 ? "  s" : " ms");
+			String<4> unity_abs (ms_abs  >= 60ul*60*1000 ? "  h" :
+			                     ms_abs  >=  2ul*60*1000 ? "  m" :
+			                     ms_abs  >=  10'000      ? "  s" : " ms");
+			String<4> unity_diff(ms_diff >=  10'000      ? "  s" : " ms");
 
-			auto abs  = (ms_abs  >= 10'000) ? ms_abs  / 1000 : ms_abs;
-			auto diff = (ms_diff >= 10'000) ? ms_diff / 1000 : ms_diff;
+			auto abs  = (ms_abs  >= 60ul * 60 * 1000) ? ms_abs / 1000 / 60 / 60 :
+			            (ms_abs  >=  2ul * 60 * 1000) ? ms_abs  / 1000 / 60 :
+			            (ms_abs  >=  10'000)          ? ms_abs  / 1000 : ms_abs;
+			auto diff = (ms_diff >=  10'000) ? ms_diff / 1000 : ms_diff;
 
-			xml.attribute("text", String<60>("diff=",
-			                                 align_string(diff), unity_diff,
-			                                 " abs=",
-			                                 align_string(abs), unity_abs));
+			xml.attribute("text", String<60>("abs=",
+			                                 align_string(abs), unity_abs,
+			                                 " diff=",
+			                                 align_string(diff), unity_diff));
 		});
 	});
+
+	return true;
 }
 
 
@@ -1275,15 +1284,15 @@ void Power::_cpu_residency(Xml_generator &xml, Xml_node const &status, unsigned 
 
 		for (auto const &entry : core) {
 			status.with_optional_sub_node(String<8>("core_c", entry).string(), [&](auto const &node) {
-				_cpu_residency_detail(xml, node, String<16>(" Core C", entry).string(), id);
-				count ++;
+				if (_cpu_residency_detail(xml, node, String<16>(" Core C", entry).string(), id))
+					count ++;
 			});
 		}
 
 		for (auto const &entry : pkg) {
 			status.with_optional_sub_node(String<8>("pkg_c", entry).string(), [&](auto const &node) {
-				_cpu_residency_detail(xml, node, String<16>(" Package C", entry).string(), id);
-				count ++;
+				if (_cpu_residency_detail(xml, node, String<16>(" Package C", entry).string(), id))
+					count ++;
 			});
 		}
 
