@@ -140,9 +140,11 @@ class Top::Storage
 	private:
 
 		Env &env;
-		Heap heap { env.pd(), env.rm() };
+
+		Pd_ram_allocator ram { env.pd() };
+		Heap heap { ram, env.rm() };
 		Allocator_avl avl_alloc { &heap };
-		File_system::Connection fs { env, avl_alloc, "store", "/", true };
+		File_system::Connection fs { env, avl_alloc, "/store/", true };
 		Session::Tx::Source  &tx { *fs.tx() };
 
 		size_t const _packet_max { tx.bulk_buffer_size() / Session::TX_QUEUE_SIZE };

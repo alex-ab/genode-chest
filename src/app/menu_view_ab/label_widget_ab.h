@@ -42,7 +42,7 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 
 	enum Alignment { ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, };
 
-	Alignment _update_alignment(Xml_node node)
+	Alignment _update_alignment(Xml_node const &node)
 	{
 		String<32> value(node.attribute_value("align", String<32>("")));
 		if      (value == "left")  return ALIGN_LEFT;
@@ -94,7 +94,7 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 		_text_alignment = _update_alignment(node);
 	}
 
-	void update(Xml_node node) override
+	void update(Xml_node const &node) override
 	{
 		_font       = _factory.styles.font(node);
 		_text       = Text("");

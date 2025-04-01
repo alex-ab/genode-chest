@@ -44,12 +44,12 @@ struct Menu_view::Graph_widget : Widget
 	typedef String<8> Text;
 	Text _text { };
 
-	Color _update_color_bar(Xml_node node)
+	Color _update_color_bar(Xml_node const &node)
 	{
 		return node.attribute_value("color", _color);
 	}
 
-	Color _update_color_text(Xml_node node)
+	Color _update_color_text(Xml_node const &node)
 	{
 		if (!node.has_attribute("textcolor")) {
 			_font = nullptr;
@@ -59,10 +59,10 @@ struct Menu_view::Graph_widget : Widget
 		return node.attribute_value("textcolor", _color_text);
 	}
 
-	Graph_widget(Widget_factory &factory, Xml_node node, Unique_id unique_id)
+	Graph_widget(Widget_factory &factory, Xml_node const &node, Unique_id unique_id)
 	: Widget(factory, node, unique_id) { }
 
-	void update(Xml_node node) override
+	void update(Xml_node const &node) override
 	{
 		_font       = _factory.styles.font(node);
 

@@ -183,7 +183,7 @@ struct Subjects
 			_button_cpus.max = 8;
 		}
 
-		void read_config(Genode::Xml_node &);
+		void read_config(Genode::Xml_node const &);
 		void write_config(Genode::Xml_generator &) const;
 
 		bool trace_top_most() const { return _trace_top_most || _trace_top_no_idle; }
@@ -1735,7 +1735,7 @@ void Subjects::short_view(Genode::Xml_generator &xml, SORT_TIME const)
 	}
 }
 
-void Subjects::read_config(Genode::Xml_node &node)
+void Subjects::read_config(Genode::Xml_node const & node)
 {
 	{
 		Genode::String<8> view(node.attribute_value("view", Genode::String<8>("diagram")));
@@ -1753,7 +1753,7 @@ void Subjects::read_config(Genode::Xml_node &node)
 			_sort = THREAD;
 	}
 
-	node.for_each_sub_node("cpu", [&](Genode::Xml_node &cpu){
+	node.for_each_sub_node("cpu", [&](auto const & cpu){
 		unsigned xpos = cpu.attribute_value("xpos", unsigned(MAX_CPUS_X));
 		unsigned ypos = cpu.attribute_value("ypos", unsigned(MAX_CPUS_Y));
 		if (xpos >= MAX_CPUS_X || ypos >= MAX_CPUS_Y) return;
@@ -1863,13 +1863,13 @@ struct App::Main
 };
 
 template <typename T>
-static T _attribute_value(Genode::Xml_node node, char const *attr_name)
+static T _attribute_value(Genode::Xml_node const & node, char const *attr_name)
 {
 	return node.attribute_value(attr_name, T{});
 }
 
 template <typename T, typename... ARGS>
-static T _attribute_value(Genode::Xml_node node, char const *sub_node_type, ARGS... args)
+static T _attribute_value(Genode::Xml_node const & node, char const *sub_node_type, ARGS... args)
 {
 	if (!node.has_sub_node(sub_node_type))
 		return T{};
@@ -1884,7 +1884,7 @@ static T _attribute_value(Genode::Xml_node node, char const *sub_node_type, ARGS
  * XML structure. The last argument denotes the queried attribute name.
  */
 template <typename T, typename... ARGS>
-static T query_attribute(Genode::Xml_node node, ARGS &&... args)
+static T query_attribute(Genode::Xml_node const & node, ARGS &&... args)
 {
 	return _attribute_value<T>(node, args...);
 }
@@ -1933,7 +1933,7 @@ void App::Main::_handle_hover()
 	if (!_hover->valid())
 		return;
 
-	Xml_node const hover = _hover->xml();
+	Xml_node const & hover = _hover->xml();
 
 	typedef String<12> Button;
 	Button button = query_attribute<Button>(hover, "dialog", "frame",

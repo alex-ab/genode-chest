@@ -160,8 +160,8 @@ append config {
 		<provides> <service name="File_system"/> </provides>
 		<config>
 			<vfs> <ram/> </vfs>
-			<policy label="top_view -> store" root="/" writeable="yes" />
-			<policy label="graph -> load"     root="/" writeable="no" />
+			<policy label="top_view -> /" root="/" writeable="yes" />
+			<policy label="graph -> /"    root="/" writeable="no" />
 		</config>
 	</start>
 
@@ -183,7 +183,7 @@ append config {
 			<service name="Report" label="dialog"> <child name="report_rom_dialog" /> </service>
 			<service name="Report" label="graph"> <child name="report_rom_graph" /> </service>
 			<service name="Report" label="config"> <child name="report_rom_config" /> </service>
-			<service name="File_system" label="store"> <child name="ram_fs"/> </service>
+			<service name="File_system" label="/store/"> <child name="ram_fs" resource="/"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>
@@ -195,8 +195,8 @@ append config {
 		</config>
 		<route>
 			<service name="ROM" label="graph"> <child name="report_rom_graph" /> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
-			<service name="File_system" label="load">  <child name="ram_fs"/> </service>
+			<service name="File_system" label="fonts"> <child name="fonts_fs" resource="/"/> </service>
+			<service name="File_system" label="/load/">  <child name="ram_fs" resource="/"/> </service>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
@@ -218,7 +218,7 @@ append config {
 		<route>
 			<service name="ROM" label="dialog"> <child name="report_rom_dialog" /> </service>
 			<service name="Report" label="hover"> <child name="report_rom_hover"/> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
+			<service name="File_system" label="fonts"> <child name="fonts_fs" resource="/"/> </service>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
