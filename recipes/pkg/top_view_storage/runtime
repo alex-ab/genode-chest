@@ -35,12 +35,12 @@
 		<start name="graph" caps="100" priority="-1">
 			<resource name="RAM" quantum="8M"/>
 			<config store="yes">
-				<vfs> <dir name="fonts"> <fs label="fonts"/> </dir> </vfs>
+				<vfs> <dir name="fonts"> <fs label="fonts -> /"/> </dir> </vfs>
 			</config>
 			<route>
 				<service name="ROM" label="graph"> <child name="report_rom" /> </service>
-				<service name="File_system" label="fonts"> <parent label="fonts"/> </service>
-				<service name="File_system" label="load">  <parent label="storage"/> </service>
+				<service name="File_system" label_prefix="fonts"> <parent identity="fonts"/> </service>
+				<service name="File_system" label="/load/">  <parent label="storage"/> </service>
 				<any-service> <parent/> <any-child/> </any-service>
 			</route>
 		</start>
@@ -50,7 +50,7 @@
 			<config view_ms="4000" trace_ms="1000" report="yes" log="no" store="yes"/>
 			<route>
 				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
-				<service name="File_system" label="store">  <parent label="storage"/> </service>
+				<service name="File_system" label="/store/">  <parent identity="storage" resource="/"/> </service>
 				<service name="Report"> <child name="report_rom" /> </service>
 				<any-service> <parent/> </any-service>
 			</route>
@@ -65,14 +65,14 @@
 				<vfs>
 					<tar name="menu_view_styles.tar" />
 					<dir name="dev"> <log/> </dir>
-					<dir name="fonts"> <fs label="fonts"/> </dir>
+					<dir name="fonts"> <fs label="fonts -> /"/> </dir>
 				</vfs>
 				<dialog name="dialog" xpos="200" ypos="100"/>
 			</config>
 			<route>
 				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
 				<service name="Report" label="hover"> <child name="report_rom"/> </service>
-				<service name="File_system" label="fonts"> <parent label="fonts"/> </service>
+				<service name="File_system" label_prefix="fonts ->"> <parent identity="fonts"/> </service>
 				<any-service> <parent/> <any-child/> </any-service>
 			</route>
 		</start>
