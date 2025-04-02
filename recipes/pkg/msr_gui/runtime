@@ -79,14 +79,14 @@
 				<vfs>
 					<tar name="menu_view_styles.tar" />
 					<dir name="dev"> <log/> </dir>
-					<dir name="fonts"> <fs label="fonts"/> </dir>
+					<dir name="fonts"> <fs label="fonts -> /"/> </dir>
 				</vfs>
 				<dialog name="dialog" xpos="200" ypos="100"/>
 			</config>
 			<route>
 				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
 				<service name="Report" label="hover"> <child name="report_rom"/> </service>
-				<service name="File_system" label="fonts"> <parent label="fonts"/> </service>
+				<service name="File_system" label_prefix="fonts ->"> <parent identity="fonts"/> </service>
 				<any-service> <parent/> <any-child/> </any-service>
 			</route>
 		</start>

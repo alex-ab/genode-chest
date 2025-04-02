@@ -14,13 +14,13 @@
 #include <util/xml_node.h>
 
 template <typename T>
-static T _attribute_value(Genode::Xml_node node, char const *attr_name)
+static T _attribute_value(Genode::Xml_node const & node, char const *attr_name)
 {
 	return node.attribute_value(attr_name, T{});
 }
 
 template <typename T, typename... ARGS>
-static T _attribute_value(Genode::Xml_node node, char const *sub_node_type, ARGS... args)
+static T _attribute_value(Genode::Xml_node const & node, char const *sub_node_type, ARGS... args)
 {
 	if (!node.has_sub_node(sub_node_type))
 		return T{};
@@ -35,7 +35,7 @@ static T _attribute_value(Genode::Xml_node node, char const *sub_node_type, ARGS
 + * XML structure. The last argument denotes the queried attribute name.
 + */
 template <typename T, typename... ARGS>
-static T query_attribute(Genode::Xml_node node, ARGS &&... args)
+static T query_attribute(Genode::Xml_node const & node, ARGS &&... args)
 {
 	return _attribute_value<T>(node, args...);
 }
