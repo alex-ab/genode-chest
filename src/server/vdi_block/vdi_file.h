@@ -563,7 +563,7 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 
 		struct Could_not_open_file : Genode::Exception { };
 
-		File(Genode::Env &env, Genode::Xml_node config)
+		File(Genode::Env &env, Genode::Xml_node const &config)
 		:
 			_env(env),
 			_vfs_env(_env, _heap, vfs_config(config), *this)

@@ -13,7 +13,7 @@
 
 	<config file="/block.vdi" writeable="yes">
 		<vfs>
-			<fs label="block.vdi" buffer_size="2M"/>
+			<fs label="block.vdi -> /" buffer_size="2M"/>
 			<import overwrite="no">
 				<rom name="block.vdi" binary="yes"/>
 			</import>
