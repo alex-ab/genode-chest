@@ -18,6 +18,8 @@
 #include <nitpicker_gfx/tff_font.h>
 #include <nitpicker_gfx/box_painter.h>
 
+#include "icon/user.h"
+
 extern char _binary_mono_tff_start[];
 
 struct Lock
@@ -187,11 +189,14 @@ struct Lock
 	void _handle_input();
 	void _show_box(unsigned, Genode::uint8_t, unsigned, short int);
 
+	Gui::Rect _avatar   (Gui::Rect const &, Gui::Rect const &);
 	Gui::Rect _circle   (Gui::Rect const &, Gui::Rect const &, Color const &);
 	Gui::Rect _rectangle(Gui::Rect const &, Gui::Rect const &, Color const &, bool);
 	Gui::Rect _text     (Gui::Rect const &, char const *, unsigned,
 	                     Color const &, Gui::Rect const &);
 	void      _user_bubble(Gui::Rect const &, Framebuffer::Session_client &);
+
+	Gui::Area _avatar_size() const { return { avatar_width, avatar_height }; }
 
 	Lock(Genode::Env &env)
 	:
@@ -216,16 +221,19 @@ struct Lock
 void Lock::_user_bubble(Gui::Rect const             & mode,
                         Framebuffer::Session_client & fb)
 {
-	auto const circle     = Color::rgb( 45,  45,  45);
 	auto const color_txt  = Color::rgb(255, 255, 255);
 
-	unsigned const circle_d = mode.area.h / 2 / 3;
+	Gui::Rect r_mid   = { int(mode.area.w / 2), int(mode.area.h / 2), 0, 0 };
+	Gui::Rect r_start = { int(mode.area.w / 2 - _avatar_size().w / 2),
+	                      int(mode.area.h / 2 - _avatar_size().h),
+	                      0, 0 };
+
+#if 0
+//	unsigned const circle_d = mode.area.h / 2 / 3;
 
 	Gui::Rect circle_r = { int(mode.area.w / 2),
 	                       int(mode.area.h / 2 - circle_d / 2 - 50),
 	                       circle_d, circle_d};
-
-	/* XXX clipping missing */
 
 	if (circle_r.at.x <= 0 || circle_r.at.y <= 0)
 		return;
@@ -233,54 +241,25 @@ void Lock::_user_bubble(Gui::Rect const             & mode,
 	auto dirty = _circle(circle_r, mode, circle);
 	fb.refresh(dirty);
 
-	/* avatar ^^ */
 	int  offset_head   = circle_r.area.h / 2 - 15;
-	auto head_d        = 10u;
-	int  offset_body   = offset_head - head_d - 2;
-	auto length_body   = 20u;
-	int  offset_arms   = offset_body - 2;
-	auto length_arms   = 8u;
-	int  offset_stumps = offset_body - length_body - 3;
-	auto length_stumps = 15u;
-	auto rect_width    = 5u;
-	auto space         = 7;
+#endif
 
-	/* head */
-	dirty = _circle({ .at   = { circle_r.at.x, circle_r.at.y - offset_head },
-	                  .area = { head_d, head_d} }, mode, color_txt);
-	fb.refresh(dirty);
+	/* XXX clipping missing */
 
-	/* body */
-	dirty = _rectangle({ .at   = { circle_r.at.x - 2, circle_r.at.y - offset_body },
-	                     .area = { rect_width, length_body} }, mode, color_txt, true);
-	fb.refresh(dirty);
+	if (r_start.at.x <= 0 || r_start.at.y <= 0)
+		return;
 
-	/* arms */
-	dirty = _rectangle({ .at   = { circle_r.at.x - space - int(length_arms),
-	                               circle_r.at.y - offset_arms },
-	                     .area = { length_arms, rect_width} }, mode, color_txt, true);
-	fb.refresh(dirty);
-
-	dirty = _rectangle({ .at = { circle_r.at.x + space, circle_r.at.y - offset_arms },
-	                     .area = { length_arms, rect_width} }, mode, color_txt, true);
-	fb.refresh(dirty);
-
-	/* stumps */
-	dirty = _rectangle({ .at   = { circle_r.at.x - space - int(rect_width),
-	                               circle_r.at.y - offset_stumps },
-	                     .area = { rect_width, length_stumps} }, mode, color_txt, true);
-	fb.refresh(dirty);
-
-	dirty = _rectangle({ .at   = { circle_r.at.x + space, circle_r.at.y - offset_stumps },
-	                     .area = { rect_width, length_stumps} }, mode, color_txt, true);
+	/* avatar ^^ */
+	auto dirty = _avatar({ .at = r_start.at, .area = { 0, 0 }}, mode);
 	fb.refresh(dirty);
 
 	/* name of user */
 	auto const user_txt = String(_user);
 
-	auto rect  = circle_r;
-	rect.at.x -= int(_default_font.bounding_box().w * (user_txt.length() - 1) / 2);
+	Gui::Rect rect  = { r_mid.at.x, dirty.at.y + _hs * 3, 0, 0 };
+	rect.at.y += dirty.area.h;
 	rect.at.y += int(_default_font.bounding_box().h);
+	rect.at.x -= int(_default_font.bounding_box().w * (user_txt.length() - 1) / 2);
 
 	dirty = _text(rect, user_txt.string(), unsigned(user_txt.length()),
 	              color_txt, mode);
@@ -289,9 +268,10 @@ void Lock::_user_bubble(Gui::Rect const             & mode,
 	/* in use kernel */
 	auto const kern_txt = String("Genode@", _kernel);
 
-	auto kern_r  = circle_r;
+	Gui::Rect kern_r = { r_mid.at.x, dirty.at.y, 0, 0 };
+	kern_r.at.y += dirty.area.h;
+	kern_r.at.y += int(_default_font.bounding_box().h);
 	kern_r.at.x -= int(_default_font.bounding_box().w * (kern_txt.length() - 1) / 2);
-	kern_r.at.y += int(_default_font.bounding_box().h * 3);
 
 	dirty = _text(kern_r, kern_txt.string(),
 	              unsigned(kern_txt.length()), color_txt, mode);
@@ -315,11 +295,11 @@ Gui::Rect Lock::_text(Gui::Rect const & pos,
 
 	auto const size  = _default_font.bounding_box();
 
-	Text_painter::Position where(pos.at.x, pos.at.y);
+	Text_painter::Position const where(pos.at.x, pos.at.y);
 
 	Text_painter::paint(surface, where, _default_font, color, txt);
 
-	return { where.x.value, where.y.value, size.w * txt_len, size.h };
+	return { .at { pos.at.x, pos.at.y }, .area { size.w * txt_len, size.h } };
 }
 
 
@@ -352,6 +332,31 @@ Gui::Rect Lock::_circle(Gui::Rect const & rect,
 	}
 
 	return { int(xpos) - r, int(ypos) - r, rect.area.h, rect.area.h };
+}
+
+
+Gui::Rect Lock::_avatar(Gui::Rect const & rect, Gui::Rect const & mode)
+{
+	unsigned * const pixels = _fb->local_addr<unsigned>();
+
+	auto data = header_data;
+
+	unsigned const xpos = rect.at.x;
+	unsigned const ypos = rect.at.y;
+
+	for (auto y = 0u; y < avatar_height; y++) {
+		auto const pixel_pos = mode.area.w * (ypos + y);
+		for (auto x = 0u; x < avatar_width; x++) {
+			char * const _p = reinterpret_cast<char *>(&pixels[pixel_pos + xpos + x]);
+
+			HEADER_PIXEL(data, _p);
+
+			/* invert colors */
+			*(unsigned *)_p = ~*(unsigned *)_p;
+		}
+	}
+
+	return { .at = rect.at, .area = { avatar_width, avatar_height } };
 }
 
 
