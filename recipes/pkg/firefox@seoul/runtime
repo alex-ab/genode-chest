@@ -1,4 +1,4 @@
-<runtime ram="2450M" caps="1350" binary="init">
+<runtime ram="2514M" caps="1390" binary="init">
 
 	<requires>
 		<nic/>
@@ -39,8 +39,7 @@
 			<service name="Usb"/>
 		</parent-provides>
 
-		<start name="vfs_block" caps="260">
-			<resource name="RAM" quantum="340M" />
+		<start name="vfs_block" caps="300" ram="404M">
 			<provides><service name="Block"/></provides>
 			<config>
 				<vfs>
@@ -56,9 +55,8 @@
 			</route>
 		</start>
 
-		<start name="seoul" caps="5000">
+		<start name="seoul" caps="5000" ram="16G">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>

@@ -1,6 +1,7 @@
 <runtime ram="2450M" caps="1350" binary="init">
 
 	<requires>
+		<file_system writeable="yes" label="recall"/>
 		<nic/>
 		<block/>
 		<rom label="platform_info"/>
@@ -11,7 +12,6 @@
 		<rm/>
 		<timer/>
 		<report label="shape"/>
-		<file_system writeable="yes" label="log"/>
 	</requires>
 
 	<content>
@@ -19,8 +19,10 @@
 		<rom label="init"/>
 		<rom label="seoul"/>
 		<rom label="file_terminal"/>
+		<rom label="fs_rom"/>
 		<rom label="libc.lib.so"/>
 		<rom label="vfs.lib.so"/>
+		<rom label="vfs_import.lib.so"/>
 		<rom label="terminal_log"/>
 	</content>
 
@@ -50,12 +52,16 @@
 				<default-policy filename="log" />
 				<vfs>
 					<dir name="dev"> <log/> </dir>
-				  <fs/>
+					<fs/>
+
+					<import overwrite="no">
+						<rom name="vm_seoul_usb.cfg" binary="yes"/>
+					</import>
 				</vfs>
 				<libc stdout="/dev/log"/>
 			</config>
 			<route>
-				<service name="File_system"> <parent identity="log" resource="/"/> </service>
+				<service name="File_system"> <parent identity="recall"/> </service>
 				<any-service> <parent/> </any-service>
 			</route>
 		</start>
@@ -70,14 +76,22 @@
 			</route>
 		</start>
 
+		<start name="fs_rom" caps="100">
+			<resource name="RAM" quantum="1M"/>
+			<provides> <service name="ROM"/> </provides>
+			<config/>
+			<route>
+				<service name="File_system"> <parent identity="recall" resource="/"/> </service>
+				<any-service> <parent/> </any-service>
+			</route>
+		</start>
+
 		<start name="seoul" caps="10000">
 			<binary name="seoul"/>
 			<resource name="RAM" quantum="16G"/>
 			<route>
-				<service name="ROM" label="platform_info">
-					<parent label="platform_info"/> </service>
-				<service name="ROM" label="config">
-					<parent label="vm_seoul_usb.cfg"/> </service>
+				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
+				<service name="ROM" label="config"> <child name="fs_rom" label="vm_seoul_usb.cfg"/> </service>
 				<service name="Report" label="shape">
 					<parent label="shape"/> </service>
 				<service name="Gui" label="fb1.0">

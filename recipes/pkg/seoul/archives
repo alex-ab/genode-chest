@@ -1,0 +1,9 @@
+_/raw/seoul-config
+_/src/seoul
+_/src/init
+_/src/file_terminal
+_/src/fs_rom
+_/src/libc
+_/src/vfs
+_/src/vfs_import
+_/src/terminal_log
