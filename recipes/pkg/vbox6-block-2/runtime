@@ -62,14 +62,15 @@
 						<block name="block1" label="block1" block_buffer_count="128"/>
 					</dir>
 					<dir name="pipe"> <pipe/> </dir>
-					<dir name="shared"> <fs label="shared" writeable="yes"/> </dir>
+					<dir name="shared"> <fs label="shared -> /" writeable="yes"/> </dir>
 					<rom name="VBoxSharedClipboard.so"/>
 					<rom name="VBoxSharedFolders.so"/>
-					<fs writeable="yes"/>
+					<fs label="vm -> /" writeable="yes"/>
 				</vfs>
 				<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc" pipe="/pipe">
 					<pthread placement="single-cpu"/>
 				</libc>
+				<monitor label="VBOX-1"/>
 				<arg value="virtualbox"/>
 				<env key="VBOX_USER_HOME" value="/"/>
 				<env key="VBOX_LOG_DEST"          value="file=/dev/log"/>
