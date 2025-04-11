@@ -7,7 +7,7 @@
 	<config>
 
 		<vfs>
-			<fs buffer_size="2M" label="guest.raw" writeable="no"/>
+			<fs buffer_size="2M" label="guest.raw -> /" writeable="no"/>
 		</vfs>
 
 		<default-policy file="/guest.raw" writeable="no" block_size="512"/>
