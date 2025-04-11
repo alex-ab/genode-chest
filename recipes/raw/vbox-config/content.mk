@@ -1,4 +1,4 @@
-CONFIG_FILES = machine.vbox machine.vbox6
+CONFIG_FILES = machine.vbox6
 
 content: $(CONFIG_FILES)
 
