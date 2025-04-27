@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2018-2024 Genode Labs GmbH
+ * Copyright (C) 2018-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -47,17 +47,24 @@ struct Lock
 	Signal_handler  _config_handler { _env.ep(), *this, &Lock::_update_config };
 
 	Glyph_buffer    _glyph_buffer   { };
-	Tff_font        _default_font;
+	Tff_font        _default_font   { _binary_mono_tff_start, _glyph_buffer };
 
 	String          _kernel         { };
 	String          _user           { "User" };
 
+	Input::Keycode  _lock_key       { };
 	short int const _hs             { 10 }; /* half size of square box */
 	bool            _transparent    { };
 	bool            _cmp_valid      { };
 
 	/* pwd state */
-	enum State { WAIT_CLICK, RECORD_PWD, BEFORE_COMPARE, COMPARE_PWD } state { WAIT_CLICK };
+	enum State {
+		WAIT_CLICK,
+		RECORD_PWD,
+		BEFORE_COMPARE,
+		COMPARE_PWD,
+		WAIT_FOR_LOCK_KEY
+	} state { WAIT_CLICK };
 
 	struct {
 		unsigned chars [128];
@@ -86,7 +93,7 @@ struct Lock
 			auto const sub_h = size.h / 2;
 
 			Text_painter::Position where(int(mode.area.w / 2 - sub_w),
-			                             int(mode.area.h / 2 - sub_h - offset));
+			                             int(mode.area.h / 2 - sub_h + offset));
 			Text_painter::paint(surface, where, _default_font,
 			                    fg_color, text);
 		}
@@ -98,13 +105,27 @@ struct Lock
 		_gui->execute();
 	}
 
+	void _default_view(auto const buffer, unsigned const buffer_size)
+	{
+		auto const bg_black = Color::rgb(0, 0, 0);
+		auto const bg_trans = Color::clamped_rgba(16, 16, 16, 16);
+		auto const fg_white = Color::rgb(255, 255, 255);
+
+		auto const   offset_y = _hs * 2;
+		auto const   mode     = _mode();
+		auto       & fb       = _gui->framebuffer;
+
+		_update_view(_transparent ? bg_trans : bg_black, fg_white,
+		             offset_y, buffer, buffer_size);
+
+		_user_bubble(mode, fb);
+	}
+
 	void _switch_view_record_pwd()
 	{
 		char const buffer[] = "Recording password ...";
-		auto const bg_black = Color::rgb(255, 255, 255);
-		auto const fg_white = Color::rgb(  0,   0,   0);
 
-		_update_view(bg_black, fg_white, _hs * 2, buffer, sizeof(buffer) - 1);
+		_default_view(buffer, sizeof(buffer) - 1);
 
 		state = RECORD_PWD;
 		_cmp_valid = false;
@@ -122,19 +143,9 @@ struct Lock
 
 	void _switch_view_compare_pwd()
 	{
-		char const buffer[]   = "Password to unlock screen ...";
-		auto const bg_black   = Color::rgb(0, 0, 0);
-		auto const bg_trans   = Color::clamped_rgba(16, 16, 16, 16);
-		auto const fg_white   = Color::rgb(255, 255, 255);
+		char const buffer[] = "Password to unlock screen ...";
 
-		auto const   offset_y = _hs * 2;
-		auto const   mode     = _mode();
-		auto       & fb       = _gui->framebuffer;
-
-		_update_view(_transparent ? bg_trans : bg_black, fg_white,
-		             offset_y, buffer, sizeof(buffer) - 1);
-
-		_user_bubble(mode, fb);
+		_default_view(buffer, sizeof(buffer) - 1);
 
 		state = COMPARE_PWD;
 
@@ -144,12 +155,9 @@ struct Lock
 
 	void _switch_view_initial()
 	{
-		char const buffer[] = "After the next text input,"
-		                      " password recording starts ...";
-		auto const bg_red   = Color::rgb(0, 0, 0xac);
-		auto const fg_black = Color::rgb(255, 255, 255);
+		char const buffer[] = "No password set, recording starts with next input ...";
 
-		_update_view(bg_red, fg_black, 0, buffer, sizeof(buffer) - 1);
+		_default_view(buffer, sizeof(buffer) - 1);
 
 		state = WAIT_CLICK;
 		_cmp_valid = false;
@@ -170,6 +178,9 @@ struct Lock
 
 	void _handle_mode()
 	{
+		if (state == WAIT_FOR_LOCK_KEY)
+			return;
+
 		if (!_gui.constructed())
 			return;
 
@@ -178,10 +189,11 @@ struct Lock
 		_fb.construct(_env.rm(), _gui->framebuffer.dataspace());
 
 		switch (state) {
-		case BEFORE_COMPARE : _switch_view_before_compare(); break;
-		case COMPARE_PWD    : _switch_view_compare_pwd();    break;
-		case RECORD_PWD     : _switch_view_record_pwd();     break;
-		case WAIT_CLICK     : _switch_view_initial();        break;
+		case BEFORE_COMPARE    : _switch_view_before_compare(); break;
+		case COMPARE_PWD       : _switch_view_compare_pwd();    break;
+		case RECORD_PWD        : _switch_view_record_pwd();     break;
+		case WAIT_CLICK        : _switch_view_initial();        break;
+		case WAIT_FOR_LOCK_KEY : break;
 		}
 	}
 
@@ -198,17 +210,20 @@ struct Lock
 
 	Gui::Area _avatar_size() const { return { avatar_width, avatar_height }; }
 
-	Lock(Genode::Env &env)
-	:
-		_env(env), _default_font(_binary_mono_tff_start, _glyph_buffer)
+	void reinit_gui()
 	{
 		_gui.construct(_env, "screen");
 
+		_gui->info_sigh (_mode_handler);
+		_gui->input.sigh(_input_handler);
+	}
+
+	Lock(Genode::Env &env) : _env(env)
+	{
 		_config_rom.sigh(_config_handler);
 		_info_rom  .sigh(_config_handler);
 
-		_gui->info_sigh (_mode_handler);
-		_gui->input.sigh(_input_handler);
+		reinit_gui();
 
 		_update_config();
 
@@ -458,6 +473,19 @@ void Lock::_handle_input()
 			if (!ev.key_press(key) || !cp.valid())
 				return;
 
+			if (state == WAIT_FOR_LOCK_KEY &&
+				key   != Input::Keycode::KEY_UNKNOWN &&
+				key   == _lock_key)
+			{
+				Genode::log("Lock key detected - lock screen");
+				state = BEFORE_COMPARE;
+				_handle_mode();
+				return;
+			}
+
+			if (!_fb.constructed())
+				return;
+
 			if (state == WAIT_CLICK)
 				_switch_view_record_pwd();
 
@@ -496,7 +524,7 @@ void Lock::_handle_input()
 				if (state == RECORD_PWD) {
 					_pwd.chars[_pwd.i] = cp.value;
 					_inc_pwd_i();
-					_show_box(_pwd.i, ~0, 0, _hs);
+					_show_box(_pwd.i, 0, ~0, _hs);
 				}
 				if (state == COMPARE_PWD) {
 					if (_cmp_valid)
@@ -518,7 +546,6 @@ void Lock::_handle_input()
 		return;
 
 	_gui->destroy_view(_handle);
-	_handle = {};
 
 	_gui->info_sigh ({});
 	_gui->input.sigh({});
@@ -526,9 +553,22 @@ void Lock::_handle_input()
 	_fb .destruct();
 	_gui.destruct();
 
-	Genode::memset(&_pwd, 0, sizeof(_pwd));
+	if (_lock_key == Input::Keycode::KEY_UNKNOWN) {
 
-	_env.parent().exit(0);
+		Genode::log("Exiting ... no lock key configured.");
+
+		_handle = {};
+
+		Genode::memset(&_pwd, 0, sizeof(_pwd));
+
+		_env.parent().exit(0);
+	} else {
+		Genode::log("Unlocked. Waiting for lock key press.");
+
+		reinit_gui();
+
+		state = WAIT_FOR_LOCK_KEY;
+	}
 }
 
 
@@ -556,6 +596,8 @@ void Lock::_update_config()
 	passwd       = config.attribute_value("password", passwd);
 	_user        = config.attribute_value("name", _user);
 	_transparent = config.attribute_value("transparent", _transparent);
+	_lock_key    = Input::key_code(config.attribute_value("lock_key",
+	                                                      Input::Key_name()));
 
 	bool switch_view = transparent != _transparent;
 
@@ -567,9 +609,11 @@ void Lock::_update_config()
 		_pwd.i   = 0;
 
 		if (!switch_view)
-			switch_view = state != COMPARE_PWD;
+			switch_view = state != BEFORE_COMPARE;
 
-		state = COMPARE_PWD;
+		state = BEFORE_COMPARE;
+
+		memset(&passwd, 0, sizeof(passwd));
 	}
 
 	if (_handle.value > 0 && switch_view)

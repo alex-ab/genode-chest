@@ -10,6 +10,6 @@
 		<rom label="gui_lock"/>
 	</content>
 
-	<config name="User: You" password="" transparent="no"/>
+	<config name="User: You" password="" transparent="no" lock_key=""/>
 
 </runtime>

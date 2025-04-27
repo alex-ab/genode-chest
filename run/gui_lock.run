@@ -83,6 +83,8 @@ append config {
 			<policy label_prefix="pointer"     domain="pointer"/>
 			<policy label_prefix="gui_lock"    domain="lock"/>
 			<default-policy                    domain="default"/>
+
+			<global-key name="KEY_L" label="gui_lock -> input" />
 		</config>
 		<route>
 			<service name="ROM" label="focus">
@@ -139,7 +141,10 @@ append config {
 	<start name="gui_lock">
 		<resource name="RAM" quantum="8M"/>
 
-		<config name="User: Alex" password="secret" transparent="no"/>
+		<config name="User: Alex" password="secret" transparent="no"
+		        lock_key="KEY_L"/>
+<!--
+-->
 
 		<route>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
