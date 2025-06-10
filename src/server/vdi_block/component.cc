@@ -19,6 +19,7 @@
 #include <base/log.h>
 #include <timer_session/connection.h>
 #include <util/xml_node.h>
+#include <root/root.h>
 
 #include "vdi_file.h"
 
@@ -187,11 +188,10 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 		vdi_file->init(notify);
 	}
 
-	Session_capability session(Root::Session_args const &args,
-	                           Affinity           const &     ) override
+	Root::Result session(Root::Session_args const &args, Affinity const &) override
 	{
-		if (client  .constructed()) throw Service_denied();
-		if (block_ds.constructed()) throw Service_denied();
+		if (client  .constructed()) return Session_error::DENIED;
+		if (block_ds.constructed()) return Session_error::DENIED;
 
 		Session_label const label = label_from_args(args.string());
 
@@ -200,23 +200,23 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 			Arg_string::find_arg(args.string(), "tx_buf_size").ulong_value(0);
 
 		if (!tx_buf_size)
-			throw Service_denied();
+			return Session_error::DENIED;
 
 		if (tx_buf_size > ram_quota.value) {
 			error("insufficient 'ram_quota' from '", label, "',"
 			      " got ", ram_quota, ", need ", tx_buf_size);
-			throw Insufficient_ram_quota();
+			return Session_error::DENIED;
 		}
 
 		try {
 			block_ds.construct(env.ram(), env.rm(), tx_buf_size);
 			client.construct(env, block_ds->cap(), *vdi_file);
-			return client->cap();
+			return { client->cap() };
 		} catch (...) {
 			error("rejecting session request '", label, "'");
 		}
 
-		throw Service_denied();
+		return Session_error::DENIED;
 	}
 
 	void upgrade(Session_capability, Root::Upgrade_args const&) override {

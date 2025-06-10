@@ -452,8 +452,7 @@ struct Subjects
 			                          percent, ".", rest < 10 ? "0" : "", rest, "%");
 		}
 
-		template <typename FN>
-		void for_each(FN const &fn) const
+		void for_each(auto const &fn) const
 		{
 			for (int x = 0; x < MAX_CPUS_X; x++) {
 				for (int y = 0; y < MAX_CPUS_Y; y++) {
@@ -477,8 +476,7 @@ struct Subjects
 			}
 		}
 
-		template <typename FN>
-		void for_each_online_cpu(FN const &fn) const {
+		void for_each_online_cpu(auto const &fn) const {
 			for (unsigned x = 0; x < MAX_CPUS_X; x++) {
 				for (unsigned y = 0; y < MAX_CPUS_Y; y++) {
 					if (_cpu_online[x][y])
@@ -593,8 +591,7 @@ struct Subjects
 			}
 		}
 
-		template <typename T>
-		void hub(Genode::Xml_generator &xml, T &hub, char const *name)
+		void hub(Genode::Xml_generator &xml, auto &hub, char const *name)
 		{
 			hub.for_each([&](Button_state &state, unsigned pos) {
 				xml.attribute("name", Genode::String<20>("hub-", name, "-", pos));
@@ -1041,9 +1038,9 @@ struct Subjects
 			         false };
 		}
 
-		void top(Genode::Reporter::Xml_generator &, SORT_TIME const, bool const);
+		void top(Genode::Xml_generator &, SORT_TIME const, bool const);
 
-		void graph(Genode::Reporter::Xml_generator &xml, SORT_TIME const sort)
+		void graph(Genode::Xml_generator &xml, SORT_TIME const sort)
 		{
 			if (_trace_top_most || _trace_top_no_idle) {
 				for_each([&] (Top::Thread const &thread, uint64_t t) {
@@ -1107,12 +1104,11 @@ struct Subjects
 			});
 		}
 
-		template <typename FN>
 		void detail_view_tool(Genode::Xml_generator &xml,
 		                      Top::Thread const &entry,
 		                      Genode::String<16> name,
-		                      unsigned id,
-		                      FN const &fn,
+		                      unsigned const id,
+		                      auto const &fn,
 		                      Genode::String<12> align = "left")
 		{
 			xml.node("vbox", [&] () {
@@ -1457,12 +1453,11 @@ struct Subjects
 			});
 		}
 
-		template <typename FN>
 		void list_view_pd_tool(Genode::Xml_generator &xml,
 		                       char const * const name,
 		                       char const * const attribute,
 		                       char const * const attribute_label,
-		                       FN const &fn)
+		                       auto const &fn)
 		{
 			unsigned const max_pds = _config_pds_per_cpu;
 
@@ -1518,7 +1513,7 @@ struct Subjects
 		}
 };
 
-void Subjects::top(Genode::Reporter::Xml_generator &xml, SORT_TIME const sort,
+void Subjects::top(Genode::Xml_generator &xml, SORT_TIME const sort,
                    bool const trace_ms)
 {
 	if (_detailed_view.id) {
@@ -2085,7 +2080,7 @@ void App::Main::_write_config()
 	if (!_reporter_config.constructed())
 		return;
 
-	Reporter::Xml_generator xml(*_reporter_config, [&] () {
+	auto result = _reporter_config->generate([&] (auto &xml) {
 		xml.attribute("report", _reporter.constructed());
 		xml.attribute("report_config" , _reporter_config.constructed());
 
@@ -2102,6 +2097,9 @@ void App::Main::_write_config()
 
 		_subjects.write_config(xml);
 	});
+
+	if (result.failed())
+		error(__func__, " failed");
 }
 
 void App::Main::_handle_view(Duration)
@@ -2158,20 +2156,24 @@ void App::Main::_generate_report()
 		unsigned retry = 0;
 
 		do {
-			try {
-				Reporter::Xml_generator xml(*_reporter, [&] () {
-					_subjects.top(xml, _sort, _storage.constructed()); });
+			auto result = _reporter->generate([&] (auto &xml) {
+				_subjects.top(xml, _sort, _storage.constructed());
+			});
 
+			result.with_result([&](auto) {
 				retry = 0;
-			} catch (Genode::Xml_generator::Buffer_exceeded) {
-				if (++retry % 5 == 0)
-					Genode::warning(retry, ". attempt to extend dialog report size");
+			}, [&](auto const &e) {
+				switch (e) {
+				case Buffer_error::EXCEEDED:
+					if (++retry % 5 == 0)
+						Genode::warning(retry, ". attempt to extend dialog report size");
 
-				_dialog_size += 4096;
-				_reporter.destruct();
-				_reporter.construct(_env, "dialog", "dialog", _dialog_size);
-				_reporter->enabled(true);
-			}
+					_dialog_size += 4096;
+					_reporter.destruct();
+					_reporter.construct(_env, "dialog", "dialog", _dialog_size);
+					_reporter->enabled(true);
+				}
+			});
 		} while (retry);
 	}
 
@@ -2180,21 +2182,25 @@ void App::Main::_generate_report()
 		unsigned retry = 0;
 
 		do {
-			try {
-				Reporter::Xml_generator xml(*_reporter_graph, [&] () {
-					_subjects.graph(xml, _sort);
-				});
+			auto result = _reporter_graph->generate([&] (auto &xml) {
+				_subjects.graph(xml, _sort);
+			});
 
+			result.with_result([&](auto) {
 				retry = 0;
-			} catch (Genode::Xml_generator::Buffer_exceeded) {
-				if (++retry % 5 == 0)
-					Genode::warning(retry, ". attempt to extend graph report size");
+			}, [&](auto const &e) {
+				switch (e) {
+				case Buffer_error::EXCEEDED:
 
-				_graph_size += 4096;
-				_reporter_graph.destruct();
-				_reporter_graph.construct(_env, "graph", "graph", _graph_size);
-				_reporter_graph->enabled(true);
-			}
+					if (++retry % 5 == 0)
+						Genode::warning(retry, ". attempt to extend graph report size");
+
+					_graph_size += 4096;
+					_reporter_graph.destruct();
+					_reporter_graph.construct(_env, "graph", "graph", _graph_size);
+					_reporter_graph->enabled(true);
+				}
+			});
 		} while (retry);
 	}
 
