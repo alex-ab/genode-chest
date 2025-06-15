@@ -1,4 +1,5 @@
-content: block.vdi block_ext2.vdi block_ext4.vdi uuid.txt
+content: block.vdi block_ext4.vdi uuid.txt
+# block_ext2.vdi
 
 %.vdi:
 	cp $(REP_DIR)/recipes/raw/vdi_empty/$@.bz2 $@.bz2
