@@ -1,4 +1,4 @@
-<runtime ram="2514M" caps="1390" binary="init">
+<runtime ram="2514M" caps="2140" binary="init">
 
 	<requires>
 		<nic/>
@@ -41,7 +41,7 @@
 			<service name="Play"/>
 		</parent-provides>
 
-		<start name="vfs_block" caps="300" ram="404M">
+		<start name="vfs_block" caps="1050" ram="404M">
 			<provides><service name="Block"/></provides>
 			<config>
 				<vfs>

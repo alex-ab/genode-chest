@@ -1,4 +1,4 @@
-<runtime ram="1420M" caps="1150" binary="init">
+<runtime ram="1420M" caps="1950" binary="init">
 
 	<requires>
 		<file_system writeable="yes" label="home"/>
@@ -43,8 +43,7 @@
 			<service name="Usb"/>
 		</parent-provides>
 
-		<start name="vfs_block" caps="260">
-			<resource name="RAM" quantum="340M" />
+		<start name="vfs_block" caps="1160" ram="340M">
 			<provides><service name="Block"/></provides>
 			<config>
 				<vfs>

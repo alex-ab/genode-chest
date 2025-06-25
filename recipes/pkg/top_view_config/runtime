@@ -1,4 +1,4 @@
-<runtime ram="44M" caps="900" binary="init">
+<runtime ram="47M" caps="950" binary="init">
 
 	<requires>
 		<gui/>
@@ -23,7 +23,7 @@
 		</parent-provides>
 
 		<start name="report_rom" caps="100">
-			<resource name="RAM" quantum="1M"/>
+			<resource name="RAM" quantum="2M"/>
 			<provides> <service name="Report"/> <service name="ROM"/> </provides>
 			<config verbose="no">
 				<policy label="menu_view -> dialog" report="top_view -> dialog"/>
@@ -33,7 +33,7 @@
 		</start>
 
 		<start name="fs_report" caps="100">
-			<resource name="RAM" quantum="1M"/>
+			<resource name="RAM" quantum="2M"/>
 			<provides> <service name="Report"/> </provides>
 			<config> <vfs> <fs/> </vfs> </config>
 			<route>
@@ -43,7 +43,7 @@
 		</start>
 
 		<start name="fs_rom" caps="100">
-			<resource name="RAM" quantum="1M"/>
+			<resource name="RAM" quantum="2M"/>
 			<provides> <service name="ROM"/> </provides>
 			<config/>
 			<route>
@@ -52,7 +52,7 @@
 			</route>
 		</start>
 
-		<start name="graph" caps="100">
+		<start name="graph" caps="150">
 			<resource name="RAM" quantum="8M"/>
 			<config>
 				<vfs> <dir name="fonts"> <fs label="fonts -> /"/> </dir> </vfs>
