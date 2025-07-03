@@ -1866,10 +1866,9 @@ static T _attribute_value(Genode::Xml_node const & node, char const *attr_name)
 template <typename T, typename... ARGS>
 static T _attribute_value(Genode::Xml_node const & node, char const *sub_node_type, ARGS... args)
 {
-	if (!node.has_sub_node(sub_node_type))
-		return T{};
-
-	return _attribute_value<T>(node.sub_node(sub_node_type), args...);
+	return node.with_sub_node(sub_node_type, [&](auto const &node) {
+		return _attribute_value<T>(node, args...);
+	}, []() { return T{}; });
 }
 
 /**
