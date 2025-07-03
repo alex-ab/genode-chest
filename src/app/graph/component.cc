@@ -49,6 +49,7 @@ struct Checkpoint
 
 typedef Genode::Constructible<Genode::Attached_dataspace> Reconstruct_ds;
 typedef Genode::Signal_handler<Graph> Signal_handler;
+typedef Genode::Root_directory        Root_directory;
 
 class Graph
 {
@@ -117,7 +118,12 @@ class Graph
 		uint64_t                      _time_storage_wait_for { 0 };
 		uint64_t                      _freq_khz { 2000000 };
 
-		Genode::Root_directory _root { _env, _heap, _config.xml().sub_node("vfs") };
+		Root_directory _root = _config.xml().with_sub_node("vfs",
+			[&] (auto const &config) -> Root_directory {
+				return { _env, _heap, config }; },
+			[&] () -> Root_directory {
+				return { _env, _heap, Genode::Xml_node("<empty/>") }; });
+
 		Genode::Vfs_font       _font { _heap, _root, "fonts/monospace/regular" };
 
 		Genode::Constructible<Top::Storage<Graph>> _storage { };
@@ -895,13 +901,20 @@ void Graph::_handle_graph()
 	}
 
 	if (_storage.constructed()) {
-		Genode::Xml_node node = _graph.xml().sub_node("entry");
-		unsigned long long const tsc = node.attribute_value("tsc", 0ULL);
+		bool ping = false;
 
-		if (time() < tsc) {
-			_time_storage_wait_for = tsc;
+		_graph.xml().with_optional_sub_node("entry", [&](auto const &node) {
+			auto const tsc = node.attribute_value("tsc", 0ULL);
 
-//			Genode::error(Genode::Hex(time()), " < ", Genode::Hex(tsc));
+			if (time() < tsc) {
+				_time_storage_wait_for = tsc;
+
+				//Genode::error(Genode::Hex(time()), " < ", Genode::Hex(tsc));
+				ping = true;
+			}
+		});
+
+		if (ping) {
 			_storage->ping();
 			return;
 		}

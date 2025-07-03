@@ -168,16 +168,6 @@ static void print_headers(Preheader const &ph, HeaderV1Plus const &h)
 }
 
 
-static Genode::Xml_node vfs_config(Genode::Xml_node const &config)
-{
-	try {
-		return config.sub_node("vfs");
-	} catch (...) {
-		Genode::error("VFS not configured");
-		throw;
-	}
-}
-
 class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 {
 	private:
@@ -566,7 +556,13 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 		File(Genode::Env &env, Genode::Xml_node const &config)
 		:
 			_env(env),
-			_vfs_env(_env, _heap, vfs_config(config), *this)
+//			_vfs_env(_env, _heap, vfs_config(config), *this)
+			_vfs_env(config.with_sub_node("vfs",
+				[&] (auto const &node) -> Vfs::Simple_env {
+					return { _env, _heap, node, *this }; },
+				[&] () -> Vfs::Simple_env {
+					Genode::error("VFS not configured");
+					return { _env, _heap, Genode::Xml_node("<empty/>") }; }))
 		{
 			bool const writeable = config.attribute_value("writeable", false);
 
