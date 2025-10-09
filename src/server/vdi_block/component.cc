@@ -6,19 +6,17 @@
  */
 
 /*
- * Copyright (C) 2018-2024 Genode Labs GmbH
+ * Copyright (C) 2018-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
  */
 
-/* Genode includes */
 #include <base/attached_ram_dataspace.h>
 #include <base/attached_rom_dataspace.h>
 #include <base/component.h>
 #include <base/log.h>
 #include <timer_session/connection.h>
-#include <util/xml_node.h>
 #include <root/root.h>
 
 #include "vdi_file.h"
@@ -59,7 +57,10 @@ struct Vdi::Block_session_component : Rpc_object<::Block::Session>,
 	                        Vdi::File &file)
 	:
 	  Block_session_handler(env),
-	  Request_stream(env.rm(), ram_cap, env.ep(), request_handler, file.info()),
+	  Request_stream(env.rm(), ram_cap, env.ep(), request_handler, file.info(),
+	                 { .offset     = ::Block::Constrained_view::Offset { 0 },
+	                   .num_blocks = ::Block::Constrained_view::Num_blocks { 0 },
+	                   .writeable  = true }),
 	  vdi(file)
 	{
 		env.ep().manage(*this);
@@ -184,7 +185,7 @@ struct Vdi::Main : Rpc_object<Typed_root<::Block::Session>>
 	{
 		log("--- Starting VDI driver ---");
 
-		vdi_file.construct(env, config.xml());
+		vdi_file.construct(env, config.node());
 		vdi_file->init(notify);
 	}
 

@@ -5,14 +5,13 @@
  */
 
 /*
- * Copyright (C) 2019-2022 Genode Labs GmbH
+ * Copyright (C) 2019-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _GRAPH_WIDGET_H_
-#define _GRAPH_WIDGET_H_
+#pragma once
 
 /* os includes */
 #include <nitpicker_gfx/box_painter.h>
@@ -28,7 +27,9 @@ namespace Menu_view { struct Graph_widget; }
 
 struct Menu_view::Graph_widget : Widget
 {
-	Color _color      { 0, 0, 0 };
+	typedef String<8> Text;
+
+	Color _color;
 	Color _color_text { 0, 255, 0 };
 	Area  _size       { 16, 16 };
 
@@ -38,18 +39,16 @@ struct Menu_view::Graph_widget : Widget
 	uint8_t  _px_c { 0 };
 
 	uint64_t _id { 0 };
+	Text     _text { };
 
 	Text_painter::Font const *_font { nullptr };
 
-	typedef String<8> Text;
-	Text _text { };
-
-	Color _update_color_bar(Xml_node const &node)
+	Color _update_color_bar(Node const &node)
 	{
 		return node.attribute_value("color", _color);
 	}
 
-	Color _update_color_text(Xml_node const &node)
+	Color _update_color_text(Node const &node)
 	{
 		if (!node.has_attribute("textcolor")) {
 			_font = nullptr;
@@ -59,17 +58,20 @@ struct Menu_view::Graph_widget : Widget
 		return node.attribute_value("textcolor", _color_text);
 	}
 
-	Graph_widget(Widget_factory &factory, Xml_node const &node, Unique_id unique_id)
-	: Widget(factory, node, unique_id) { }
+	Graph_widget(Widget_factory &factory, Widget::Attr const &attr)
+	:
+		Widget(factory, attr), _color(Animated_color(factory.animator).color())
+	{ }
 
-	void update(Xml_node const &node) override
+	void update(Node const &node) override
 	{
 		_font       = _factory.styles.font(node);
 
 		_color      = _update_color_bar(node);
 		_color_text = _update_color_text(node);
 
-		_text = node.attribute_value("text", Text(""));
+		node.with_optional_sub_node("text", [&] (Node const &node) {
+			_text = Text(Node::Quoted_content(node)); });
 
 		unsigned w = node.attribute_value("width", 0U);
 		unsigned h = node.attribute_value("height", 0U);
@@ -146,5 +148,3 @@ struct Menu_view::Graph_widget : Widget
 		Graph_widget(Graph_widget const &);
 		Graph_widget &operator = (Graph_widget const &);
 };
-
-#endif /* _GRAPH_WIDGET_H_ */

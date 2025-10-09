@@ -164,11 +164,11 @@ struct Msr::Monitoring
 		return mperf_aperf(system, mperf, aperf);
 	}
 
-	void report(Genode::Xml_generator &xml, unsigned const tcc) const
+	void report(Genode::Generator &g, unsigned const tcc) const
 	{
 		if (freq_khz_valid)
-			xml.attribute("freq_khz", freq_khz);
+			g.attribute("freq_khz", freq_khz);
 		if (tcc && temp_cpu_valid)
-			xml.attribute("temp_c", tcc - temp_cpu);
+			g.attribute("temp_c", tcc - temp_cpu);
 	}
 };

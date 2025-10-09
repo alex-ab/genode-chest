@@ -111,8 +111,8 @@ struct Msr::Power_amd
 	}
 
 	void update(System_control &);
-	void update(System_control &, Genode::Xml_node const &);
-	void report(Genode::Xml_generator &) const;
+	void update(System_control &, Genode::Node const &);
+	void report(Genode::Generator &) const;
 };
 
 void Msr::Power_amd::update(System_control &system)
@@ -124,43 +124,43 @@ void Msr::Power_amd::update(System_control &system)
 		read_power(system);
 }
 
-void Msr::Power_amd::report(Genode::Xml_generator &xml) const
+void Msr::Power_amd::report(Genode::Generator &g) const
 {
 	if (cpuid.pstate_support()) {
-		xml.node("pstate", [&] () {
+		g.node("pstate", [&] () {
 			if (valid_pstate_limit) {
-				xml.attribute("ro_limit_cur", Pstate_limit::Cur_limit::get(pstate_limit));
-				xml.attribute("ro_max_value", Pstate_limit::Max_value::get(pstate_limit));
+				g.attribute("ro_limit_cur", Pstate_limit::Cur_limit::get(pstate_limit));
+				g.attribute("ro_max_value", Pstate_limit::Max_value::get(pstate_limit));
 			}
 			if (valid_pstate_ctrl) {
-				xml.attribute("rw_command", Pstate_ctrl::Command::get(pstate_ctrl));
+				g.attribute("rw_command", Pstate_ctrl::Command::get(pstate_ctrl));
 			}
 			if (valid_pstate_status) {
-				xml.attribute("ro_status", Pstate_status::Status::get(pstate_status));
+				g.attribute("ro_status", Pstate_status::Status::get(pstate_status));
 			}
 		});
 	}
 
 	if (cpuid.amd_pwr_report() || cpuid.amd_cppc()) {
-		xml.node("power", [&] () {
+		g.node("power", [&] () {
 			/* unimplemented by kernel by now - just report the feature atm */
-			xml.attribute("amd_pwr_report", cpuid.amd_pwr_report());
-			xml.attribute("amd_cpc", cpuid.amd_cppc());
+			g.attribute("amd_pwr_report", cpuid.amd_pwr_report());
+			g.attribute("amd_cpc", cpuid.amd_cppc());
 			if (valid_swpwracc)
-				xml.attribute("swpwracc", swpwracc);
+				g.attribute("swpwracc", swpwracc);
 			if (valid_swpwraccmax)
-				xml.attribute("swpwraccmax", swpwraccmax);
+				g.attribute("swpwraccmax", swpwraccmax);
 		});
 	}
 }
 
-void Msr::Power_amd::update(System_control &system, Genode::Xml_node const &config)
+void Msr::Power_amd::update(System_control &system, Genode::Node const &config)
 {
 	using Genode::warning;
 
 	bool const verbose = config.attribute_value("verbose", false);
 
-	config.with_optional_sub_node("pstate", [&] (Genode::Xml_node const &node) {
+	config.with_optional_sub_node("pstate", [&] (Genode::Node const &node) {
 		if (!cpuid.pstate_support())
 			return;
 

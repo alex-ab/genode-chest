@@ -6,14 +6,13 @@
  */
 
 /*
- * Copyright (C) 2018-2023 Genode Labs GmbH
+ * Copyright (C) 2018-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _VDI_BLOCK__VDI_FILE_H_
-#define _VDI_BLOCK__VDI_FILE_H_
+#pragma once
 
 /* Genode includes */
 #include <base/attached_ram_dataspace.h>
@@ -553,16 +552,15 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 
 		struct Could_not_open_file : Genode::Exception { };
 
-		File(Genode::Env &env, Genode::Xml_node const &config)
+		File(Genode::Env &env, Genode::Node const &config)
 		:
-			_env(env),
-//			_vfs_env(_env, _heap, vfs_config(config), *this)
-			_vfs_env(config.with_sub_node("vfs",
+			_env(env), _vfs_env(config.with_sub_node("vfs",
 				[&] (auto const &node) -> Vfs::Simple_env {
 					return { _env, _heap, node, *this }; },
 				[&] () -> Vfs::Simple_env {
 					Genode::error("VFS not configured");
-					return { _env, _heap, Genode::Xml_node("<empty/>") }; }))
+					return { _env, _heap, { } };
+			}))
 		{
 			bool const writeable = config.attribute_value("writeable", false);
 
@@ -698,5 +696,3 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 			return response;
 		}
 };
-
-#endif /* _VDI_BLOCK__VDI_FILE_H_ */

@@ -581,8 +581,8 @@ void Lock::_update_config()
 	_config_rom.update();
 
 	if (_info_rom.valid())
-		_info_rom.xml().with_optional_sub_node("kernel", [&] (auto const &xml) {
-			_kernel = xml.attribute_value("name", _kernel);
+		_info_rom.node().with_optional_sub_node("kernel", [&] (auto const &n) {
+			_kernel = n.attribute_value("name", _kernel);
 		});
 
 	if (!_config_rom.valid())
@@ -590,7 +590,7 @@ void Lock::_update_config()
 
 	Genode::String<sizeof(_pwd.chars)> passwd { };
 
-	auto const & config      = _config_rom.xml();
+	auto const & config      = _config_rom.node();
 	bool const   transparent = _transparent;
 
 	passwd       = config.attribute_value("password", passwd);

@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (C) 2014-2024 Genode Labs GmbH
+ * Copyright (C) 2014-2017 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -74,10 +74,10 @@ struct Menu_view::Main : Dialog::Action
 			_reported = false;
 		}
 
-		void generate(Xml_generator &xml) const
+		void generate(Generator &g) const
 		{
 			if (_curr.constructed())
-				xml.attribute("seq_number", _curr->value);
+				g.attribute("seq_number", _curr->value);
 		}
 
 		void mark_as_reported() { _reported = true; }
@@ -149,9 +149,9 @@ void Menu_view::Main::_update_hover_report()
 
 		if ((hovered != _reported_hovered) || _input_seq_number.changed() || dialog._mouse.valid()) {
 
-			_hover_reporter->generate([&] (Xml_generator &xml) {
-				_input_seq_number.generate(xml);
-				dialog.gen_hover(xml);
+			_hover_reporter->generate([&] (Generator &g) {
+				_input_seq_number.generate(g);
+				dialog.gen_hover(g);
 			});
 			_reported_hovered = hovered;
 			_input_seq_number.mark_as_reported();
@@ -159,7 +159,7 @@ void Menu_view::Main::_update_hover_report()
 	});
 
 	if (hovered_dialogs == 0)
-		_hover_reporter->generate([&] (Xml_generator &) { });
+		_hover_reporter->generate([&] (Generator &) { });
 
 	if (hovered_dialogs > 1)
 		warning("more than one dialog unexpectedly hovered at the same time");
@@ -170,19 +170,19 @@ void Menu_view::Main::_handle_config()
 {
 	_config.update();
 
-	Xml_node const config = _config.xml();
+	Node const &config = _config.node();
 
-	config.with_optional_sub_node("report", [&] (Xml_node const &report) {
+	config.with_optional_sub_node("report", [&] (Node const &report) {
 		_hover_reporter.conditional(report.attribute_value("hover", false),
 		                            _env, "hover", "hover"); });
 
-	config.with_optional_sub_node("vfs", [&] (Xml_node const &vfs_node) {
+	_config.node().with_optional_sub_node("vfs", [&] (Node const &vfs_node) {
 		_vfs_env.root_dir().apply_config(vfs_node); });
 
-	_dialogs.update_from_xml(config,
+	_dialogs.update_from_node(config,
 
 		/* create */
-		[&] (Xml_node const &node) -> Dialog & {
+		[&] (Node const &node) -> Dialog & {
 			return *new (_heap)
 				Dialog(_env, _widget_factory, *this, _global_hover_version, node); },
 
@@ -190,7 +190,7 @@ void Menu_view::Main::_handle_config()
 		[&] (Dialog &d) { destroy(_heap, &d); },
 
 		/* update */
-		[&] (Dialog &d, Xml_node const &node) { d.update(node); }
+		[&] (Dialog &d, Node const &node) { d.update(node); }
 	);
 
 	/* re-assign font pointers in labels (needed due to font style change) */
@@ -204,19 +204,30 @@ void Menu_view::Main::_handle_config()
 
 
 Menu_view::Widget &
-Menu_view::Widget_factory::create(Xml_node const &node)
+Menu_view::Widget_factory::create(Node const &node)
 {
 	Widget::Unique_id const unique_id(++_unique_id_cnt);
 
-	if (node.has_type("label"))    return *new (alloc) Label_widget      (*this, node, unique_id);
-	if (node.has_type("button"))   return *new (alloc) Button_widget     (*this, node, unique_id);
-	if (node.has_type("vbox"))     return *new (alloc) Box_layout_widget (*this, node, unique_id);
-	if (node.has_type("hbox"))     return *new (alloc) Box_layout_widget (*this, node, unique_id);
-	if (node.has_type("frame"))    return *new (alloc) Frame_widget      (*this, node, unique_id);
-	if (node.has_type("float"))    return *new (alloc) Float_widget      (*this, node, unique_id);
-	if (node.has_type("depgraph")) return *new (alloc) Depgraph_widget   (*this, node, unique_id);
-	if (node.has_type("bar"))      return *new (alloc) Bar_widget        (*this, node, unique_id);
-	if (node.has_type("graph"))    return *new (alloc) Graph_widget      (*this, node, unique_id);
+	Widget::Attr const attr { .type    = node.type(),
+	                          .name    = Widget::node_name(node),
+	                          .version = Widget::node_version(node),
+	                          .id      = unique_id };
+
+	auto dir = [] (Node const &node)
+	{
+		return node.has_type("vbox") ? Box_layout_widget::VERTICAL
+		                             : Box_layout_widget::HORIZONTAL;
+	};
+
+	if (node.has_type("label"))    return *new (alloc) Label_widget      (*this, attr);
+	if (node.has_type("button"))   return *new (alloc) Button_widget     (*this, attr);
+	if (node.has_type("vbox"))     return *new (alloc) Box_layout_widget (*this, attr, dir(node));
+	if (node.has_type("hbox"))     return *new (alloc) Box_layout_widget (*this, attr, dir(node));
+	if (node.has_type("frame"))    return *new (alloc) Frame_widget      (*this, attr);
+	if (node.has_type("float"))    return *new (alloc) Float_widget      (*this, attr);
+	if (node.has_type("depgraph")) return *new (alloc) Depgraph_widget   (*this, attr);
+	if (node.has_type("bar"))      return *new (alloc) Bar_widget        (*this, attr);
+	if (node.has_type("graph"))    return *new (alloc) Graph_widget      (*this, attr);
 
 	/*
 	 * This cannot occur because the 'List_model' ensures that 'create' is only
@@ -227,7 +238,7 @@ Menu_view::Widget_factory::create(Xml_node const &node)
 }
 
 
-bool Menu_view::Widget_factory::node_type_known(Xml_node const &node)
+bool Menu_view::Widget_factory::node_type_known(Node const &node)
 {
 	return node.has_type("label")
 	    || node.has_type("button")

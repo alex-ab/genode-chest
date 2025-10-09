@@ -118,11 +118,11 @@ class Graph
 		uint64_t                      _time_storage_wait_for { 0 };
 		uint64_t                      _freq_khz { 2000000 };
 
-		Root_directory _root = _config.xml().with_sub_node("vfs",
+		Root_directory _root = _config.node().with_sub_node("vfs",
 			[&] (auto const &config) -> Root_directory {
 				return { _env, _heap, config }; },
 			[&] () -> Root_directory {
-				return { _env, _heap, Genode::Xml_node("<empty/>") }; });
+				return { _env, _heap, { } }; });
 
 		Genode::Vfs_font       _font { _heap, _root, "fonts/monospace/regular" };
 
@@ -589,9 +589,9 @@ void Graph::_handle_config()
 
 	if (!_config.valid()) return;
 
-	bool const store = _config.xml().attribute_value("store", false);
-	_verbose = _config.xml().attribute_value("verbose", _verbose);
-	_freq_khz = _config.xml().attribute_value("freq_khz", 2000000ULL);
+	bool const store = _config.node().attribute_value("store", false);
+	_verbose = _config.node().attribute_value("verbose", _verbose);
+	_freq_khz = _config.node().attribute_value("freq_khz", 2000000ULL);
 	if (!_freq_khz) _freq_khz = 1;
 
 	Genode::log("config: freq_khz=", _freq_khz,
@@ -884,7 +884,7 @@ void Graph::_handle_graph()
 		return;
 
 	/* no values - no graph view */
-	if (!_graph.xml().num_sub_nodes()) {
+	if (!_graph.node().num_sub_nodes()) {
 		/* destruct current ds until new data arrives */
 		if (_ds.constructed()) {
 			_ds.destruct();
@@ -903,7 +903,7 @@ void Graph::_handle_graph()
 	if (_storage.constructed()) {
 		bool ping = false;
 
-		_graph.xml().with_optional_sub_node("entry", [&](auto const &node) {
+		_graph.node().with_optional_sub_node("entry", [&](auto const &node) {
 			auto const tsc = node.attribute_value("tsc", 0ULL);
 
 			if (time() < tsc) {
@@ -944,7 +944,7 @@ void Graph::_handle_data()
 		unsigned data_cnt = 0;
 		unsigned scale_above = 0;
 
-		_graph.xml().for_each_sub_node("entry", [&](Genode::Xml_node &node){
+		_graph.node().for_each_sub_node("entry", [&](Genode::Node const &node){
 			/* stop processing if we get too many entries we can't consume */
 			if (data_cnt >= MAX_GRAPHS)
 				return;

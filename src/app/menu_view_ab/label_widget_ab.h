@@ -42,7 +42,7 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 
 	enum Alignment { ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, };
 
-	Alignment _update_alignment(Xml_node const &node)
+	Alignment _update_alignment(Node const &node)
 	{
 		String<32> value(node.attribute_value("align", String<32>("")));
 		if      (value == "left")  return ALIGN_LEFT;
@@ -52,19 +52,19 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 
 	Alignment _text_alignment { ALIGN_CENTER };
 
-	Label_widget(Widget_factory &factory, Xml_node const &node, Unique_id unique_id)
+	Label_widget(Widget_factory &factory, Widget::Attr const &attr)
 	:
-		Widget(factory, node, unique_id), _color(factory.animator)
+		Widget(factory, attr), _color(factory.animator)
 	{ }
 
-	~Label_widget() { _update_children(Xml_node("<empty/>")); }
+	~Label_widget() { _update_children(Node()); }
 
-	void _update_children(Xml_node const &node)
+	void _update_children(Node const &node)
 	{
-		_cursors.update_from_xml(node,
+		_cursors.update_from_node(node,
 
 			/* create */
-			[&] (Xml_node const &node) -> Cursor & {
+			[&] (Node const &node) -> Cursor & {
 				return *new (_factory.alloc)
 					Cursor(node, _factory.animator, *this, _factory.styles); },
 
@@ -72,14 +72,14 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 			[&] (Cursor &cursor) { destroy(_factory.alloc, &cursor); },
 
 			/* update */
-			[&] (Cursor &cursor, Xml_node const &node) {
+			[&] (Cursor &cursor, Node const &node) {
 				cursor.update(node); }
 		);
 
-		_selections.update_from_xml(node,
+		_selections.update_from_node(node,
 
 			/* create */
-			[&] (Xml_node const &node) -> Text_selection & {
+			[&] (Node const &node) -> Text_selection & {
 				return *new (_factory.alloc)
 					Text_selection(node, *this); },
 
@@ -87,14 +87,14 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 			[&] (Text_selection &t) { destroy(_factory.alloc, &t); },
 
 			/* update */
-			[&] (Text_selection &t, Xml_node const &node) {
+			[&] (Text_selection &t, Node const &node) {
 				t.update(node); }
 		);
 
 		_text_alignment = _update_alignment(node);
 	}
 
-	void update(Xml_node const &node) override
+	void update(Node const &node) override
 	{
 		_font       = _factory.styles.font(node);
 		_text       = Text("");
@@ -105,11 +105,10 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 		_factory.styles.with_label_style(node, [&] (Label_style style) {
 			_color.fade_to(style.color, Animated_color::Steps{40}); });
 
-		if (node.has_attribute("text")) {
-			_text       = node.attribute_value("text", _text);
-			_text       = Xml_unquoted(_text);
+		node.with_optional_sub_node("text", [&] (Node const &node) {
+			_text = Text(Node::Quoted_content(node));
 			_min_height = _font ? _font->height() : 0;
-		}
+		});
 
 		unsigned const min_ex = node.attribute_value("min_ex", 0U);
 		if (min_ex) {
@@ -193,15 +192,15 @@ struct Menu_view::Label_widget : Widget, Cursor::Glyph_position
 		         .detail    = { _char_index_at_xpos(at.x) } };
 	}
 
-	void gen_hover_model(Xml_generator &xml, Point at) const override
+	void gen_hover_model(Generator &g, Point at) const override
 	{
 		if (_inner_geometry().contains(at)) {
 
-			xml.node(_type_name.string(), [&]() {
+			g.node(_type_name.string(), [&]() {
 
-				_gen_common_hover_attr(xml);
+				_gen_common_hover_attr(g);
 
-				xml.attribute("at", _char_index_at_xpos(at.x));
+				g.attribute("at", _char_index_at_xpos(at.x));
 			});
 		}
 	}

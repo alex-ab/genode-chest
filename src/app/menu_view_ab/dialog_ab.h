@@ -60,7 +60,7 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 
 	Name const _name;
 
-	static Name _name_from_attr(Xml_node const &node)
+	static Name _name_from_attr(Node const &node)
 	{
 		return node.attribute_value("name", Name());
 	}
@@ -129,7 +129,8 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 		_gui.execute();
 	}
 
-	Root_widget _root_widget { _name, Widget::Unique_id { }, _widget_factory, Xml_node("<dialog/>") };
+	Root_widget _root_widget { _widget_factory, Widget::Attr {
+		.type = "dialog", .name = _name, .version = { }, .id = { } } };
 
 	Attached_rom_dataspace _dialog_rom { _env, _name.string() };
 
@@ -139,7 +140,7 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 	void _handle_dialog();
 
 	Dialog(Env &env, Widget_factory &widget_factory, Action &action,
-	       Hover_version &global_hover_version, Xml_node const &node)
+	       Hover_version &global_hover_version, Node const &node)
 	:
 		_env(env), _global_widget_factory(widget_factory),
 		_global_hover_version(global_hover_version), _action(action),
@@ -168,16 +169,16 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 		bool valid() const { return left || right || wheel; }
 	} _mouse { };
 
-	void gen_hover(Xml_generator &xml) const
+	void gen_hover(Generator &g) const
 	{
 		if (_hovered)
-			_root_widget.gen_hover_model(xml, _hovered_position);
+			_root_widget.gen_hover_model(g, _hovered_position);
 
 		if (_mouse.left || _mouse.right || _mouse.wheel) {
-			xml.node("button", [&] {
-				if (_mouse.left)  xml.attribute("left",  "yes");
-				if (_mouse.right) xml.attribute("right", "yes");
-				if (_mouse.wheel) xml.attribute("wheel", _mouse.wheel_y);
+			g.node("button", [&] {
+				if (_mouse.left)  g.attribute("left",  "yes");
+				if (_mouse.right) g.attribute("right", "yes");
+				if (_mouse.wheel) g.attribute("wheel", _mouse.wheel_y);
 			});
 		}
 	}
@@ -244,19 +245,19 @@ struct Menu_view::Dialog : List_model<Dialog>::Element
 	 * List_model
 	 */
 
-	static bool type_matches(Xml_node const &node) { return node.has_type("dialog"); }
+	static bool type_matches(Node const &node) { return node.has_type("dialog"); }
 
-	bool matches(Xml_node const &node) const { return _name_from_attr(node) == _name; }
+	bool matches(Node const &node) const { return _name_from_attr(node) == _name; }
 
-	void update(Xml_node const &node)
+	void update(Node const &node)
 	{
 		Point const orig_position         = _position;
 		Area  const orig_configured_size  = _configured_size;
 		bool  const orig_opaque           = _opaque;
 		Color const orig_background_color = _background_color;
 
-		_position         = Point::from_xml(node);
-		_configured_size  = Area ::from_xml(node);
+		_position         = Point::from_node(node);
+		_configured_size  = Area ::from_node(node);
 		_opaque           = node.attribute_value("opaque", false);
 		_background_color = node.attribute_value("background", Color(127, 127, 127, 255));
 
@@ -274,7 +275,7 @@ void Menu_view::Dialog::_handle_dialog()
 {
 	_dialog_rom.update();
 
-	Xml_node const dialog = _dialog_rom.xml();
+	Node const dialog = _dialog_rom.node();
 
 	if (dialog.has_type("empty"))
 		return;

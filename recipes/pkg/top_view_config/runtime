@@ -1,4 +1,4 @@
-<runtime ram="44M" caps="900" binary="init">
+<runtime ram="46M" caps="900" binary="init">
 
 	<requires>
 		<gui/>
@@ -22,8 +22,7 @@
 			<service name="Timer"/>
 		</parent-provides>
 
-		<start name="report_rom" caps="100">
-			<resource name="RAM" quantum="1M"/>
+		<start name="report_rom" caps="100" ram="1M">
 			<provides> <service name="Report"/> <service name="ROM"/> </provides>
 			<config verbose="no">
 				<policy label="menu_view -> dialog" report="top_view -> dialog"/>
@@ -32,8 +31,7 @@
 			</config>
 		</start>
 
-		<start name="fs_report" caps="100">
-			<resource name="RAM" quantum="1M"/>
+		<start name="fs_report" caps="100" ram="2M">
 			<provides> <service name="Report"/> </provides>
 			<config> <vfs> <fs/> </vfs> </config>
 			<route>
@@ -42,8 +40,7 @@
 			</route>
 		</start>
 
-		<start name="fs_rom" caps="100">
-			<resource name="RAM" quantum="1M"/>
+		<start name="fs_rom" caps="100" ram="1M">
 			<provides> <service name="ROM"/> </provides>
 			<config/>
 			<route>
@@ -52,8 +49,7 @@
 			</route>
 		</start>
 
-		<start name="graph" caps="100">
-			<resource name="RAM" quantum="8M"/>
+		<start name="graph" caps="100" ram="8M">
 			<config>
 				<vfs> <dir name="fonts"> <fs label="fonts -> /"/> </dir> </vfs>
 			</config>
@@ -64,8 +60,7 @@
 			</route>
 		</start>
 
-		<start name="top_view" caps="200">
-			<resource name="RAM" quantum="3400K"/>
+		<start name="top_view" caps="200" ram="4M">
 <!--
 			<config view_ms="2000" report="yes" log="no" report_config="yes"/>
 -->
@@ -78,9 +73,8 @@
 			</route>
 		</start>
 
-		<start name="menu_view" caps="200">
+		<start name="menu_view" caps="200" ram="28M">
 			<binary name="menu_view_ab"/>
-			<resource name="RAM" quantum="28M"/>
 			<config>
 				<report hover="yes"/>
 				<libc stderr="/dev/log"/>

@@ -126,7 +126,7 @@ append config {
 		<route>
 			<service name="ROM"         label="dialog"> <child name="report_rom" /> </service>
 			<service name="Report"      label="hover">  <child name="report_rom"/> </service>
-			<service name="File_system" label="fonts">  <child name="fonts_fs"/> </service>
+			<service name="File_system" label="fonts">  <child name="fonts_fs" resource="/"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
 	</start>}

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2021-2023 Genode Labs GmbH
+ * Copyright (C) 2021-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -59,13 +59,12 @@ struct Core_thread : Thread, Msr::Monitoring
 	bool amd;
 	bool main { };
 
-	Xml_node const *config_node { };
+	Node const * config_node { };
 
 	Core_thread(Env &env, Location const &location, uint64_t tsc_freq_khz,
 	            bool intel, bool amd)
 	:
-		Thread(env, Name("msr", location), 4 * 4096 /* STACK_SIZE */,
-	           location, Weight(), env.cpu()),
+		Thread(env, Name("msr", location), { 4 * 4096 }, location),
 		location(location), tsc_freq_khz(tsc_freq_khz),
 		control_cap(env.pd().system_control_cap(location)),
 		intel(intel), amd(amd)
@@ -158,12 +157,17 @@ struct Msr::Msr {
 	{
 		Attached_rom_dataspace info { env, "platform_info"};
 
-		uint64_t freq_khz = info.xml().sub_node("hardware")
-		                              .sub_node("tsc")
-		                              .attribute_value("freq_khz", 0UL);
+		uint64_t   freq_khz { };
+		String<16> kernel   { };
 
-		String<16> kernel = info.xml().sub_node("kernel")
-		                              .attribute_value("name", String<16>());
+		info.node().with_optional_sub_node("hardware", [&] (auto const &n) {
+			n.with_optional_sub_node("tsc", [&] (auto const &node) {
+				freq_khz = node.attribute_value("freq_khz", freq_khz);
+			});
+		});
+
+		info.node().with_optional_sub_node("kernel", [&] (auto const &node) {
+			kernel = node.attribute_value("name", kernel); });
 
 		bool const amd   = _amd();
 		bool const intel = _intel();
@@ -227,9 +231,9 @@ struct Msr::Msr {
 			threads[i]->done.block();
 		}
 
-		reporter.generate([&] (Xml_generator &xml) {
+		reporter.generate([&] (Generator &g) {
 
-			xml.attribute("update_rate_us", timer_rate.value);
+			g.attribute("update_rate_us", timer_rate.value);
 
 			/* XXX per package value handling
 			 * target temperature is identical over a package
@@ -239,33 +243,33 @@ struct Msr::Msr {
 			Core_thread const &package = *threads[0];
 			if (package.temp_tcc_valid) {
 				tcc = package.temp_tcc;
-				xml.attribute("tcc_temp_c", tcc);
+				g.attribute("tcc_temp_c", tcc);
 			}
 
 			if (tcc && package.temp_package_valid)
-				xml.attribute("pkg_temp_c", tcc - package.temp_package);
+				g.attribute("pkg_temp_c", tcc - package.temp_package);
 
 			for (unsigned i = 0; i < cpus.total(); i++) {
 				Core_thread const &cpu = *threads[i];
 
-				xml.node("cpu", [&] () {
-					xml.attribute("x", cpu.location.xpos());
-					xml.attribute("y", cpu.location.ypos());
+				g.node("cpu", [&] () {
+					g.attribute("x", cpu.location.xpos());
+					g.attribute("y", cpu.location.ypos());
 
 					if (cpu.intel) {
 						if (cpu.power_intel->cpuid.core_type == Cpuid::INTEL_ATOM)
-							xml.attribute("type", "E");
+							g.attribute("type", "E");
 						else
 						if (cpu.power_intel->cpuid.core_type == Cpuid::INTEL_CORE)
-							xml.attribute("type", "P");
+							g.attribute("type", "P");
 					}
 
-					cpu.report(xml, tcc);
+					cpu.report(g, tcc);
 
 					if (cpu.power_intel.constructed())
-						cpu.power_intel->report(xml, cpu.tsc_freq_khz);
+						cpu.power_intel->report(g, cpu.tsc_freq_khz);
 					if (cpu.power_amd.constructed())
-						cpu.power_amd->report(xml);
+						cpu.power_amd->report(g);
 				});
 			}
 		});
@@ -278,8 +282,8 @@ struct Msr::Msr {
 		if (!config.valid())
 			return;
 
-		if (config.xml().has_attribute("update_rate_us")) {
-			auto const new_rate = config.xml().attribute_value("update_rate_us",
+		if (config.node().has_attribute("update_rate_us")) {
+			auto const new_rate = config.node().attribute_value("update_rate_us",
 			                                                   timer_rate.value);
 
 			if ((new_rate != timer_rate.value) && (new_rate >= Microseconds(100'000).value)) {
@@ -288,7 +292,7 @@ struct Msr::Msr {
 			}
 		}
 
-		config.xml().for_each_sub_node("cpu", [&](Xml_node const &node) {
+		config.node().for_each_sub_node("cpu", [&](Node const &node) {
 
 			if (!node.has_attribute("x") || !node.has_attribute("y"))
 				return;

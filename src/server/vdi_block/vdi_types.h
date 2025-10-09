@@ -9,20 +9,18 @@
  */
 
 /*
- * Copyright (C) 2018-2023 Genode Labs GmbH
+ * Copyright (C) 2018-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
  */
 
-#ifndef _VDI_TYPES_H_
-#define _VDI_TYPES_H_
+#pragma once
 
 /* Genode includes */
 #include <base/stdint.h>
 
 
-using ssize_t  = signed long;
 using uint8_t  = Genode::uint8_t;
 using uint16_t = Genode::uint16_t;
 using uint32_t = Genode::uint32_t;
@@ -120,5 +118,3 @@ struct HeaderV1Plus
 	Random_uuid prev_modify_uuid;
 	Disk_geometry logical_geometry;
 } __attribute__((packed));
-
-#endif /* _VDI_TYPES_H_ */

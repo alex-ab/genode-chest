@@ -764,11 +764,11 @@ struct Msr::Power_intel
 		read_mwait_pkg     (system);
 	}
 
-	void update(System_control &system, Genode::Xml_node const &config, Genode::Affinity::Location const &cpu)
+	void update(System_control &system, Genode::Node const &config, Genode::Affinity::Location const &cpu)
 	{
 		bool const verbose = config.attribute_value("verbose", false);
 
-		config.with_optional_sub_node("energy_perf_bias", [&] (Genode::Xml_node const &node) {
+		config.with_optional_sub_node("energy_perf_bias", [&] (Genode::Node const &node) {
 			if (!cpuid.hwp_energy_perf_bias())
 				return;
 
@@ -928,7 +928,7 @@ struct Msr::Power_intel
 		return value * _pow(value, rounds - 1);
 	}
 
-	void report_energy(Genode::Xml_generator &xml, char const * const name,
+	void report_energy(Genode::Generator &g, char const * const name,
 	                   uint64_t const msr, uint64_t const msr_prev,
 	                   uint64_t const tsc_freq_khz) const
 	{
@@ -940,23 +940,23 @@ struct Msr::Power_intel
 
 		auto const pow = _pow(0.5d, Msr_rapl_units::Energy::get(msr_rapl_units));
 
-		xml.node(name, [&] () {
+		g.node(name, [&] () {
 			auto const t   = double(msr      & ((1ull << 32) - 1));
 			auto const t_p = double(msr_prev & ((1ull << 32) - 1));
 
-			xml.attribute("raw"  , msr);
-			xml.attribute("Joule", t * pow); /* J = W * s */
-			xml.attribute("Watt" , (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
+			g.attribute("raw"  , msr);
+			g.attribute("Joule", t * pow); /* J = W * s */
+			g.attribute("Watt" , (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
 		});
 	}
 
-	void report_power(Genode::Xml_generator &xml, char const * const name,
+	void report_power(Genode::Generator &g, char const * const name,
 	                  uint64_t const msr) const
 	{
 		if (!valid_msr_rapl_units)
 			return;
 
-		xml.node(name, [&] () {
+		g.node(name, [&] () {
 			auto const pow_power = _pow(0.5d, Msr_rapl_units::Power::get(msr_rapl_units));
 			auto const pow_time  = _pow(0.5d, Msr_rapl_units::Time ::get(msr_rapl_units));
 
@@ -965,15 +965,15 @@ struct Msr::Power_intel
 			auto const max   = Msr_pkg_power_info::Maximum_power     ::get(msr);
 			auto const time  = Msr_pkg_power_info::Max_time_window   ::get(msr);
 
-			xml.attribute("raw", msr);
-			xml.attribute("ThermalSpecPower",  double(therm) * pow_power);
-			xml.attribute("MinimumPower",      double(min)   * pow_power);
-			xml.attribute("MaximumPower",      double(max)   * pow_power);
-			xml.attribute("MaximumTimeWindow", double(time)  * pow_time);
+			g.attribute("raw", msr);
+			g.attribute("ThermalSpecPower",  double(therm) * pow_power);
+			g.attribute("MinimumPower",      double(min)   * pow_power);
+			g.attribute("MaximumPower",      double(max)   * pow_power);
+			g.attribute("MaximumTimeWindow", double(time)  * pow_time);
 		});
 	}
 
-	void report_limits_package(Genode::Xml_generator &xml,
+	void report_limits_package(Genode::Generator &g,
 	                           char const * const name,
 	                           uint64_t const msr) const
 	{
@@ -983,7 +983,7 @@ struct Msr::Power_intel
 		typedef Msr_pkg_power_limit Limit;
 		typedef Msr_rapl_units      Units;
 
-		xml.node(name, [&] () {
+		g.node(name, [&] () {
 
 			auto const pow_power = _pow(0.5d, Units::Power::get(msr_rapl_units));
 			auto const pow_time  = _pow(0.5d, Units::Time ::get(msr_rapl_units));
@@ -1010,26 +1010,26 @@ struct Msr::Power_intel
 			                        * (1.0d + (wnd_z_2 / 4.0d))
 			                        * pow_time;
 
-			xml.attribute("raw"  , String<19>(Hex(msr)));
-			xml.attribute("lock" , lock);
+			g.attribute("raw"  , String<19>(Hex(msr)));
+			g.attribute("lock" , lock);
 
-			xml.node("limit_1", [&] () {
-				xml.attribute("power"       , double(pkg_1) * pow_power);
-				xml.attribute("enable"      , enable_1);
-				xml.attribute("clamp"       , clamp_1);
-				xml.attribute("time_window" , pow_window_1);
+			g.node("limit_1", [&] () {
+				g.attribute("power"       , double(pkg_1) * pow_power);
+				g.attribute("enable"      , enable_1);
+				g.attribute("clamp"       , clamp_1);
+				g.attribute("time_window" , pow_window_1);
 			});
 
-			xml.node("limit_2", [&] () {
-				xml.attribute("power"       , double(pkg_2) * pow_power);
-				xml.attribute("enable"      , enable_2);
-				xml.attribute("clamp"       , clamp_2);
-				xml.attribute("time_window" , pow_window_2);
+			g.node("limit_2", [&] () {
+				g.attribute("power"       , double(pkg_2) * pow_power);
+				g.attribute("enable"      , enable_2);
+				g.attribute("clamp"       , clamp_2);
+				g.attribute("time_window" , pow_window_2);
 			});
 		});
 	}
 
-	void report_limits_dram_pp0_pp1(Genode::Xml_generator &xml,
+	void report_limits_dram_pp0_pp1(Genode::Generator &g,
 	                                char const * const name,
 	                                uint64_t const msr) const
 	{
@@ -1039,7 +1039,7 @@ struct Msr::Power_intel
 		typedef Msr_power_limit Limit;
 		typedef Msr_rapl_units  Units;
 
-		xml.node(name, [&] () {
+		g.node(name, [&] () {
 
 			auto const pow_power = _pow(0.5d, Units::Power::get(msr_rapl_units));
 			auto const pow_time  = _pow(0.5d, Units::Time ::get(msr_rapl_units));
@@ -1055,16 +1055,16 @@ struct Msr::Power_intel
 			                      * (1.0d + (double(time_wnd_f) / 10))
 			                      * pow_time;
 
-			xml.attribute("raw"         , String<19>(Hex(msr)));
-			xml.attribute("lock"        , lock);
-			xml.attribute("power"       , double(power) * pow_power);
-			xml.attribute("enable"      , enable);
-			xml.attribute("clamp"       , clamp);
-			xml.attribute("time_window" , pow_window);
+			g.attribute("raw"         , String<19>(Hex(msr)));
+			g.attribute("lock"        , lock);
+			g.attribute("power"       , double(power) * pow_power);
+			g.attribute("enable"      , enable);
+			g.attribute("clamp"       , clamp);
+			g.attribute("time_window" , pow_window);
 		});
 	}
 
-	void report_perf_status(Genode::Xml_generator &xml, char const * const name,
+	void report_perf_status(Genode::Generator &g, char const * const name,
 	                        uint64_t const msr, uint64_t const msr_prev,
 	                        uint64_t const tsc_freq_khz) const
 	{
@@ -1074,37 +1074,37 @@ struct Msr::Power_intel
 		auto const time_ms = time_diff(perf_timestamp, perf_timestamp_prev)
 		                   / tsc_freq_khz;
 
-		xml.node(name, [&] () {
+		g.node(name, [&] () {
 			typedef Msr_rapl_units Units;
 
 			auto const pow = _pow(0.5d, Units::Time::get(msr_rapl_units));
 			auto const t   = double(msr      & ((1ull << 32) - 1));
 			auto const t_p = double(msr_prev & ((1ull << 32) - 1));
 
-			xml.attribute("raw" , String<19>(Hex(msr)));
+			g.attribute("raw" , String<19>(Hex(msr)));
 
-			xml.attribute("throttle_abs" , double(t) * pow);
-			xml.attribute("throttle_diff", (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
+			g.attribute("throttle_abs" , double(t) * pow);
+			g.attribute("throttle_diff", (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
 		});
 	}
 
-	void _report_enhanced_speedstep(Genode::Xml_generator &xml) const
+	void _report_enhanced_speedstep(Genode::Generator &g) const
 	{
-		xml.node("intel_speedstep", [&] () {
-			xml.attribute("enhanced", cpuid.enhanced_speedstep());
+		g.node("intel_speedstep", [&] () {
+			g.attribute("enhanced", cpuid.enhanced_speedstep());
 #if 0
 			/* reporting missing in kernel -> see dev debug branch */
-			xml.attribute("enabled", !!(valid_misc_enable && (misc_enable & (1u << 16))));
+			g.attribute("enabled", !!(valid_misc_enable && (misc_enable & (1u << 16))));
 
 			if (valid_perf_status)
-				xml.attribute("ia32_perf_status", String<19>(Hex(perf_status)));
+				g.attribute("ia32_perf_status", String<19>(Hex(perf_status)));
 			if (valid_perf_ctl)
-				xml.attribute("ia32_perf_ctl", String<19>(Hex(perf_ctl)));
+				g.attribute("ia32_perf_ctl", String<19>(Hex(perf_ctl)));
 #endif
 		});
 	}
 
-	void _report_residency(Genode::Xml_generator & xml,
+	void _report_residency(Genode::Generator & g,
 	                       uint64_t const tsc_freq_khz,
 	                       char const * const name,
 	                       uint64_t const value,
@@ -1117,146 +1117,146 @@ struct Msr::Power_intel
 		auto const  abs_ms = time_diff(value,       0ull) / tsc_freq_khz;
 		auto const diff_ms = time_diff(value, value_prev) / tsc_freq_khz;
 
-		xml.node(name, [&] () {
-			xml.attribute("raw",     value);
-			xml.attribute("abs_ms",  abs_ms);
-			xml.attribute("diff_ms", diff_ms);
+		g.node(name, [&] () {
+			g.attribute("raw",     value);
+			g.attribute("abs_ms",  abs_ms);
+			g.attribute("diff_ms", diff_ms);
 		});
 	}
 
-	void report(Genode::Xml_generator &xml, uint64_t const tsc_freq_khz) const
+	void report(Genode::Generator &g, uint64_t const tsc_freq_khz) const
 	{
 		using Genode::String;
 
 
 		if (cpuid.hwp()) {
-			xml.node("hwp", [&] () {
-				xml.attribute("enable", enabled_hwp);
+			g.node("hwp", [&] () {
+				g.attribute("enable", enabled_hwp);
 			});
 		}
 
 		if (valid_hwp_cap) {
-			xml.node("hwp_cap", [&] () {
-				xml.attribute("high", Hwp_cap::Perf_highest::get(hwp_cap));
-				xml.attribute("guar", Hwp_cap::Perf_guaranted::get(hwp_cap));
-				xml.attribute("effi", Hwp_cap::Perf_most_eff::get(hwp_cap));
-				xml.attribute("low",  Hwp_cap::Perf_lowest::get(hwp_cap));
-				xml.attribute("raw",  String<19>(Genode::Hex(hwp_cap)));
+			g.node("hwp_cap", [&] () {
+				g.attribute("high", Hwp_cap::Perf_highest::get(hwp_cap));
+				g.attribute("guar", Hwp_cap::Perf_guaranted::get(hwp_cap));
+				g.attribute("effi", Hwp_cap::Perf_most_eff::get(hwp_cap));
+				g.attribute("low",  Hwp_cap::Perf_lowest::get(hwp_cap));
+				g.attribute("raw",  String<19>(Genode::Hex(hwp_cap)));
 			});
 		}
 
 		if (valid_hwp_req_pkg) {
-			xml.node("hwp_request_package", [&] () {
-				xml.attribute("raw", String<19>(Genode::Hex(hwp_req_pkg)));
+			g.node("hwp_request_package", [&] () {
+				g.attribute("raw", String<19>(Genode::Hex(hwp_req_pkg)));
 			});
 		}
 
 		if (valid_hwp_req) {
-			xml.node("hwp_request", [&] () {
-				xml.attribute("min", Hwp_request::Perf_min::get(hwp_req));
-				xml.attribute("max", Hwp_request::Perf_max::get(hwp_req));
-				xml.attribute("desired", Hwp_request::Perf_desired::get(hwp_req));
-				xml.attribute("epp", Hwp_request::Perf_epp::get(hwp_req));
-				xml.attribute("raw", String<19>(Genode::Hex(hwp_req)));
+			g.node("hwp_request", [&] () {
+				g.attribute("min", Hwp_request::Perf_min::get(hwp_req));
+				g.attribute("max", Hwp_request::Perf_max::get(hwp_req));
+				g.attribute("desired", Hwp_request::Perf_desired::get(hwp_req));
+				g.attribute("epp", Hwp_request::Perf_epp::get(hwp_req));
+				g.attribute("raw", String<19>(Genode::Hex(hwp_req)));
 			});
 		}
 
 		if (valid_epb) {
-			xml.node("energy_perf_bias", [&] () {
-				xml.attribute("raw", epb);
+			g.node("energy_perf_bias", [&] () {
+				g.attribute("raw", epb);
 			});
 		}
 
 		if (cpuid.enhanced_speedstep())
-			_report_enhanced_speedstep(xml);
+			_report_enhanced_speedstep(g);
 
 		/* msr mperf and aperf availability */
 		if (cpuid.hardware_coordination_feedback_cap())
-			xml.node("hwp_coord_feed_cap", [&] () { });
+			g.node("hwp_coord_feed_cap", [&] () { });
 
 		if (valid_msr_rapl_units  || valid_msr_pkg_energy ||
 		    valid_msr_dram_energy || valid_msr_pp0_energy ||
 		    valid_msr_pp1_energy) {
 
-			xml.node("energy", [&] () {
+			g.node("energy", [&] () {
 				auto const time_ms = energy_timestamp / tsc_freq_khz;
 
-				xml.attribute("timestamp_ms", time_ms);
+				g.attribute("timestamp_ms", time_ms);
 
 				if (valid_msr_rapl_units) {
-					xml.node("units", [&] () {
-						xml.attribute("raw"   , msr_rapl_units);
-						xml.attribute("power" , Msr_rapl_units::Power::get(msr_rapl_units));
-						xml.attribute("energy", Msr_rapl_units::Energy::get(msr_rapl_units));
-						xml.attribute("time"  , Msr_rapl_units::Time::get(msr_rapl_units));
+					g.node("units", [&] () {
+						g.attribute("raw"   , msr_rapl_units);
+						g.attribute("power" , Msr_rapl_units::Power::get(msr_rapl_units));
+						g.attribute("energy", Msr_rapl_units::Energy::get(msr_rapl_units));
+						g.attribute("time"  , Msr_rapl_units::Time::get(msr_rapl_units));
 					});
 				}
 				if (valid_msr_pkg_energy)
-					report_energy(xml, "package", msr_pkg_energy,
+					report_energy(g, "package", msr_pkg_energy,
 					              msr_pkg_energy_prev, tsc_freq_khz);
 				if (valid_msr_dram_energy)
-					report_energy(xml, "dram", msr_dram_energy,
+					report_energy(g, "dram", msr_dram_energy,
 					              msr_dram_energy_prev, tsc_freq_khz);
 				if (valid_msr_pp0_energy)
-					report_energy(xml, "pp0", msr_pp0_energy,
+					report_energy(g, "pp0", msr_pp0_energy,
 					              msr_pp0_energy_prev, tsc_freq_khz);
 				if (valid_msr_pp1_energy)
-					report_energy(xml, "pp1", msr_pp1_energy,
+					report_energy(g, "pp1", msr_pp1_energy,
 					              msr_pp1_energy_prev, tsc_freq_khz);
 			});
 		}
 
 		if (valid_msr_pkg_power_info || valid_msr_dram_power_info) {
 
-			xml.node("power_info", [&] () {
+			g.node("power_info", [&] () {
 				if (valid_msr_pkg_power_info)
-					report_power(xml, "package", msr_pkg_power_info);
+					report_power(g, "package", msr_pkg_power_info);
 				if (valid_msr_dram_power_info)
-					report_power(xml, "dram",    msr_dram_power_info);
+					report_power(g, "dram",    msr_dram_power_info);
 			});
 		}
 
 		if (valid_msr_pkg_limits || valid_msr_dram_limits ||
 		    valid_msr_pp0_limits || valid_msr_pp1_limits) {
 
-			xml.node("power_limit", [&] () {
+			g.node("power_limit", [&] () {
 				if (valid_msr_pkg_limits && msr_pkg_limits)
-					report_limits_package     (xml, "package", msr_pkg_limits);
+					report_limits_package     (g, "package", msr_pkg_limits);
 				if (valid_msr_dram_limits && msr_dram_limits)
-					report_limits_dram_pp0_pp1(xml, "dram"   , msr_dram_limits);
+					report_limits_dram_pp0_pp1(g, "dram"   , msr_dram_limits);
 				if (valid_msr_pp0_limits && msr_pp0_limits)
-					report_limits_dram_pp0_pp1(xml, "pp0"    , msr_pp0_limits);
+					report_limits_dram_pp0_pp1(g, "pp0"    , msr_pp0_limits);
 				if (valid_msr_pp1_limits && msr_pp1_limits)
-					report_limits_dram_pp0_pp1(xml, "pp1"    , msr_pp1_limits);
+					report_limits_dram_pp0_pp1(g, "pp1"    , msr_pp1_limits);
 			});
 		}
 
 		if (valid_msr_pp0_policy || valid_msr_pp1_policy) {
 
-			xml.node("policy", [&] () {
+			g.node("policy", [&] () {
 				if (valid_msr_pp0_policy)
-					xml.attribute("pp0", String<19>(Hex(msr_pp0_policy)));
+					g.attribute("pp0", String<19>(Hex(msr_pp0_policy)));
 				if (valid_msr_pp1_policy)
-					xml.attribute("pp1", String<19>(Hex(msr_pp1_policy)));
+					g.attribute("pp1", String<19>(Hex(msr_pp1_policy)));
 			});
 		}
 
 		if (valid_msr_pkg_perf || valid_msr_dram_perf || valid_msr_pp0_perf) {
 
-			xml.node("perf_status", [&] () {
+			g.node("perf_status", [&] () {
 				if (valid_msr_pkg_perf)
-					report_perf_status(xml, "package", msr_pkg_perf,
+					report_perf_status(g, "package", msr_pkg_perf,
 					                   msr_pkg_perf_prev, tsc_freq_khz);
 				if (valid_msr_pp0_perf)
-					report_perf_status(xml, "pp0", msr_pp0_perf,
+					report_perf_status(g, "pp0", msr_pp0_perf,
 					                   msr_pp0_perf_prev, tsc_freq_khz);
 				if (valid_msr_dram_perf)
-					report_perf_status(xml, "dram", msr_dram_perf,
+					report_perf_status(g, "dram", msr_dram_perf,
 					                   msr_dram_perf_prev, tsc_freq_khz);
 			});
 		}
 
-		xml.node("mwait_support", [&] () {
+		g.node("mwait_support", [&] () {
 			cpuid.intel_mwait_ext([&](auto const &value) {
 				auto const c_sub_states = value;
 
@@ -1266,35 +1266,35 @@ struct Msr::Power_intel
 					if (!sub_state_cnt)
 						continue;
 
-					xml.node(Genode::String<4>("c", i).string(), [&] () {
-						xml.attribute("sub_state_count", sub_state_cnt);
+					g.node(Genode::String<4>("c", i).string(), [&] () {
+						g.attribute("sub_state_count", sub_state_cnt);
 					});
 				}
 			});
 		});
 
-		xml.node("msr_residency", [&] () {
-			_report_residency(xml, tsc_freq_khz, "core_c1",
+		g.node("msr_residency", [&] () {
+			_report_residency(g, tsc_freq_khz, "core_c1",
 			                  msr_core_c1, msr_core_c1_prev, valid_core_c1);
-			_report_residency(xml, tsc_freq_khz, "core_c3",
+			_report_residency(g, tsc_freq_khz, "core_c3",
 			                  msr_core_c3, msr_core_c3_prev, valid_core_c3);
-			_report_residency(xml, tsc_freq_khz, "core_c6",
+			_report_residency(g, tsc_freq_khz, "core_c6",
 			                  msr_core_c6, msr_core_c6_prev, valid_core_c6);
-			_report_residency(xml, tsc_freq_khz, "core_c7",
+			_report_residency(g, tsc_freq_khz, "core_c7",
 			                  msr_core_c7, msr_core_c7_prev, valid_core_c7);
-			_report_residency(xml, tsc_freq_khz, "pkg_c2",
+			_report_residency(g, tsc_freq_khz, "pkg_c2",
 			                  msr_pkg_c2, msr_pkg_c2_prev, valid_pkg_c2);
-			_report_residency(xml, tsc_freq_khz, "pkg_c3",
+			_report_residency(g, tsc_freq_khz, "pkg_c3",
 			                  msr_pkg_c3, msr_pkg_c3_prev, valid_pkg_c3);
-			_report_residency(xml, tsc_freq_khz, "pkg_c6",
+			_report_residency(g, tsc_freq_khz, "pkg_c6",
 			                  msr_pkg_c6, msr_pkg_c6_prev, valid_pkg_c6);
-			_report_residency(xml, tsc_freq_khz, "pkg_c7",
+			_report_residency(g, tsc_freq_khz, "pkg_c7",
 			                  msr_pkg_c7, msr_pkg_c7_prev, valid_pkg_c7);
-			_report_residency(xml, tsc_freq_khz, "pkg_c8",
+			_report_residency(g, tsc_freq_khz, "pkg_c8",
 			                  msr_pkg_c8, msr_pkg_c8_prev, valid_pkg_c8);
-			_report_residency(xml, tsc_freq_khz, "pkg_c9",
+			_report_residency(g, tsc_freq_khz, "pkg_c9",
 			                  msr_pkg_c9, msr_pkg_c9_prev, valid_pkg_c9);
-			_report_residency(xml, tsc_freq_khz, "pkg_c10",
+			_report_residency(g, tsc_freq_khz, "pkg_c10",
 			                  msr_pkg_c9, msr_pkg_c10_prev, valid_pkg_c10);
 		});
 	}

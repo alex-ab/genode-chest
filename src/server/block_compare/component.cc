@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2020 Genode Labs GmbH
+ * Copyright (C) 2020-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -20,6 +20,7 @@
 #include <block/request_stream.h>
 #include <block_session/connection.h>
 #include <os/session_policy.h>
+#include <root/root.h>
 
 namespace Cmp {
 	struct Main;
@@ -75,13 +76,13 @@ struct Cmp::Block_session_component : Rpc_object<::Block::Session>,
 	}
 
 	Block_session_component(Env &env, Ram_dataspace_capability ram_cap,
-	                        Heap &heap,
+	                        Heap &heap, Block::Constrained_view view,
 	                        Block::Connection<> &a,
 	                        Block::Connection<> &b)
 	:
 	  Block_session_handler(env),
 	  /* using b.info(), since it may be smaller than a, see checks on session creation */
-	  Request_stream(env.rm(), ram_cap, env.ep(), request_handler, b.info()),
+	  Request_stream(env.rm(), ram_cap, env.ep(), request_handler, b.info(), view),
 	  heap(heap), block_a(a), block_b(b)
 	{
 		env.ep().manage(*this);
@@ -347,46 +348,40 @@ struct Cmp::Main : Rpc_object<Typed_root<::Block::Session>>
 	size_t buffer_size()
 	{
 		Number_of_bytes block_default { 128 * 1024 };
-		return config.xml().attribute_value("buffer_size", block_default);
+		return config.node().attribute_value("buffer_size", block_default);
 	}
 
-	Session_capability session(Root::Session_args const &args,
+	Root::Result session(Root::Session_args const &args,
 	                           Affinity const &) override
 	{
 		if (client.constructed())
-			throw Service_denied();
+			return Session_error::DENIED;
 
-		Session_label  const label = label_from_args(args.string());
-#if 0
-		Session_policy const policy(label, config.xml());
-		bool const writeable = policy.attribute_value("writeable", false);
-#endif
-
-		bool const writeable = config.xml().attribute_value("writeable", false);
+		Session_label const label = label_from_args(args.string());
 
 		Ram_quota const ram_quota = ram_quota_from_args(args.string());
 		size_t const tx_buf_size =
 			Arg_string::find_arg(args.string(), "tx_buf_size").ulong_value(0);
 
 		if (!tx_buf_size)
-			throw Service_denied();
+			return Session_error::DENIED;
 
 		if (tx_buf_size > ram_quota.value) {
 			error("insufficient 'ram_quota' from '", label, "',"
 			      " got ", ram_quota, ", need ", tx_buf_size);
-			throw Insufficient_ram_quota();
+			return Session_error::INSUFFICIENT_RAM;
 		}
 
 		if (server_a.info().block_size != server_b.info().block_size) {
 			error("block size of both block connections unequal ",
 			      server_a.info().block_size, "!=", server_b.info().block_size);
-			throw Service_denied();
+			return Session_error::DENIED;
 		}
 
 		if (server_a.info().block_count != server_b.info().block_count) {
 			if (server_a.info().block_count < server_b.info().block_count) {
 				error("block count of Block A smaller then from B");
-				throw Service_denied();
+				return Session_error::DENIED;
 			}
 			warning("block count not equal"
 			        " - Block A=", server_a.info().block_count,
@@ -394,10 +389,14 @@ struct Cmp::Main : Rpc_object<Typed_root<::Block::Session>>
 			        " -> using block count from B reported to client");
 		}
 
+		bool const writeable = config.node().attribute_value("writeable", false);
 
-		if (!writeable || !server_a.info().writeable || !server_b.info().writeable) {
+		auto block_view = Block::Constrained_view::from_args(args.string());
+		block_view.writeable = writeable && block_view.writeable;
+
+		if (!block_view.writeable || !server_a.info().writeable || !server_b.info().writeable) {
 			error("block connection not writable");
-			throw Service_denied();
+			return Session_error::DENIED;
 		}
 
 		try {
@@ -405,14 +404,14 @@ struct Cmp::Main : Rpc_object<Typed_root<::Block::Session>>
 				block_ds.construct(env.ram(), env.rm(), tx_buf_size);
 			if (!client.constructed())
 				client.construct(env, block_ds->cap(),
-				                 heap,
+				                 heap, block_view,
 				                 server_a, server_b);
-			return client->cap();
+			return { client->cap() };
 		} catch (...) {
 			error("rejecting session request, no matching policy for '", label, "'");
 		}
 
-		throw Service_denied();
+		return Session_error::DENIED;
 	}
 
 	void upgrade(Session_capability, Root::Upgrade_args const&) override {

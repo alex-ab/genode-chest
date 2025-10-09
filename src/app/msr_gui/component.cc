@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2022-2024 Genode Labs GmbH
+ * Copyright (C) 2022-2025 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU Affero General Public License version 3.
@@ -18,7 +18,7 @@
 
 #include <os/reporter.h>
 
-#include "xml_tools.h"
+#include "node_tools.h"
 #include "button.h"
 
 using namespace Genode;
@@ -125,66 +125,66 @@ class Power
 		Button_hub<1, 0, 255, 128> _intel_hwp_epp { };
 
 		void _generate_msr_config(bool, bool = false);
-		void _generate_msr_cpu(Xml_generator &, unsigned, unsigned);
+		void _generate_msr_cpu(Generator &, unsigned, unsigned);
 		void _info_update();
 		void _hover_update();
-		void _settings_period(Xml_generator &);
-		void _settings_mode  (Xml_generator &);
-		void _cpu_energy(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_energy_detail(Xml_generator &, Xml_node const &, unsigned &,
+		void _settings_period(Generator &);
+		void _settings_mode  (Generator &);
+		void _cpu_energy(Generator &, Node const &, unsigned &);
+		void _cpu_energy_detail(Generator &, Node const &, unsigned &,
 		                        char const *);
-		void _cpu_power_info(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_power_info_detail(Xml_generator &, Xml_node const &,
+		void _cpu_power_info(Generator &, Node const &, unsigned &);
+		void _cpu_power_info_detail(Generator &, Node const &,
 		                            unsigned &, char const *);
-		void _cpu_power_limit(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_power_limit_dram_pp0_pp1(Xml_generator &, Xml_node const &,
+		void _cpu_power_limit(Generator &, Node const &, unsigned &);
+		void _cpu_power_limit_dram_pp0_pp1(Generator &, Node const &,
 		                                   unsigned &, char const *);
-		void _cpu_power_limit_common(Xml_generator &, Xml_node const &,
+		void _cpu_power_limit_common(Generator &, Node const &,
 		                             unsigned &, char const *);
-		void _cpu_power_limit_headline(Xml_generator &, unsigned &, char const *);
-		void _cpu_perf_status(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_perf_status_detail(Xml_generator &, Xml_node const &,
+		void _cpu_power_limit_headline(Generator &, unsigned &, char const *);
+		void _cpu_perf_status(Generator &, Node const &, unsigned &);
+		void _cpu_perf_status_detail(Generator &, Node const &,
 		                             char const *, unsigned &);
-		void _cpu_residency(Xml_generator &, Xml_node const &, unsigned &);
-		bool _cpu_residency_detail(Xml_generator &, Xml_node const &,
+		void _cpu_residency(Generator &, Node const &, unsigned &);
+		bool _cpu_residency_detail(Generator &, Node const &,
 		                           char const *, unsigned &);
-		void _cpu_mwait(Xml_generator &, Xml_node const &, unsigned &);
-		void _cpu_mwait_detail(Xml_generator &, String<4> const &, uint8_t, uint8_t);
-		void _cpu_temp(Xml_generator &, Xml_node const &);
-		void _cpu_freq(Xml_generator &, Xml_node const &);
-		void _cpu_setting(Xml_generator &, Xml_node const &);
-		void _settings_view(Xml_generator &, Xml_node const &,
+		void _cpu_mwait(Generator &, Node const &, unsigned &);
+		void _cpu_mwait_detail(Generator &, String<4> const &, uint8_t, uint8_t);
+		void _cpu_temp(Generator &, Node const &);
+		void _cpu_freq(Generator &, Node const &);
+		void _cpu_setting(Generator &, Node const &);
+		void _settings_view(Generator &, Node const &,
 		                    String<12> const &, unsigned, bool);
-		void _settings_amd(Xml_generator &, Xml_node const &, bool);
-		void _settings_intel_epb(Xml_generator &, Xml_node const &, bool);
-		void _settings_intel_hwp(Xml_generator &, Xml_node const &, bool);
-		void _settings_intel_hwp_req(Xml_generator &, Xml_node const &,
+		void _settings_amd(Generator &, Node const &, bool);
+		void _settings_intel_epb(Generator &, Node const &, bool);
+		void _settings_intel_hwp(Generator &, Node const &, bool);
+		void _settings_intel_hwp_req(Generator &, Node const &,
 		                             unsigned, unsigned, uint64_t, bool, bool,
 		                             unsigned &);
 
-		unsigned _cpu_name(Xml_generator &, Xml_node const &, unsigned);
+		unsigned _cpu_name(Generator &, Node const &, unsigned);
 
 		template <typename T>
-		void hub(Xml_generator &xml, T &hub, char const *name)
+		void hub(Generator &g, T &hub, char const *name)
 		{
 			hub.for_each([&](Button_state &state, unsigned pos) {
-				xml.attribute("name", Genode::String<20>("hub-", name, "-", pos));
+				g.attribute("name", Genode::String<20>("hub-", name, "-", pos));
 
 				Genode::String<12> number(state.current);
 
-				xml.node("button", [&] () {
-					xml.attribute("name", Genode::String<20>("hub-", name, "-", pos));
-					xml.node("label", [&] () {
-						xml.attribute("text", number);
+				g.node("button", [&] () {
+					g.attribute("name", Genode::String<20>("hub-", name, "-", pos));
+					g.node("label", [&] () {
+						g.node("text", [&] { g.append_quoted(number); });
 					});
 
 					if (state.active())
-						xml.attribute("hovered", true);
+						g.attribute("hovered", true);
 				});
 			});
 		}
 
-		unsigned cpu_id(Genode::Xml_node const &cpu) const
+		unsigned cpu_id(Genode::Node const &cpu) const
 		{
 			auto const affinity_x = cpu.attribute_value("x", 0U);
 			auto const affinity_y = cpu.attribute_value("y", 0U);
@@ -212,7 +212,7 @@ void Power::_hover_update()
 	if (!_hover.valid())
 		return;
 
-	Genode::Xml_node const hover = _hover.xml();
+	Genode::Node hover = _hover.node();
 
 	/* settings and apply button */
 	typedef Genode::String<20> Button;
@@ -611,60 +611,60 @@ void Power::_info_update ()
 	if (!_info.valid())
 		return;
 
-	_dialog.generate([&] (Xml_generator &xml) {
+	_dialog.generate([&] (Generator &g) {
 
-		xml.node("frame", [&] {
+		g.node("frame", [&] {
 
-			xml.node("hbox", [&] {
+			g.node("hbox", [&] {
 
 				unsigned cpu_count = 0;
 
-				xml.node("vbox", [&] {
-					xml.attribute("name", 1);
+				g.node("vbox", [&] {
+					g.attribute("name", 1);
 
 					unsigned loc_x_last = ~0U;
 
-					_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
-						loc_x_last = _cpu_name(xml, cpu, loc_x_last);
+					_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
+						loc_x_last = _cpu_name(g, cpu, loc_x_last);
 						cpu_count ++;
 					});
 				});
 
-				xml.node("vbox", [&] {
-					xml.attribute("name", 2);
-					_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
-						_cpu_temp(xml, cpu);
+				g.node("vbox", [&] {
+					g.attribute("name", 2);
+					_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
+						_cpu_temp(g, cpu);
 					});
 				});
 
-				xml.node("vbox", [&] {
-					xml.attribute("name", 3);
-					_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
-						_cpu_freq(xml, cpu);
+				g.node("vbox", [&] {
+					g.attribute("name", 3);
+					_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
+						_cpu_freq(g, cpu);
 					});
 				});
 
-				xml.node("vbox", [&] {
-					xml.attribute("name", 4);
-					_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
-						_cpu_setting(xml, cpu);
+				g.node("vbox", [&] {
+					g.attribute("name", 4);
+					_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
+						_cpu_setting(g, cpu);
 					});
 				});
 
 				bool const re_eval = _setting_cpu.value != _last_cpu;
 
-				_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
+				_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
 					if (cpu_id(cpu) != _setting_cpu.value)
 						return;
 
 					auto const affinity_x = cpu.attribute_value("x", 0U);
 					auto const affinity_y = cpu.attribute_value("y", 0U);
 
-					xml.node("vbox", [&] {
-						xml.attribute("name", 5);
+					g.node("vbox", [&] {
+						g.attribute("name", 5);
 
 						auto const name = String<12>("CPU ", affinity_x, "x", affinity_y);
-						_settings_view(xml, cpu, name, cpu_count, re_eval);
+						_settings_view(g, cpu, name, cpu_count, re_eval);
 					});
 
 					_last_cpu = cpu_id(cpu);
@@ -675,45 +675,44 @@ void Power::_info_update ()
 }
 
 
-void Power::_generate_msr_cpu(Xml_generator &xml,
-                              unsigned affinity_x, unsigned affinity_y)
+void Power::_generate_msr_cpu(Generator &g, unsigned affinity_x, unsigned affinity_y)
 {
-	xml.node("cpu", [&] {
-		xml.attribute("x", affinity_x);
-		xml.attribute("y", affinity_y);
+	g.node("cpu", [&] {
+		g.attribute("x", affinity_x);
+		g.attribute("y", affinity_y);
 
-		xml.node("pstate", [&] {
-			xml.attribute("rw_command", _amd_pstate.value());
+		g.node("pstate", [&] {
+			g.attribute("rw_command", _amd_pstate.value());
 		});
 
-		xml.node("hwp_request", [&] {
-			xml.attribute("min",     _intel_hwp_min.value());
-			xml.attribute("max",     _intel_hwp_max.value());
+		g.node("hwp_request", [&] {
+			g.attribute("min",     _intel_hwp_min.value());
+			g.attribute("max",     _intel_hwp_max.value());
 			if (_hwp_req_auto_sel)
-				xml.attribute("desired", 0);
+				g.attribute("desired", 0);
 			else
-				xml.attribute("desired", _intel_hwp_des.value());
-			xml.attribute("epp",     _intel_hwp_epp.value());
+				g.attribute("desired", _intel_hwp_des.value());
+			g.attribute("epp",     _intel_hwp_epp.value());
 		});
 
-		xml.node("energy_perf_bias", [&] {
-			xml.attribute("raw", _intel_epb.value());
+		g.node("energy_perf_bias", [&] {
+			g.attribute("raw", _intel_epb.value());
 		});
 
 		if (_hwp_on_selected && !_hwp_enabled_once) {
-			xml.node("hwp", [&] {
-				xml.attribute("enable", _hwp_on_selected);
+			g.node("hwp", [&] {
+				g.attribute("enable", _hwp_on_selected);
 			});
 		}
 
 		if (_mwait_button_selected != "") {
 
-			xml.node("mwait", [&] {
+			g.node("mwait", [&] {
 				if (_mwait_button_selected == "mwait_hlt")
-					xml.attribute("off", "yes");
+					g.attribute("off", "yes");
 				else {
-					xml.attribute("c_state",     _mwait_c_state);
-					xml.attribute("c_sub_state", _mwait_c_sub_state);
+					g.attribute("c_state",     _mwait_c_state);
+					g.attribute("c_sub_state", _mwait_c_sub_state);
 				}
 			});
 		}
@@ -726,36 +725,36 @@ void Power::_generate_msr_config(bool all_cpus, bool const apply_period)
 	if (!_setting_cpu.valid())
 		return;
 
-	_msr_config.generate([&] (Xml_generator &xml) {
+	_msr_config.generate([&] (Generator &g) {
 
 /*
-		xml.attribute("verbose", false);
+		g.attribute("verbose", false);
 */
-		xml.attribute("update_rate_us", _timer_period.value() * 1000);
+		g.attribute("update_rate_us", _timer_period.value() * 1000);
 
 		/* if soley period changed, don't rewrite HWP parameters */
 		if (apply_period)
 			return;
 
 		if (all_cpus) {
-			_info.xml().for_each_sub_node("cpu", [&](Genode::Xml_node const &cpu) {
+			_info.node().for_each_sub_node("cpu", [&](Genode::Node const &cpu) {
 
 				auto const affinity_x = cpu.attribute_value("x", 0U);
 				auto const affinity_y = cpu.attribute_value("y", 0U);
 
-				_generate_msr_cpu(xml, affinity_x, affinity_y);
+				_generate_msr_cpu(g, affinity_x, affinity_y);
 			});
 		} else {
 			auto const affinity_x = _setting_cpu.value / CPU_MUL;
 			auto const affinity_y = _setting_cpu.value % CPU_MUL;
 
-			_generate_msr_cpu(xml, affinity_x, affinity_y);
+			_generate_msr_cpu(g, affinity_x, affinity_y);
 		}
 	});
 }
 
 
-unsigned Power::_cpu_name(Xml_generator &xml, Xml_node const &cpu, unsigned last_x)
+unsigned Power::_cpu_name(Generator &g, Node const &cpu, unsigned last_x)
 {
 	auto const affinity_x = cpu.attribute_value("x", 0U);
 	auto const affinity_y = cpu.attribute_value("y", 0U);
@@ -763,16 +762,16 @@ unsigned Power::_cpu_name(Xml_generator &xml, Xml_node const &cpu, unsigned last
 	bool const same_x     = (affinity_x == last_x) &&
 	                        (core_type != "E");
 
-	xml.node("hbox", [&] {
+	g.node("hbox", [&] {
 		auto const name = String<12>(same_x ? "" : "CPU ", affinity_x, "x",
 		                             affinity_y, " ", core_type, " |");
 
-		xml.attribute("name", cpu_id(cpu));
+		g.attribute("name", cpu_id(cpu));
 
-		xml.node("label", [&] {
-			xml.attribute("name", 1);
-			xml.attribute("align", "right");
-			xml.attribute("text", name);
+		g.node("label", [&] {
+			g.attribute("name", 1);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(name); });
 		});
 	});
 
@@ -799,95 +798,95 @@ static String<12> align_string(auto const value)
 }
 
 
-void Power::_cpu_energy_detail(Xml_generator &xml, Xml_node const &node,
-                               unsigned      &id , char     const *text)
+void Power::_cpu_energy_detail(Generator &g, Node const &node,
+                               unsigned  &id , char const *text)
 {
 	auto const raw = node.attribute_value("raw", 0ULL);
 	if (!raw)
 		return;
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
 
 		double joule = 0, watt = 0;
 
 		watt  = node.attribute_value("Watt",  watt);
 		joule = node.attribute_value("Joule", joule);
 
-		xml.node("label", [&] {
-			xml.attribute("name", id++);
-			xml.attribute("align", "left");
-			xml.attribute("text", text);
+		g.node("label", [&] {
+			g.attribute("name", id++);
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(text); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<40>(align_string(watt) , " Watt | ",
-			                                 align_string(joule), " Joule"));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<40>(align_string(watt) , " Watt | ",
+			                                 align_string(joule), " Joule")); });
 		});
 	});
 }
 
 
-void Power::_cpu_energy(Xml_generator &xml, Xml_node const &energy, unsigned &frames)
+void Power::_cpu_energy(Generator &g, Node const &energy, unsigned &frames)
 {
 	unsigned id = 0;
 
-	xml.node("vbox", [&] {
+	g.node("vbox", [&] {
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("name", id++);
-				xml.attribute("align", "left");
-				xml.attribute("text", String<30>(" Running Average Power Limit - energy:"));
+			g.node("label", [&] {
+				g.attribute("name", id++);
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(String<30>(" Running Average Power Limit - energy:")); });
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "info");
-				xml.node("label", [&] () {
-					xml.attribute("text", "info");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "info");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("info"); });
 				});
 
 				if (_hover_rapl_detail)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_select_rapl_detail)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		});
 
 		energy.with_optional_sub_node("package", [&](auto const &node) {
 			frames++;
-			_cpu_energy_detail(xml, node, id, " Domain package:");
+			_cpu_energy_detail(g, node, id, " Domain package:");
 		});
 
 		energy.with_optional_sub_node("dram", [&](auto const &node) {
 			frames++;
-			_cpu_energy_detail(xml, node, id, " Domain DRAM:");
+			_cpu_energy_detail(g, node, id, " Domain DRAM:");
 		});
 
 		energy.with_optional_sub_node("pp0", [&](auto const &node) {
 			frames++;
-			_cpu_energy_detail(xml, node, id, " Domain PP0: (CPUs)");
+			_cpu_energy_detail(g, node, id, " Domain PP0: (CPUs)");
 		});
 
 		energy.with_optional_sub_node("pp1", [&](auto const &node) {
 			frames++;
-			_cpu_energy_detail(xml, node, id, " Domain PP1: (GPU?)");
+			_cpu_energy_detail(g, node, id, " Domain PP1: (GPU?)");
 		});
 	});
 }
 
 
-void Power::_cpu_power_info_detail(Xml_generator &xml, Xml_node const &node,
-                                   unsigned      &id , char     const *text)
+void Power::_cpu_power_info_detail(Generator &g, Node const &node,
+                                   unsigned  &id , char const *text)
 {
-	xml.node("vbox", [&] {
-		xml.attribute("name", id++);
+	g.node("vbox", [&] {
+		g.attribute("name", id++);
 
 		double spec = 0, min = 0, max = 0, wnd = 0;
 
@@ -896,83 +895,83 @@ void Power::_cpu_power_info_detail(Xml_generator &xml, Xml_node const &node,
 		max  = node.attribute_value("MaximumPower"     , max);
 		wnd  = node.attribute_value("MaximumTimeWindow", wnd);
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("name", id++);
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] {
+				g.attribute("name", id++);
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 		});
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("font", "monospace/regular");
-				xml.attribute("name", id++);
-				xml.attribute("align", "right");
-				xml.attribute("text", String<40>(" Thermal spec. power ", align_string(spec), " Watt"));
+			g.node("label", [&] {
+				g.attribute("font", "monospace/regular");
+				g.attribute("name", id++);
+				g.attribute("align", "right");
+				g.node("text", [&] { g.append_quoted(String<40>(" Thermal spec. power ", align_string(spec), " Watt")); });
 			});
 		});
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("font", "monospace/regular");
-				xml.attribute("name", id++);
-				xml.attribute("align", "right");
-				xml.attribute("text", String<40>(" Minimal power ", align_string(min), " Watt"));
+			g.node("label", [&] {
+				g.attribute("font", "monospace/regular");
+				g.attribute("name", id++);
+				g.attribute("align", "right");
+				g.node("text", [&] { g.append_quoted(String<40>(" Minimal power ", align_string(min), " Watt")); });
 			});
 		});
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("font", "monospace/regular");
-				xml.attribute("name", id++);
-				xml.attribute("align", "right");
-				xml.attribute("text", String<40>(" Maximum power ", align_string(max), " Watt"));
+			g.node("label", [&] {
+				g.attribute("font", "monospace/regular");
+				g.attribute("name", id++);
+				g.attribute("align", "right");
+				g.node("text", [&] { g.append_quoted(String<40>(" Maximum power ", align_string(max), " Watt")); });
 			});
 		});
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("font", "monospace/regular");
-				xml.attribute("name", id++);
-				xml.attribute("align", "right");
-				xml.attribute("text", String<40>(" Maximum time window ", align_string(wnd), " s   "));
+			g.node("label", [&] {
+				g.attribute("font", "monospace/regular");
+				g.attribute("name", id++);
+				g.attribute("align", "right");
+				g.node("text", [&] { g.append_quoted(String<40>(" Maximum time window ", align_string(wnd), " s   ")); });
 			});
 		});
 	});
 }
 
 
-void Power::_cpu_power_info(Xml_generator &xml, Xml_node const &info, unsigned &frames)
+void Power::_cpu_power_info(Generator &g, Node const &info, unsigned &frames)
 {
 	unsigned id = 0;
 
 	info.with_optional_sub_node("package", [&](auto const &node) {
 		frames ++;
-		_cpu_power_info_detail(xml, node, id, " Package power info:");
+		_cpu_power_info_detail(g, node, id, " Package power info:");
 	});
 	info.with_optional_sub_node("dram", [&](auto const &node) {
 		frames ++;
-		_cpu_power_info_detail(xml, node, id, " DRAM power info:");
+		_cpu_power_info_detail(g, node, id, " DRAM power info:");
 	});
 }
 
 
-void Power::_cpu_power_limit_common(Xml_generator &xml, Xml_node const &node,
-                                    unsigned      &id , char     const *text)
+void Power::_cpu_power_limit_common(Generator &g, Node const &node,
+                                    unsigned  &id , char const *text)
 {
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
 
 		double power = 0, window = 0;
 		bool   enable = false, clamp = false;
@@ -982,46 +981,46 @@ void Power::_cpu_power_limit_common(Xml_generator &xml, Xml_node const &node,
 		clamp  = node.attribute_value("clamp"       , clamp);
 		window = node.attribute_value("time_window" , window);
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "left");
-			xml.attribute("text", text);
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(text); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<19>(" ", align_string(power), " Watt"));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<19>(" ", align_string(power), " Watt")); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", enable ? String<10>(" true    ") : String<10>("false    "));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(enable ? String<10>(" true    ") : String<10>("false    ")); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", clamp ? String<10>(" true    ") : String<10>("false    "));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(clamp ? String<10>(" true    ") : String<10>("false    ")); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<16>(" ", align_string(window), " s"));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<16>(" ", align_string(window), " s")); });
 		});
 	});
 }
 
 
-void Power::_cpu_power_limit_dram_pp0_pp1(Xml_generator      &xml,
-                                          Xml_node     const &node,
+void Power::_cpu_power_limit_dram_pp0_pp1(Generator          &g,
+                                          Node         const &node,
                                           unsigned           &id,
                                           char const * const  text)
 {
@@ -1029,71 +1028,71 @@ void Power::_cpu_power_limit_dram_pp0_pp1(Xml_generator      &xml,
 
 		lock = node.attribute_value("lock", lock);
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("name", id++);
-				xml.attribute("align", "left");
-				xml.attribute("text", String<32>(text, lock ? " - LOCKED" : ""));
+			g.node("label", [&] {
+				g.attribute("name", id++);
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(String<32>(text, lock ? " - LOCKED" : "")); });
 			});
 		});
 
-		_cpu_power_limit_common(xml, node, id, " -  ");
+		_cpu_power_limit_common(g, node, id, " -  ");
 }
 
 
-void Power::_cpu_power_limit_headline(Xml_generator      &xml,
+void Power::_cpu_power_limit_headline(Generator          &g,
                                       unsigned           &id,
                                       char const * const  text)
 {
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "left");
-			xml.attribute("text", text);
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(text); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<19>("         power"));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<19>("         power")); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", "enable");
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted("enable"); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", "clamp");
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted("clamp"); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<16>("time window  "));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<16>("time window  ")); });
 		});
 	});
 }
 
 
-void Power::_cpu_power_limit(Xml_generator &xml, Xml_node const &limit, unsigned &)
+void Power::_cpu_power_limit(Generator &g, Node const &limit, unsigned &)
 {
 	unsigned id = 0;
 
-	xml.node("vbox", [&] {
-		xml.attribute("name", id++);
+	g.node("vbox", [&] {
+		g.attribute("name", id++);
 
 		limit.with_optional_sub_node("package", [&](auto const &node) {
 
@@ -1101,43 +1100,46 @@ void Power::_cpu_power_limit(Xml_generator &xml, Xml_node const &limit, unsigned
 
 			lock = node.attribute_value("lock", lock);
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", id++);
+			g.node("hbox", [&] {
+				g.attribute("name", id++);
 
-				xml.node("label", [&] {
-					xml.attribute("name", id++);
-					xml.attribute("align", "left");
-					xml.attribute("text", String<32>(" Package power limit", lock ? " LOCKED" : ""));
+				g.node("label", [&] {
+					g.attribute("name", id++);
+					g.attribute("align", "left");
+					g.node("text", [&] {
+						g.append_quoted(String<32>(" Package power limit",
+						                           lock ? " LOCKED" : ""));
+					});
 				});
 			});
 
-			_cpu_power_limit_headline(xml, id, "");
+			_cpu_power_limit_headline(g, id, "");
 
 			node.with_optional_sub_node("limit_1", [&](auto const &node) {
-				_cpu_power_limit_common(xml, node, id, " - 1");
+				_cpu_power_limit_common(g, node, id, " - 1");
 			});
 
 			node.with_optional_sub_node("limit_2", [&](auto const &node) {
-				_cpu_power_limit_common(xml, node, id, " - 2");
+				_cpu_power_limit_common(g, node, id, " - 2");
 			});
 		});
 
 		limit.with_optional_sub_node("dram", [&](auto const &node) {
-			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " DRAM power limit");
+			_cpu_power_limit_dram_pp0_pp1(g, node, id, " DRAM power limit");
 		});
 
 		limit.with_optional_sub_node("pp0", [&](auto const &node) {
-			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " PP0 power limit");
+			_cpu_power_limit_dram_pp0_pp1(g, node, id, " PP0 power limit");
 		});
 
 		limit.with_optional_sub_node("pp1", [&](auto const &node) {
-			_cpu_power_limit_dram_pp0_pp1(xml, node, id, " PP1 power limit");
+			_cpu_power_limit_dram_pp0_pp1(g, node, id, " PP1 power limit");
 		});
 	});
 }
 
 
-void Power::_cpu_perf_status_detail(Xml_generator &xml, Xml_node const &node,
+void Power::_cpu_perf_status_detail(Generator &g, Node const &node,
                                     char const * text, unsigned &id)
 {
 	double abs = 0, diff = 0;
@@ -1145,58 +1147,58 @@ void Power::_cpu_perf_status_detail(Xml_generator &xml, Xml_node const &node,
 	abs  = node.attribute_value("throttle_abs",  abs);
 	diff = node.attribute_value("throttle_diff", diff);
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
 
-		xml.node("label", [&] {
-			xml.attribute("name", id++);
-			xml.attribute("align", "left");
-			xml.attribute("text", text);
+		g.node("label", [&] {
+			g.attribute("name", id++);
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(text); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<48>("throttle current ", align_string(diff), "s"));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<48>("throttle current ", align_string(diff), "s")); });
 		});
 	});
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<48>("throttle absolut ", align_string(abs), "s"));
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<48>("throttle absolut ", align_string(abs), "s")); });
 		});
 	});
 }
 
 
-void Power::_cpu_perf_status(Xml_generator &xml, Xml_node const &status, unsigned &)
+void Power::_cpu_perf_status(Generator &g, Node const &status, unsigned &)
 {
 	unsigned id = 0;
 
-	xml.node("vbox", [&] {
-		xml.attribute("name", id++);
+	g.node("vbox", [&] {
+		g.attribute("name", id++);
 
 		status.with_optional_sub_node("package", [&](auto const &node) {
-			_cpu_perf_status_detail(xml, node, " Package perf status", id);
+			_cpu_perf_status_detail(g, node, " Package perf status", id);
 		});
 
 		status.with_optional_sub_node("dram", [&](auto const &node) {
-			_cpu_perf_status_detail(xml, node, " DRAM perf status", id);
+			_cpu_perf_status_detail(g, node, " DRAM perf status", id);
 		});
 
 		status.with_optional_sub_node("pp0", [&](auto const &node) {
-			_cpu_perf_status_detail(xml, node, " PP0 perf status", id);
+			_cpu_perf_status_detail(g, node, " PP0 perf status", id);
 		});
 	});
 }
 
 
-bool Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
+bool Power::_cpu_residency_detail(Generator &g, Node const &node,
                                   char const * const text, unsigned &id)
 {
 	uint64_t tsc_raw = 0, ms_abs = 0, ms_diff = 0;
@@ -1208,19 +1210,19 @@ bool Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
 	if (ms_abs == 0)
 		return false;
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", id++);
+	g.node("hbox", [&] {
+		g.attribute("name", id++);
 
-		xml.node("label", [&] {
-			xml.attribute("name", id++);
-			xml.attribute("align", "left");
-			xml.attribute("text", text);
+		g.node("label", [&] {
+			g.attribute("name", id++);
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(text); });
 		});
 
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", id++);
-			xml.attribute("align", "right");
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", id++);
+			g.attribute("align", "right");
 
 			String<4> unity_abs (ms_abs  >= 60ul*60*1000 ? "  h" :
 			                     ms_abs  >=  2ul*60*1000 ? "  m" :
@@ -1232,10 +1234,10 @@ bool Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
 			            (ms_abs  >=  10'000)          ? ms_abs  / 1000 : ms_abs;
 			auto diff = (ms_diff >=  10'000) ? ms_diff / 1000 : ms_diff;
 
-			xml.attribute("text", String<60>("abs=",
+			g.node("text", [&] { g.append_quoted(String<60>("abs=",
 			                                 align_string(abs), unity_abs,
 			                                 " diff=",
-			                                 align_string(diff), unity_diff));
+			                                 align_string(diff), unity_diff)); });
 		});
 	});
 
@@ -1243,36 +1245,36 @@ bool Power::_cpu_residency_detail(Xml_generator &xml, Xml_node const &node,
 }
 
 
-void Power::_cpu_residency(Xml_generator &xml, Xml_node const &status, unsigned &)
+void Power::_cpu_residency(Generator &g, Node const &status, unsigned &)
 {
 	unsigned id = 0;
 
 	unsigned const core[] = { 1, 3, 6, 7 };
 	unsigned const pkg [] = { 2, 3, 6, 7, 8, 9, 10 };
 
-	xml.node("vbox", [&] {
-		xml.attribute("name", id++);
+	g.node("vbox", [&] {
+		g.attribute("name", id++);
 
-		xml.node("hbox", [&] {
-			xml.attribute("name", id++);
+		g.node("hbox", [&] {
+			g.attribute("name", id++);
 
-			xml.node("label", [&] {
-				xml.attribute("name", id++);
-				xml.attribute("align", "left");
-				xml.attribute("text", String<60>(" Package/Core C-state residency counters (try mwait!):"));
+			g.node("label", [&] {
+				g.attribute("name", id++);
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(String<60>(" Package/Core C-state residency counters (try mwait!):")); });
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "info_res");
-				xml.node("label", [&] () {
-					xml.attribute("text", "info");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "info_res");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("info"); });
 				});
 
 				if (_residency.hover)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_residency.select)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		});
 
@@ -1284,26 +1286,26 @@ void Power::_cpu_residency(Xml_generator &xml, Xml_node const &status, unsigned 
 
 		for (auto const &entry : core) {
 			status.with_optional_sub_node(String<8>("core_c", entry).string(), [&](auto const &node) {
-				if (_cpu_residency_detail(xml, node, String<16>(" Core C", entry).string(), id))
+				if (_cpu_residency_detail(g, node, String<16>(" Core C", entry).string(), id))
 					count ++;
 			});
 		}
 
 		for (auto const &entry : pkg) {
 			status.with_optional_sub_node(String<8>("pkg_c", entry).string(), [&](auto const &node) {
-				if (_cpu_residency_detail(xml, node, String<16>(" Package C", entry).string(), id))
+				if (_cpu_residency_detail(g, node, String<16>(" Package C", entry).string(), id))
 					count ++;
 			});
 		}
 
 		if (!count || id == id_before) {
-			xml.node("hbox", [&] {
-				xml.attribute("name", id++);
+			g.node("hbox", [&] {
+				g.attribute("name", id++);
 
-				xml.node("label", [&] {
-					xml.attribute("name", id++);
-					xml.attribute("align", "left");
-					xml.attribute("text", String<40>(" no counters available"));
+				g.node("label", [&] {
+					g.attribute("name", id++);
+					g.attribute("align", "left");
+					g.node("text", [&] { g.append_quoted(String<40>(" no counters available")); });
 				});
 			});
 		}
@@ -1311,43 +1313,42 @@ void Power::_cpu_residency(Xml_generator &xml, Xml_node const &status, unsigned 
 }
 
 
-void Power::_cpu_mwait_detail(Xml_generator &xml, String<4> const &text,
+void Power::_cpu_mwait_detail(Generator &g, String<4> const &text,
                               uint8_t const c_state, uint8_t const sub_state)
 {
-		xml.node("label", [&] {
-			xml.attribute("font", "monospace/regular");
-			xml.attribute("name", "mwait");
-			xml.attribute("align", "left");
-			xml.attribute("text", String<16>(" MWAIT hint "));
+		g.node("label", [&] {
+			g.attribute("font", "monospace/regular");
+			g.attribute("name", "mwait");
+			g.attribute("align", "left");
+			g.node("text", [&] { g.append_quoted(String<16>(" MWAIT hint ")); });
 		});
 
-		xml.node("button", [&] () {
-			xml.attribute("name", "mwait_hlt");
-			xml.node("label", [&] () {
-				xml.attribute("text", "hlt");
+		g.node("button", [&] () {
+			g.attribute("name", "mwait_hlt");
+			g.node("label", [&] () {
+				g.node("text", [&] { g.append_quoted("hlt"); });
 			});
 
 			if (_hover_mwait && _mwait_button_hovered == "mwait_hlt")
-				xml.attribute("hovered", true);
+				g.attribute("hovered", true);
 			if (_mwait_button_selected == "mwait_hlt")
-				xml.attribute("selected", true);
+				g.attribute("selected", true);
 		});
 
 		for (uint8_t i = 0; i < sub_state; i++) {
-			xml.node("button", [&] () {
+			g.node("button", [&] () {
 				auto name = sub_state > 1 ? String<16>("mwait_", text, "_", i)
 				                          : String<16>("mwait_", text);
-				xml.attribute("name", name);
-				xml.node("label", [&] () {
-					xml.attribute("text",
-					              sub_state > 1 ? String<16>(text, "_", i)
-					                            : String<16>(text));
+				g.attribute("name", name);
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted(					              sub_state > 1 ? String<16>(text, "_", i)
+					                            : String<16>(text)); });
 				});
 
 				if (_hover_mwait && _mwait_button_hovered == name)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_mwait_button_selected == name) {
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 					_mwait_c_state     = c_state;
 					_mwait_c_sub_state = i;
 				}
@@ -1356,7 +1357,7 @@ void Power::_cpu_mwait_detail(Xml_generator &xml, String<4> const &text,
 }
 
 
-void Power::_cpu_mwait(Xml_generator &xml, Xml_node const &status, unsigned &)
+void Power::_cpu_mwait(Generator &g, Node const &status, unsigned &)
 {
 	for (uint8_t c = 0; c < 8; c++) {
 		String<4> mwait_c_state("c", c);
@@ -1365,158 +1366,158 @@ void Power::_cpu_mwait(Xml_generator &xml, Xml_node const &status, unsigned &)
 			if (!sub_count)
 				return;
 
-			_cpu_mwait_detail(xml, mwait_c_state, c, sub_count);
+			_cpu_mwait_detail(g, mwait_c_state, c, sub_count);
 		});
 	}
 }
 
 
-void Power::_cpu_temp(Xml_generator &xml, Xml_node const &cpu)
+void Power::_cpu_temp(Generator &g, Node const &cpu)
 {
 	auto const temp_c = cpu.attribute_value("temp_c", 0U);
 	auto const cpuid  = cpu_id(cpu);
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", cpuid);
+	g.node("hbox", [&] {
+		g.attribute("name", cpuid);
 
-		xml.node("label", [&] {
-			xml.attribute("name", cpuid);
-			xml.attribute("align", "right");
-			xml.attribute("text", String<12>(" ", temp_c, " °C |"));
+		g.node("label", [&] {
+			g.attribute("name", cpuid);
+			g.attribute("align", "right");
+			g.node("text", [&] { g.append_quoted(String<12>(" ", temp_c, " °C |")); });
 		});
 	});
 }
 
 
-void Power::_cpu_freq(Xml_generator &xml, Xml_node const &cpu)
+void Power::_cpu_freq(Generator &g, Node const &cpu)
 {
 	auto const freq_khz = cpu.attribute_value("freq_khz", 0ULL);
 	auto const cpuid    = cpu_id(cpu);
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", cpuid);
+	g.node("hbox", [&] {
+		g.attribute("name", cpuid);
 
-		xml.node("label", [&] {
-			xml.attribute("name", cpuid);
-			xml.attribute("align", "right");
+		g.node("label", [&] {
+			g.attribute("name", cpuid);
+			g.attribute("align", "right");
 
 			auto const rest = (freq_khz % 1000) / 10;
-			xml.attribute("text", String<16>(" ", freq_khz / 1000, ".",
-			                                 rest < 10 ? "0" : "", rest, " MHz"));
+			g.node("text", [&] { g.append_quoted(String<16>(" ", freq_khz / 1000, ".",
+			                                 rest < 10 ? "0" : "", rest, " MHz")); });
 		});
 	});
 }
 
 
-void Power::_cpu_setting(Xml_generator &xml, Xml_node const &cpu)
+void Power::_cpu_setting(Generator &g, Node const &cpu)
 {
 	auto const cpuid = cpu_id(cpu);
 
-	xml.node("hbox", [&] {
-		xml.attribute("name", cpuid);
-		xml.node("button", [&] () {
-			xml.attribute("name", "settings");
-			xml.node("label", [&] () {
-				xml.attribute("text", "");
+	g.node("hbox", [&] {
+		g.attribute("name", cpuid);
+		g.node("button", [&] () {
+			g.attribute("name", "settings");
+			g.node("label", [&] () {
+				g.node("text", [&] { g.append_quoted(""); });
 			});
 
 			if (_setting_hovered.value == cpuid)
-				xml.attribute("hovered", true);
+				g.attribute("hovered", true);
 			if (_setting_cpu.value == cpuid)
-				xml.attribute("selected", true);
+				g.attribute("selected", true);
 		});
 	});
 }
 
 
-void Power::_settings_mode(Xml_generator &xml)
+void Power::_settings_mode(Generator &g)
 {
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_mode");
+	g.node("frame", [&] () {
+		g.attribute("name", "frame_mode");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "mode");
+		g.node("hbox", [&] () {
+			g.attribute("name", "mode");
 
 			auto text = String<64>(" Settings:");
 
-			xml.node("label", [&] () {
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] () {
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 
 #if 1
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "normal");
-				xml.node("label", [&] () {
-					xml.attribute("text", "normal");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "normal");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("normal"); });
 				});
 
 				if (_hover_normal)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_select_normal)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 #endif
 
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "advanced");
-				xml.node("label", [&] () {
-					xml.attribute("text", "advanced");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "advanced");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("advanced"); });
 				});
 
 				if (_hover_advanced)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_select_advanced)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		});
 	});
 }
 
 
-void Power::_settings_period(Xml_generator &xml)
+void Power::_settings_period(Generator &g)
 {
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_period");
+	g.node("frame", [&] () {
+		g.attribute("name", "frame_period");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "period");
+		g.node("hbox", [&] () {
+			g.attribute("name", "period");
 
 			auto text = String<64>(" Update period in ms:");
 
-			xml.node("label", [&] () {
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] () {
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 
-			hub(xml, _timer_period, "period");
+			hub(g, _timer_period, "period");
 
-			xml.node("label", [&] () {
-				xml.attribute("name", "b");
-				xml.attribute("align", "right");
-				xml.attribute("text", "");
+			g.node("label", [&] () {
+				g.attribute("name", "b");
+				g.attribute("align", "right");
+				g.node("text", [&] { g.append_quoted(""); });
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "apply_period");
-				xml.node("label", [&] () {
-					xml.attribute("text", "apply");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "apply_period");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("apply"); });
 				});
 
 				if (_apply_period)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_apply_select_per)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		});
 	});
 }
 
 
-void Power::_settings_amd(Xml_generator &xml, Xml_node const &node,
+void Power::_settings_amd(Generator &g, Node const &node,
                           bool const re_eval)
 {
 	unsigned min_value = node.attribute_value("ro_limit_cur", 0u);
@@ -1528,51 +1529,51 @@ void Power::_settings_amd(Xml_generator &xml, Xml_node const &node,
 	if (re_eval)
 		_amd_pstate.set(cur_value);
 
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_pstate");
+	g.node("frame", [&] () {
+		g.attribute("name", "frame_pstate");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "pstate");
+		g.node("hbox", [&] () {
+			g.attribute("name", "pstate");
 
 			auto text = String<64>("Hardware Performance-State: ");
 
-			xml.node("label", [&] () {
-				xml.attribute("name", "left");
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] () {
+				g.attribute("name", "left");
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "pstate-max");
-				xml.node("label", [&] () {
-					xml.attribute("text", "max");
+			g.node("button", [&] () {
+				g.attribute("name", "pstate-max");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("max"); });
 				});
 				if (_pstate_max)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_amd_pstate.value() == _amd_pstate.min())
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "pstate-mid");
-				xml.node("label", [&] () {
-					xml.attribute("text", "mid");
+			g.node("button", [&] () {
+				g.attribute("name", "pstate-mid");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("mid"); });
 				});
 				if (_pstate_mid)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_amd_pstate.value() == (_amd_pstate.max() - _amd_pstate.min() + 1) / 2)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "pstate-min");
-				xml.node("label", [&] () {
-					xml.attribute("text", "min");
+			g.node("button", [&] () {
+				g.attribute("name", "pstate-min");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("min"); });
 				});
 				if (_pstate_min)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_amd_pstate.value() == _amd_pstate.max())
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
 			if (_select_advanced) {
@@ -1580,24 +1581,24 @@ void Power::_settings_amd(Xml_generator &xml, Xml_node const &node,
 					auto text = String<64>(" range max-min [", min_value, "-",
 					                       max_value, "] current=", cur_value);
 
-					xml.node("label", [&] () {
-						xml.attribute("name", "right");
-						xml.attribute("align", "right");
-						xml.attribute("text", text);
+					g.node("label", [&] () {
+						g.attribute("name", "right");
+						g.attribute("align", "right");
+						g.node("text", [&] { g.append_quoted(text); });
 					});
 
-					hub(xml, _amd_pstate, "pstate");
+					hub(g, _amd_pstate, "pstate");
 				}
 
-				xml.node("button", [&] () {
-					xml.attribute("name", "pstate-custom");
-					xml.node("label", [&] () {
-						xml.attribute("text", "custom");
+				g.node("button", [&] () {
+					g.attribute("name", "pstate-custom");
+					g.node("label", [&] () {
+						g.node("text", [&] { g.append_quoted("custom"); });
 					});
 					if (_pstate_custom)
-						xml.attribute("hovered", true);
+						g.attribute("hovered", true);
 					if (_pstate_custom_sel)
-						xml.attribute("selected", true);
+						g.attribute("selected", true);
 				});
 			}
 		});
@@ -1605,61 +1606,61 @@ void Power::_settings_amd(Xml_generator &xml, Xml_node const &node,
 }
 
 
-void Power::_settings_intel_epb(Xml_generator  &xml,
-                                Xml_node const &node,
-                                bool     const  re_read)
+void Power::_settings_intel_epb(Generator  &g,
+                                Node const &node,
+                                bool const  re_read)
 {
 	unsigned const epb = node.attribute_value("raw", 0);
 
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_speed_step");
+	g.node("frame", [&] () {
+		g.attribute("name", "frame_speed_step");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "epb");
+		g.node("hbox", [&] () {
+			g.attribute("name", "epb");
 
 			auto text = String<64>(" Energy Performance Bias hint: ");
 
-			xml.node("label", [&] () {
-				xml.attribute("name", "left");
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] () {
+				g.attribute("name", "left");
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 
 			if (re_read)
 				_intel_epb.set(epb);
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "epb-perf");
-				xml.node("label", [&] () {
-					xml.attribute("text", "performance");
+			g.node("button", [&] () {
+				g.attribute("name", "epb-perf");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("performance"); });
 				});
 				if (_epb_perf)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_epb.value() == EPB_PERF)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "epb-bala");
-				xml.node("label", [&] () {
-					xml.attribute("text", "balanced");
+			g.node("button", [&] () {
+				g.attribute("name", "epb-bala");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("balanced"); });
 				});
 				if (_epb_bala)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_epb.value() == EPB_BALANCED ||
 				    _intel_epb.value() == EPB_BALANCED - 1)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "epb-ener");
-				xml.node("label", [&] () {
-					xml.attribute("text", "energy");
+			g.node("button", [&] () {
+				g.attribute("name", "epb-ener");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("energy"); });
 				});
 				if (_epb_ener)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_epb.value() == EPB_POWER_SAVE)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
 			if (!_select_advanced)
@@ -1671,27 +1672,27 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 				auto text = String<64>(" range [", _intel_epb.min(), "-",
 				                       _intel_epb.max(), "] current=", epb);
 
-				xml.node("label", [&] () {
-					xml.attribute("name", "right");
-					xml.attribute("align", "right");
-					xml.attribute("text", text);
+				g.node("label", [&] () {
+					g.attribute("name", "right");
+					g.attribute("align", "right");
+					g.node("text", [&] { g.append_quoted(text); });
 				});
 
-				hub(xml, _intel_epb, "epb");
+				hub(g, _intel_epb, "epb");
 			}
 
-			xml.node("button", [&] () {
-				xml.attribute("align", "right");
-				xml.attribute("name", "epb-custom");
-				xml.node("label", [&] () {
-					xml.attribute("text", "custom");
+			g.node("button", [&] () {
+				g.attribute("align", "right");
+				g.attribute("name", "epb-custom");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("custom"); });
 				});
 				if (_epb_custom)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (extra_info || ((_intel_epb.value() != EPB_PERF) &&
 				                   (_intel_epb.value() != EPB_POWER_SAVE) &&
 				                   (_intel_epb.value() != EPB_BALANCED)))
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
 		});
@@ -1699,37 +1700,37 @@ void Power::_settings_intel_epb(Xml_generator  &xml,
 }
 
 
-void Power::_settings_intel_hwp(Xml_generator &xml, Xml_node const &node, bool)
+void Power::_settings_intel_hwp(Generator &g, Node const &node, bool)
 {
 	bool enabled = node.attribute_value("enable", false);
 
-	xml.node("frame", [&] () {
-		xml.attribute("name", "frame_hwp");
+	g.node("frame", [&] () {
+		g.attribute("name", "frame_hwp");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "hwp");
+		g.node("hbox", [&] () {
+			g.attribute("name", "hwp");
 
 			auto text = String<72>(" Intel HWP state: ",
 			                       enabled ? "on" : "off",
 			                       " - Once enabled stays until reset (Intel spec)");
-			xml.node("label", [&] () {
-				xml.attribute("align", "left");
-				xml.attribute("text", text);
+			g.node("label", [&] () {
+				g.attribute("align", "left");
+				g.node("text", [&] { g.append_quoted(text); });
 			});
 
 			if (enabled)
 				return;
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_on");
-				xml.node("label", [&] () {
-					xml.attribute("text", "on");
+			g.node("button", [&] () {
+				g.attribute("name", "hwp_on");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("on"); });
 				});
 
 				if (_hwp_on_hovered)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_hwp_on_selected)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		});
 	});
@@ -1755,8 +1756,8 @@ struct Hwp_request : Genode::Register<64> {
 };
 
 
-void Power::_settings_intel_hwp_req(Xml_generator &xml,
-                                    Xml_node const &node,
+void Power::_settings_intel_hwp_req(Generator      &g,
+                                    Node     const &node,
                                     unsigned const hwp_low,
                                     unsigned const hwp_high,
                                     uint64_t const hwp_req_pkg,
@@ -1803,11 +1804,11 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 	if (_select_advanced) {
 		frames_count ++;
 
-		xml.node("frame", [&] () {
-			xml.attribute("name", "frame_hwpreq");
+		g.node("frame", [&] () {
+			g.attribute("name", "frame_hwpreq");
 
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwpreq");
+			g.node("hbox", [&] () {
+				g.attribute("name", "hwpreq");
 
 				auto text = String<72>(" HWP CPU: [", hwp_min, "-", hwp_max, "] desired=",
 				                       hwp_des, (hwp_des == 0) ? " (AUTO)" : "",
@@ -1827,61 +1828,61 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 				if (Hwp_request::Min_valid::get(hwp_req))
 					text = String<72>(text, "N");
 
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("name", 1);
-					xml.attribute("text", text);
+				g.node("label", [&] () {
+					g.attribute("align", "left");
+					g.attribute("name", 1);
+					g.node("text", [&] { g.append_quoted(text); });
 				});
 
 				if (_hwp_req_cus_sel) {
-					xml.node("label", [&] () {
-						xml.attribute("align", "right");
-						xml.attribute("name", 2);
-						xml.attribute("text", String<16>(" min:"));
+					g.node("label", [&] () {
+						g.attribute("align", "right");
+						g.attribute("name", 2);
+						g.node("text", [&] { g.append_quoted(String<16>(" min:")); });
 					});
-					hub(xml, _intel_hwp_min, "hwp_min");
+					hub(g, _intel_hwp_min, "hwp_min");
 
-					xml.node("label", [&] () {
-						xml.attribute("align", "right");
-						xml.attribute("name", 3);
-						xml.attribute("text", String<16>(" max:"));
+					g.node("label", [&] () {
+						g.attribute("align", "right");
+						g.attribute("name", 3);
+						g.node("text", [&] { g.append_quoted(String<16>(" max:")); });
 					});
-					hub(xml, _intel_hwp_max, "hwp_max");
+					hub(g, _intel_hwp_max, "hwp_max");
 
-					xml.node("label", [&] () {
-						xml.attribute("align", "right");
-						xml.attribute("name", 4);
-						xml.attribute("text", String<16>(" desired:"));
+					g.node("label", [&] () {
+						g.attribute("align", "right");
+						g.attribute("name", 4);
+						g.node("text", [&] { g.append_quoted(String<16>(" desired:")); });
 					});
 
 					/* if auto on, hide button for individual values */
 					if (!_hwp_req_auto_sel) {
-						hub(xml, _intel_hwp_des, "hwp_des");
+						hub(g, _intel_hwp_des, "hwp_des");
 					}
 
-					xml.node("button", [&] () {
-						xml.attribute("name", "hwp_req-auto");
-						xml.node("label", [&] () {
-							xml.attribute("text", "auto");
+					g.node("button", [&] () {
+						g.attribute("name", "hwp_req-auto");
+						g.node("label", [&] () {
+							g.node("text", [&] { g.append_quoted("auto"); });
 						});
 						if (_hwp_req_auto)
-							xml.attribute("hovered", true);
+							g.attribute("hovered", true);
 						if (_hwp_req_auto_sel)
-							xml.attribute("selected", true);
+							g.attribute("selected", true);
 					});
 				}
 
-				xml.node("button", [&] () {
-				xml.attribute("align", "right");
-					xml.attribute("name", "hwp_req-custom");
-					xml.node("label", [&] () {
-						xml.attribute("text", "custom");
+				g.node("button", [&] () {
+				g.attribute("align", "right");
+					g.attribute("name", "hwp_req-custom");
+					g.node("label", [&] () {
+						g.node("text", [&] { g.append_quoted("custom"); });
 					});
 					if (_hwp_req_custom)
-						xml.attribute("hovered", true);
+						g.attribute("hovered", true);
 
 					if (_hwp_req_cus_sel)
-						xml.attribute("selected", true);
+						g.attribute("selected", true);
 				});
 
 			});
@@ -1891,135 +1892,135 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 		/* re-use code from  "hwp request" XXX */
 		if (hwp_req_pkg_valid) {
 			frames_count ++;
-			xml.node("frame", [&] () {
-				xml.attribute("name", "frame_hwpreq_pck");
+			g.node("frame", [&] () {
+				g.attribute("name", "frame_hwpreq_pck");
 
-				xml.node("hbox", [&] () {
-					xml.attribute("name", "hwpreq_pck");
+				g.node("hbox", [&] () {
+					g.attribute("name", "hwpreq_pck");
 
 					auto text = String<72>(" Package: [", hwp_pkg_min, "-", hwp_pkg_max,
 					                       "] desired=", hwp_pkg_des,
 					                       (hwp_pkg_des == 0) ? " (AUTO)" : "");
-					xml.node("label", [&] () {
-						xml.attribute("align", "left");
-						xml.attribute("name", 1);
-						xml.attribute("text", text);
+					g.node("label", [&] () {
+						g.attribute("align", "left");
+						g.attribute("name", 1);
+						g.node("text", [&] { g.append_quoted(text); });
 					});
 
 					if (_hwp_req_cus_sel) {
-						xml.node("label", [&] () {
-							xml.attribute("align", "right");
-							xml.attribute("name", 2);
-							xml.attribute("text", String<16>(" min:"));
+						g.node("label", [&] () {
+							g.attribute("align", "right");
+							g.attribute("name", 2);
+							g.node("text", [&] { g.append_quoted(String<16>(" min:")); });
 						});
-						hub(xml, _intel_hwp_pck_min, "hwp_pck_min");
+						hub(g, _intel_hwp_pck_min, "hwp_pck_min");
 
-						xml.node("label", [&] () {
-							xml.attribute("align", "right");
-							xml.attribute("name", 3);
-							xml.attribute("text", String<16>(" max:"));
+						g.node("label", [&] () {
+							g.attribute("align", "right");
+							g.attribute("name", 3);
+							g.node("text", [&] { g.append_quoted(String<16>(" max:")); });
 						});
-						hub(xml, _intel_hwp_pck_max, "hwp_pck_max");
+						hub(g, _intel_hwp_pck_max, "hwp_pck_max");
 
-						xml.node("label", [&] () {
-							xml.attribute("align", "right");
-							xml.attribute("name", 4);
-							xml.attribute("text", String<16>(" desired:"));
+						g.node("label", [&] () {
+							g.attribute("align", "right");
+							g.attribute("name", 4);
+							g.node("text", [&] { g.append_quoted(String<16>(" desired:")); });
 						});
-						hub(xml, _intel_hwp_pck_des, "hwp_pck_des");
+						hub(g, _intel_hwp_pck_des, "hwp_pck_des");
 					}
 				});
 			});
 		}
 	}
 
-	xml.node("frame", [&] () {
+	g.node("frame", [&] () {
 		frames_count ++;
-		xml.attribute("name", "frame_hwpepp");
+		g.attribute("name", "frame_hwpepp");
 
-		xml.node("hbox", [&] () {
-			xml.attribute("name", "hwpepp");
+		g.node("hbox", [&] () {
+			g.attribute("name", "hwpepp");
 
-			xml.node("label", [&] () {
-				xml.attribute("align", "left");
-				xml.attribute("name", "a");
-				xml.attribute("text", " Energy-Performance-Preference:");
+			g.node("label", [&] () {
+				g.attribute("align", "left");
+				g.attribute("name", "a");
+				g.node("text", [&] { g.append_quoted(" Energy-Performance-Preference:"); });
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_epp-perf");
-				xml.node("label", [&] () {
-					xml.attribute("text", "performance");
+			g.node("button", [&] () {
+				g.attribute("name", "hwp_epp-perf");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("performance"); });
 				});
 				if (_hwp_epp_perf)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_hwp_epp.value() == EPP_PERF)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_epp-bala");
-				xml.node("label", [&] () {
-					xml.attribute("text", "balanced");
+			g.node("button", [&] () {
+				g.attribute("name", "hwp_epp-bala");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("balanced"); });
 				});
 				if (_hwp_epp_bala)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_hwp_epp.value() == EPP_BALANCED ||
 				    _intel_hwp_epp.value() == EPP_BALANCED - 1)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
-			xml.node("button", [&] () {
-				xml.attribute("name", "hwp_epp-ener");
-				xml.node("label", [&] () {
-					xml.attribute("text", "energy");
+			g.node("button", [&] () {
+				g.attribute("name", "hwp_epp-ener");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted("energy"); });
 				});
 				if (_hwp_epp_ener)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_intel_hwp_epp.value() == EPP_ENERGY)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 
 			bool const extra_info = _epp_custom_select && _select_advanced;
 
 			if (extra_info) {
-				xml.node("vbox", [&] () {
+				g.node("vbox", [&] () {
 					auto text = String<64>(" range [", _intel_hwp_epp.min(),
 					                       "-", _intel_hwp_epp.max(),
 					                       "] current=", hwp_epp);
-					xml.node("label", [&] () {
-						xml.attribute("align", "left");
-						xml.attribute("name", "a");
-						xml.attribute("text", text);
+					g.node("label", [&] () {
+						g.attribute("align", "left");
+						g.attribute("name", "a");
+						g.node("text", [&] { g.append_quoted(text); });
 					});
-					xml.node("label", [&] () {
-						xml.attribute("align", "left");
-						xml.attribute("name", "b");
-						xml.attribute("text", " (EPP - Energy-Performance-Preference)");
+					g.node("label", [&] () {
+						g.attribute("align", "left");
+						g.attribute("name", "b");
+						g.node("text", [&] { g.append_quoted(" (EPP - Energy-Performance-Preference)"); });
 					});
-					xml.node("label", [&] () {
-						xml.attribute("align", "left");
-						xml.attribute("name", "c");
-						xml.attribute("text", String<22>(" Activity window=", act_wnd));
+					g.node("label", [&] () {
+						g.attribute("align", "left");
+						g.attribute("name", "c");
+						g.node("text", [&] { g.append_quoted(String<22>(" Activity window=", act_wnd)); });
 					});
 				});
 
-				hub(xml, _intel_hwp_epp, "hwp_epp");
+				hub(g, _intel_hwp_epp, "hwp_epp");
 			}
 
 			if (_select_advanced) {
-				xml.node("button", [&] () {
-					xml.attribute("align", "right");
-					xml.attribute("name", "hwp_epp-custom");
-					xml.node("label", [&] () {
-						xml.attribute("text", "custom");
+				g.node("button", [&] () {
+					g.attribute("align", "right");
+					g.attribute("name", "hwp_epp-custom");
+					g.node("label", [&] () {
+						g.node("text", [&] { g.append_quoted("custom"); });
 					});
 					if (_hwp_epp_custom)
-						xml.attribute("hovered", true);
+						g.attribute("hovered", true);
 					if (extra_info || ((_intel_hwp_epp.value() != EPP_PERF)     &&
 					                   (_intel_hwp_epp.value() != EPP_BALANCED) &&
 					                   (_intel_hwp_epp.value() != EPP_ENERGY)))
-						xml.attribute("selected", true);
+						g.attribute("selected", true);
 				});
 			}
 
@@ -2028,7 +2029,7 @@ void Power::_settings_intel_hwp_req(Xml_generator &xml,
 }
 
 
-void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
+void Power::_settings_view(Generator &g, Node const &cpu,
                            String<12> const &cpuid, unsigned const cpu_count,
                            bool re_eval)
 {
@@ -2039,31 +2040,31 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 	uint64_t hwp_req_pkg = 0;
 	bool     hwp_req_pkg_valid = false;
 
-	xml.attribute("name", "settings");
+	g.attribute("name", "settings");
 
-	_settings_period(xml);
+	_settings_period(g);
 	frames ++;
 
-	_settings_mode(xml);
+	_settings_mode(g);
 	frames ++;
 
-	cpu.for_each_sub_node([&](Genode::Xml_node const &node) {
+	cpu.for_each_sub_node([&](Genode::Node const &node) {
 
 		if (node.type() == "pstate") {
 			frames ++;
-			_settings_amd(xml, node, re_eval);
+			_settings_amd(g, node, re_eval);
 			return;
 		}
 
 		if (node.type() == "energy_perf_bias" && node.has_attribute("raw")) {
 			frames ++;
-			_settings_intel_epb(xml, node, re_eval);
+			_settings_intel_epb(g, node, re_eval);
 			return;
 		}
 
 		if (node.type() == "hwp") {
 			frames ++;
-			_settings_intel_hwp(xml, node, re_eval);
+			_settings_intel_hwp(g, node, re_eval);
 			return;
 		}
 
@@ -2090,26 +2091,26 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			if (extra_info) {
 				frames ++;
 
-				xml.node("frame", [&] () {
-					xml.attribute("name", "frame_hwpcap");
+				g.node("frame", [&] () {
+					g.attribute("name", "frame_hwpcap");
 
-					xml.node("hbox", [&] () {
-						xml.attribute("name", "hwpcap");
+					g.node("hbox", [&] () {
+						g.attribute("name", "hwpcap");
 
-						xml.node("vbox", [&] () {
+						g.node("vbox", [&] () {
 							auto text = String<72>(" Intel HWP features: [", hwp_low,
 							                       "-", hwp_high, "] efficient=", effi,
 							                       " guaranty=", guar, " desired=0 (AUTO)");
 
-							xml.node("label", [&] () {
-								xml.attribute("align", "left");
-								xml.attribute("name", "a");
-								xml.attribute("text", text);
+							g.node("label", [&] () {
+								g.attribute("align", "left");
+								g.attribute("name", "a");
+								g.node("text", [&] { g.append_quoted(text); });
 							});
-							xml.node("label", [&] () {
-								xml.attribute("align", "left");
-								xml.attribute("name", "b");
-								xml.attribute("text", " performance & frequency range steering");
+							g.node("label", [&] () {
+								g.attribute("align", "left");
+								g.attribute("name", "b");
+								g.node("text", [&] { g.append_quoted(" performance & frequency range steering"); });
 							});
 						});
 					});
@@ -2130,66 +2131,66 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 			if (!_hwp_enabled_once)
 				return;
 
-			_settings_intel_hwp_req(xml, node, hwp_low, hwp_high, hwp_req_pkg,
+			_settings_intel_hwp_req(g, node, hwp_low, hwp_high, hwp_req_pkg,
 			                        hwp_req_pkg_valid, re_eval, frames);
 			return;
 		}
 	});
 
 	if (_hwp_on_selected && !hwp_extension) {
-		xml.node("frame", [&] () {
-			xml.attribute("name", "frame_missing_hwp");
+		g.node("frame", [&] () {
+			g.attribute("name", "frame_missing_hwp");
 
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "hwp_extension");
+			g.node("hbox", [&] () {
+				g.attribute("name", "hwp_extension");
 
 				auto text = String<72>(" Intel HWP features available but HWP is off (not applied yet?)");
 
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("name", "a");
-					xml.attribute("text", text);
+				g.node("label", [&] () {
+					g.attribute("align", "left");
+					g.attribute("name", "a");
+					g.node("text", [&] { g.append_quoted(text); });
 				});
 			});
 		});
 	}
 
-	cpu.with_optional_sub_node("energy", [&](Genode::Xml_node const &energy) {
+	cpu.with_optional_sub_node("energy", [&](Genode::Node const &energy) {
 		frames ++;
-		xml.node("frame", [&] () {
-			xml.attribute("name", "rafl");
+		g.node("frame", [&] () {
+			g.attribute("name", "rafl");
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", "energy");
+			g.node("hbox", [&] {
+				g.attribute("name", "energy");
 
-				_cpu_energy(xml, energy, frames);
+				_cpu_energy(g, energy, frames);
 			});
 		});
 	});
 
 	if (_select_rapl_detail) {
-		cpu.with_optional_sub_node("power_info", [&](Genode::Xml_node const &info) {
+		cpu.with_optional_sub_node("power_info", [&](Genode::Node const &info) {
 			frames ++;
-			xml.node("frame", [&] () {
-				xml.attribute("name", "info");
+			g.node("frame", [&] () {
+				g.attribute("name", "info");
 
-				xml.node("hbox", [&] {
-					xml.attribute("name", "info");
+				g.node("hbox", [&] {
+					g.attribute("name", "info");
 
-					_cpu_power_info(xml, info, frames);
+					_cpu_power_info(g, info, frames);
 				});
 			});
 		});
 
-		cpu.with_optional_sub_node("power_limit", [&](Genode::Xml_node const &info) {
+		cpu.with_optional_sub_node("power_limit", [&](Genode::Node const &info) {
 			frames ++;
-			xml.node("frame", [&] () {
-				xml.attribute("name", "limit");
+			g.node("frame", [&] () {
+				g.attribute("name", "limit");
 
-				xml.node("hbox", [&] {
-					xml.attribute("name", "limit");
+				g.node("hbox", [&] {
+					g.attribute("name", "limit");
 
-					_cpu_power_limit(xml, info, frames);
+					_cpu_power_limit(g, info, frames);
 				});
 			});
 		});
@@ -2198,115 +2199,115 @@ void Power::_settings_view(Xml_generator &xml, Xml_node const &cpu,
 /*
 	<policy pp0="0x10" pp1="0x10"/>
 
-	cpu.with_optional_sub_node("policy", [&](Genode::Xml_node const &info) {
+	cpu.with_optional_sub_node("policy", [&](Genode::Node const &info) {
 		frames ++;
-		xml.node("frame", [&] () {
-			xml.attribute("name", "policy");
+		g.node("frame", [&] () {
+			g.attribute("name", "policy");
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", "policy");
+			g.node("hbox", [&] {
+				g.attribute("name", "policy");
 
 			});
 		});
 	});
 */
 
-	cpu.with_optional_sub_node("msr_residency", [&](Genode::Xml_node const &info) {
+	cpu.with_optional_sub_node("msr_residency", [&](Genode::Node const &info) {
 		frames ++;
-		xml.node("frame", [&] () {
-			xml.attribute("name", "residency");
+		g.node("frame", [&] () {
+			g.attribute("name", "residency");
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", "residency");
+			g.node("hbox", [&] {
+				g.attribute("name", "residency");
 
-				_cpu_residency(xml, info, frames);
+				_cpu_residency(g, info, frames);
 			});
 		});
 	});
 
-	cpu.with_optional_sub_node("mwait_support", [&](Genode::Xml_node const &info) {
+	cpu.with_optional_sub_node("mwait_support", [&](Genode::Node const &info) {
 		frames ++;
-		xml.node("frame", [&] () {
-			xml.attribute("name", "mwait");
+		g.node("frame", [&] () {
+			g.attribute("name", "mwait");
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", "mwait");
+			g.node("hbox", [&] {
+				g.attribute("name", "mwait");
 
-				_cpu_mwait(xml, info, frames);
+				_cpu_mwait(g, info, frames);
 			});
 		});
 	});
 
-	cpu.with_optional_sub_node("perf_status", [&](Genode::Xml_node const &info) {
+	cpu.with_optional_sub_node("perf_status", [&](Genode::Node const &info) {
 		frames ++;
-		xml.node("frame", [&] () {
-			xml.attribute("name", "perf");
+		g.node("frame", [&] () {
+			g.attribute("name", "perf");
 
-			xml.node("hbox", [&] {
-				xml.attribute("name", "perf");
+			g.node("hbox", [&] {
+				g.attribute("name", "perf");
 
-				_cpu_perf_status(xml, info, frames);
+				_cpu_perf_status(g, info, frames);
 			});
 		});
 	});
 
 	for (unsigned i = 0; i < 1 + ((cpu_count > frames) ? cpu_count - frames : 0); i++) {
-		xml.node("frame", [&] () {
-			xml.attribute("style", "invisible");
-			xml.attribute("name", String<15>("frame_space_", i));
+		g.node("frame", [&] () {
+			g.attribute("style", "invisible");
+			g.attribute("name", String<15>("frame_space_", i));
 
-			xml.node("hbox", [&] () {
-				xml.attribute("name", "space");
+			g.node("hbox", [&] () {
+				g.attribute("name", "space");
 
-				xml.node("label", [&] () {
-					xml.attribute("align", "left");
-					xml.attribute("text", "");
+				g.node("label", [&] () {
+					g.attribute("align", "left");
+					g.node("text", [&] { g.append_quoted(""); });
 				});
 			});
 		});
 	}
 
-	xml.node("hbox", [&] () {
-		xml.node("label", [&] () {
-			xml.attribute("text", "Apply to:");
+	g.node("hbox", [&] () {
+		g.node("label", [&] () {
+			g.node("text", [&] { g.append_quoted("Apply to:"); });
 		});
 
-		xml.node("button", [&] () {
-			xml.attribute("name", "none");
-			xml.node("label", [&] () {
-				xml.attribute("text", "none");
+		g.node("button", [&] () {
+			g.attribute("name", "none");
+			g.node("label", [&] () {
+				g.node("text", [&] { g.append_quoted("none"); });
 			});
 
 			if (_none_hovered)
-				xml.attribute("hovered", true);
+				g.attribute("hovered", true);
 			if (!_apply_select && !_apply_all_select)
-				xml.attribute("selected", true);
+				g.attribute("selected", true);
 		});
 
 		if (_select_advanced) {
-			xml.node("button", [&] () {
-				xml.attribute("name", "apply");
-				xml.node("label", [&] () {
-					xml.attribute("text", cpuid);
+			g.node("button", [&] () {
+				g.attribute("name", "apply");
+				g.node("label", [&] () {
+					g.node("text", [&] { g.append_quoted(cpuid); });
 				});
 
 				if (_apply_hovered)
-					xml.attribute("hovered", true);
+					g.attribute("hovered", true);
 				if (_apply_select)
-					xml.attribute("selected", true);
+					g.attribute("selected", true);
 			});
 		}
 
-		xml.node("button", [&] () {
-			xml.attribute("name", "applyall");
-			xml.node("label", [&] () {
-				xml.attribute("text", "all CPUs");
+		g.node("button", [&] () {
+			g.attribute("name", "applyall");
+			g.node("label", [&] () {
+				g.node("text", [&] { g.append_quoted("all CPUs"); });
 			});
 
 			if (_apply_all_hovered)
-				xml.attribute("hovered", true);
+				g.attribute("hovered", true);
 			if (_apply_all_select)
-				xml.attribute("selected", true);
+				g.attribute("selected", true);
 		});
 	});
 }
