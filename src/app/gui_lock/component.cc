@@ -49,7 +49,7 @@ struct Lock
 	Glyph_buffer    _glyph_buffer   { };
 	Tff_font        _default_font   { _binary_mono_tff_start, _glyph_buffer };
 
-	String          _kernel         { };
+	String          _kernel         { "unknown" };
 	String          _user           { "User" };
 
 	Input::Keycode  _lock_key       { };
@@ -470,8 +470,11 @@ void Lock::_handle_input()
 
 	_gui->input.for_each_event([&] (Input::Event const &ev) {
 		ev.handle_press([&] (Input::Keycode const &key, Input::Codepoint const &cp) {
-			if (!ev.key_press(key) || !cp.valid())
-				return;
+
+#if 0
+			Genode::error("key ", Input::key_name(key), " _lock_key=", Input::key_name(_lock_key),
+			              " state=", state == WAIT_FOR_LOCK_KEY ? "wait_for_lock_key" : "unknown state");
+#endif
 
 			if (state == WAIT_FOR_LOCK_KEY &&
 				key   != Input::Keycode::KEY_UNKNOWN &&
@@ -482,6 +485,9 @@ void Lock::_handle_input()
 				_handle_mode();
 				return;
 			}
+
+			if (!ev.key_press(key) || !cp.valid())
+				return;
 
 			if (!_fb.constructed())
 				return;
@@ -614,6 +620,9 @@ void Lock::_update_config()
 		state = BEFORE_COMPARE;
 
 		memset(&passwd, 0, sizeof(passwd));
+	} else {
+		state = WAIT_CLICK;
+		_pwd = { };
 	}
 
 	if (_handle.value > 0 && switch_view)

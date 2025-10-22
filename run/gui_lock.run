@@ -18,6 +18,7 @@ import_from_depot \
 set build_components {
 	app/gui_lock
 	app/nano3d
+	server/nitpicker
 }
 
 build $build_components
@@ -84,7 +85,7 @@ append config {
 			<policy label_prefix="gui_lock"    domain="lock"/>
 			<default-policy                    domain="default"/>
 
-			<global-key name="KEY_L" label="gui_lock -> input" />
+			<global-key name="KEY_L" label="gui_lock -> screen" />
 		</config>
 		<route>
 			<service name="ROM" label="focus">
