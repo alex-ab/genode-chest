@@ -1,4 +1,4 @@
-<runtime ram="1420M" caps="1150" binary="init">
+<runtime ram="1420M" caps="1190" binary="init">
 
 	<requires>
 		<file_system writeable="yes" label="home"/>
@@ -43,8 +43,7 @@
 			<service name="Usb"/>
 		</parent-provides>
 
-		<start name="vfs_block" caps="260">
-			<resource name="RAM" quantum="340M" />
+		<start name="vfs_block" caps="300" ram="410M">
 			<provides><service name="Block"/></provides>
 			<config>
 				<vfs>
@@ -61,7 +60,6 @@
 		</start>
 
 		<start name="vdi_block" ram="8M" caps="100">
-			<resource name="RAM" quantum="8M" />
 			<provides> <service name="Block"/> </provides>
 			<config file="/block_ext4.vdi" writeable="yes">
 				<vfs>
@@ -78,9 +76,8 @@
 			</route>
 		</start>
 
-		<start name="seoul" caps="5000">
+		<start name="seoul" caps="5000" ram="16G">
 			<binary name="seoul"/>
-			<resource name="RAM" quantum="16G"/>
 			<route>
 				<service name="ROM" label="platform_info">
 					<parent label="platform_info"/> </service>

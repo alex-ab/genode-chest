@@ -73,7 +73,7 @@
 			</route>
 		</start>
 
-		<start name="menu_view" caps="200" ram="28M">
+		<start name="menu_view" caps="200" ram="256M">
 			<binary name="menu_view_ab"/>
 			<config>
 				<report hover="yes"/>

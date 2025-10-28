@@ -1,4 +1,4 @@
-<runtime ram="32M" caps="650" binary="init">
+<runtime ram="32M" caps="750" binary="init">
 
 	<requires>
 		<!-- menu_view -->
@@ -39,8 +39,7 @@
 			<service name="Timer"/>
 		</parent-provides>
 
-		<start name="report_rom" caps="100">
-			<resource name="RAM" quantum="1M"/>
+		<start name="report_rom" caps="100" ram="2M">
 			<provides> <service name="Report"/> <service name="ROM"/> </provides>
 			<config verbose="no">
 				<policy label="menu_view -> dialog" report="msr_gui -> dialog"/>
@@ -50,8 +49,7 @@
 			</config>
 		</start>
 
-		<start name="msr_gui" caps="100">
-			<resource name="RAM" quantum="2M"/>
+		<start name="msr_gui" caps="150" ram="2M">
 			<route>
 				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
 				<service name="ROM" label="info">  <child name="report_rom" /> </service>
@@ -60,8 +58,7 @@
 			</route>
 		</start>
 
-		<start name="msr" caps="100" ld="yes" managing_system="yes">
-			<resource name="RAM" quantum="2M"/>
+		<start name="msr" caps="150" ram="2M" ld="yes" managing_system="yes">
 			<route>
 				<service name="ROM" label="config"> <child name="report_rom"/> </service>
 				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
@@ -70,9 +67,8 @@
 			</route>
 		</start>
 
-		<start name="menu_view" caps="2000">
+		<start name="menu_view" caps="2000" ram="256M">
 			<binary name="menu_view_ab"/>
-			<resource name="RAM" quantum="256M"/>
 			<config>
 				<report hover="yes"/>
 				<libc stderr="/dev/log"/>
