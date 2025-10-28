@@ -1,4 +1,4 @@
-<runtime ram="2514M" caps="2140" binary="init">
+<runtime ram="2514M" caps="5000" binary="init">
 
 	<requires>
 		<nic/>
