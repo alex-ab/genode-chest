@@ -876,7 +876,7 @@ void Power::_cpu_energy(Generator &g, Node const &energy, unsigned &frames)
 
 		energy.with_optional_sub_node("pp1", [&](auto const &node) {
 			frames++;
-			_cpu_energy_detail(g, node, id, " Domain PP1: (GPU?)");
+			_cpu_energy_detail(g, node, id, " Domain PP1: (GPU)");
 		});
 	});
 }
