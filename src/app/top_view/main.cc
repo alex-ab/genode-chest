@@ -176,11 +176,11 @@ struct Subjects
 
 	public:
 
-		void init()
+		void init(Genode::Affinity::Space const &space)
 		{
 			Genode::memset(_cpu_show, 1, sizeof(_cpu_show));
 
-			_button_cpus.max = 8;
+			_button_cpus.max = Genode::max(8u, space.total() / 2);
 		}
 
 		void read_config(Genode::Node const &);
@@ -913,7 +913,7 @@ struct Subjects
 			if (button == "")
 				return { button_hovered_before, false };
 
-			if (button == "|||") {
+			if (button == "settings") {
 				_button_setting_hovered = true;
 				return { !button_setting_hovered_before, false };
 			}
@@ -1530,7 +1530,7 @@ void Subjects::top(Genode::Generator &g, SORT_TIME const sort,
 	g.node("frame", [&] () {
 		g.node("hbox", [&] () {
 			g.node("button", [&] () {
-				g.attribute("name", "|||");
+				g.attribute("name", "settings");
 				if (_button_setting_hovered) {
 					g.attribute("hovered","yes");
 				}
@@ -1633,6 +1633,8 @@ void Subjects::top(Genode::Generator &g, SORT_TIME const sort,
 								g.attribute("name", "ec");
 								if (sort == EC_TIME)
 									g.attribute("selected","yes");
+								if (_button_ec_hovered)
+									g.attribute("hovered","yes");
 								g.node("label", [&] () {
 									g.node("text", [&] { g.append_quoted("EC"); });
 								});
@@ -1641,6 +1643,8 @@ void Subjects::top(Genode::Generator &g, SORT_TIME const sort,
 								g.attribute("name", "sc");
 								if (sort == SC_TIME)
 									g.attribute("selected","yes");
+								if (_button_sc_hovered)
+									g.attribute("hovered","yes");
 								g.node("label", [&] () {
 									g.node("text", [&] { g.append_quoted("SC"); });
 								});
@@ -1846,7 +1850,7 @@ struct App::Main
 
 	Main(Env &env) : _env(env)
 	{
-		_subjects.init();
+		_subjects.init(env.cpu().affinity_space());
 
 		_config.sigh(_config_handler);
 
