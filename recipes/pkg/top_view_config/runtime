@@ -3,6 +3,7 @@
 	<requires>
 		<gui/>
 		<trace/>
+		<rom label="platform_info"/>
 		<file_system label="fonts" writeable="no"/>
 		<file_system label="recall" writeable="yes"/>
 	</requires>
@@ -65,6 +66,7 @@
 			<config view_ms="2000" report="yes" log="no" report_config="yes"/>
 -->
 			<route>
+				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
 				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
 				<service name="ROM" label="config"> <child name="fs_rom" label="config"/> </service>
 				<service name="Report" label="config"> <child name="fs_report" label="config"/> </service>
