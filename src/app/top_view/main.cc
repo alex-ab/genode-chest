@@ -1038,7 +1038,8 @@ struct Subjects
 			         false };
 		}
 
-		void top(Genode::Generator &, SORT_TIME const, bool const);
+		void top(Genode::Generator &, SORT_TIME const, bool const,
+		         Genode::String<12> const &, Genode::String<12> const &);
 
 		void graph(Genode::Generator &g, SORT_TIME const sort)
 		{
@@ -1178,8 +1179,11 @@ struct Subjects
 			});
 		}
 
-		void detail_view(Genode::Generator &g, Top::Thread const &thread,
-		                 SORT_TIME const sort)
+		void detail_view(Genode::Generator         &g,
+		                 Top::Thread         const &thread,
+		                 SORT_TIME           const  sort,
+		                 Genode::String<12>  const &name_prio,
+		                 Genode::String<12>  const &name_quantum)
 		{
 			g.node("vbox", [&] () {
 				g.attribute("name", "detail_view");
@@ -1237,12 +1241,12 @@ struct Subjects
 							return Genode::String<64>(e.thread_name(), " ");
 						});
 
-					detail_view_tool(g, thread, Genode::String<16>("prio "), 5,
+					detail_view_tool(g, thread, Genode::String<16>(name_prio, " "), 5,
 						[&] (Top::Thread const &e, bool &) {
 							return Genode::String<4>(e.execution_time().priority);
 						});
 
-					detail_view_tool(g, thread, Genode::String<16>("quantum "), 6,
+					detail_view_tool(g, thread, Genode::String<16>(name_quantum, " "), 6,
 						[&] (Top::Thread const &e, bool &) {
 							return Genode::String<10>(e.execution_time().quantum, "us");
 						});
@@ -1513,14 +1517,17 @@ struct Subjects
 		}
 };
 
-void Subjects::top(Genode::Generator &g, SORT_TIME const sort,
-                   bool const trace_ms)
+void Subjects::top(Genode::Generator         &g,
+                   SORT_TIME           const  sort,
+                   bool                const  trace_ms,
+                   Genode::String<12>  const &name_prio,
+                   Genode::String<12>  const &name_quantum)
 {
 	if (_detailed_view.id) {
 		Top::Thread const * thread = _lookup_thread(_detailed_view);
 		if (thread) {
 			g.node("frame", [&] () {
-				detail_view(g, *thread, sort);
+				detail_view(g, *thread, sort, name_prio, name_quantum);
 			});
 			return;
 		}
@@ -1822,7 +1829,9 @@ struct App::Main
 	Subjects               _subjects      { };
 	unsigned               _dialog_size   { 2 * 4096 };
 	unsigned               _graph_size    { 4096 };
-
+	Attached_rom_dataspace _info          { _env, "platform_info" };
+	Genode::String<12>     _name_prio     { "prio" };
+	Genode::String<12>     _name_quantum  { "quantum" };
 
 	void _handle_config();
 	void _handle_trace(Duration);
@@ -1832,6 +1841,7 @@ struct App::Main
 
 	void _read_config();
 	void _write_config();
+	void _detect_kernel();
 
 	Signal_handler<Main> _config_handler = {
 		_env.ep(), *this, &Main::_handle_config};
@@ -1998,6 +2008,8 @@ void App::Main::_handle_config()
 
 	if (!_config.valid()) return;
 
+	_detect_kernel();
+
 	unsigned long const period_view = _period_view;
 	_period_view = _config.node().attribute_value("view_ms", _default_period_ms());
 
@@ -2159,7 +2171,7 @@ void App::Main::_generate_report()
 
 		do {
 			auto result = _reporter->generate([&] (auto &g) {
-				_subjects.top(g, _sort, _storage.constructed());
+				_subjects.top(g, _sort, _storage.constructed(), _name_prio, _name_quantum);
 			});
 
 			result.with_result([&](auto) {
@@ -2209,5 +2221,22 @@ void App::Main::_generate_report()
 	_empty_graph = !_subjects.tracked_threads() && !_subjects.trace_top_most();
 }
 
+
+void App::Main::_detect_kernel()
+{
+	_info.update();
+
+	if (!_info.valid() || !_config.valid())
+		return;
+
+	_info.node().with_optional_sub_node("kernel", [&](auto const &node) {
+		auto const kernel = node.attribute_value("name", String<16>("unknown"));
+
+		if (kernel == "hw") {
+			_name_prio    = "weight";
+			_name_quantum = "warp";
+		}
+	});
+}
 
 void Component::construct(Genode::Env &env) { static App::Main main(env); }

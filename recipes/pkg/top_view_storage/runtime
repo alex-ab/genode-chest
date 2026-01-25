@@ -3,6 +3,7 @@
 	<requires>
 		<gui/>
 		<trace/>
+		<rom label="platform_info"/>
 		<file_system label="fonts" writeable="no"/>
 		<file_system label="storage" writeable="yes"/>
 	</requires>
@@ -46,6 +47,7 @@
 		<start name="top_view" caps="200" priority="-1" ram="4M">
 			<config view_ms="4000" trace_ms="1000" report="yes" log="no" store="yes"/>
 			<route>
+				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
 				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
 				<service name="File_system" label="/store/">  <parent identity="storage" resource="/"/> </service>
 				<service name="Report"> <child name="report_rom" /> </service>
