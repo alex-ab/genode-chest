@@ -28,7 +28,7 @@ set vcpus_to_be_used  1
 
 set use_virtio        0
 
-set cpuid_native      "no"
+set cpuid_native      no
 
 set use_disk_count    1
 

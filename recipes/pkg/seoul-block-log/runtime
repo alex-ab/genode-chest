@@ -1,93 +1,81 @@
-<runtime ram="2450M" caps="1350" binary="init">
-
-	<requires>
-		<nic/>
-		<block/>
-		<rom label="platform_info"/>
-		<gui/>
-		<rtc/>
-		<vm/>
-		<usb/>
-		<rm/>
-		<timer/>
-		<report label="shape"/>
-		<file_system writeable="yes" label="log"/>
-	</requires>
-
-	<content>
-		<rom label="vm_seoul_usb.cfg"/>
-		<rom label="init"/>
-		<rom label="seoul"/>
-		<rom label="file_terminal"/>
-		<rom label="libc.lib.so"/>
-		<rom label="vfs.lib.so"/>
-		<rom label="terminal_log"/>
-	</content>
-
-	<config verbose="no">
-		<parent-provides>
-			<service name="ROM"/>
-			<service name="PD"/>
-			<service name="CPU"/>
-			<service name="LOG"/>
-			<service name="VM"/>
-			<service name="RM"/>
-			<service name="Gui"/>
-			<service name="Rtc"/>
-			<service name="Nic"/>
-			<service name="Timer"/>
-			<service name="Block"/>
-			<service name="Report"/>
-			<service name="File_system"/>
-			<service name="Usb"/>
-		</parent-provides>
-
-		<start name="file_terminal" caps="100">
-			<binary name="file_terminal"/>
-			<resource name="RAM" quantum="3M"/>
-			<provides> <service name="Terminal"/> </provides>
-			<config>
-				<default-policy filename="log" />
-				<vfs>
-					<dir name="dev"> <log/> </dir>
-				  <fs/>
-				</vfs>
-				<libc stdout="/dev/log"/>
-			</config>
-			<route>
-				<service name="File_system"> <parent identity="log" resource="/"/> </service>
-				<any-service> <parent/> </any-service>
-			</route>
-		</start>
-
-		<start name="terminal_log" caps="100">
-			<resource name="RAM" quantum="1M"/>
-			<provides> <service name="LOG"/> </provides>
-			<config/>
-			<route>
-				<service name="Terminal"> <child name="file_terminal"/> </service>
-				<any-service> <parent/> </any-service>
-			</route>
-		</start>
-
-		<start name="seoul" caps="10000">
-			<binary name="seoul"/>
-			<resource name="RAM" quantum="16G"/>
-			<route>
-				<service name="ROM" label="platform_info">
-					<parent label="platform_info"/> </service>
-				<service name="ROM" label="config">
-					<parent label="vm_seoul_usb.cfg"/> </service>
-				<service name="Report" label="shape">
-					<parent label="shape"/> </service>
-				<service name="Gui" label="fb1.0">
-					<parent label=""/> </service>
-				<service name="LOG">
-					<child name="terminal_log"/> </service>
-				<any-service>
-					<parent/> </any-service>
-			</route>
-		</start>
-	</config>
-
-</runtime>
+runtime | ram: 2450M | caps: 1350 | binary: init
++ requires
+  + nic
+  + block
+  + rom | label: platform_info
+  + gui
+  + rtc
+  + vm
+  + usb
+  + rm
+  + timer
+  + report | label: shape
+  + file_system | writeable: yes | label: log
++ content
+  + rom | label: vm_seoul_usb.cfg
+  + rom | label: init
+  + rom | label: seoul
+  + rom | label: file_terminal
+  + rom | label: libc.lib.so
+  + rom | label: vfs.lib.so
+  + rom | label: terminal_log
++ config | verbose: no
+  + parent-provides
+  | + service ROM
+  | + service PD
+  | + service CPU
+  | + service LOG
+  | + service VM
+  | + service RM
+  | + service Gui
+  | + service Rtc
+  | + service Nic
+  | + service Timer
+  | + service Block
+  | + service Report
+  | + service File_system
+  | + service Usb
+  + start file_terminal | caps: 100
+  | + binary file_terminal
+  | + resource RAM | quantum: 3M
+  | + provides
+  | | + service Terminal
+  | + config
+  | | + default-policy | filename: log
+  | | + vfs
+  | | | + dir dev
+  | | | | + log
+  | | | + fs
+  | | + libc | stdout: /dev/log
+  | + route
+  |   + service File_system
+  |   | + parent | identity: log | resource: /
+  |   + any-service
+  |     + parent
+  + start terminal_log | caps: 100
+  | + resource RAM | quantum: 1M
+  | + provides
+  | | + service LOG
+  | + config
+  | + route
+  |   + service Terminal
+  |   | + child file_terminal
+  |   + any-service
+  |     + parent
+  + start seoul | caps: 10000
+    + binary seoul
+    + resource RAM | quantum: 16G
+    + route
+      + service ROM | label: platform_info
+      | + parent | label: platform_info
+      + service ROM | label: config
+      | + parent | label: vm_seoul_usb.cfg
+      + service Report | label: shape
+      | + parent | label: shape
+      + service Gui | label: fb1.0
+      | + parent | label:
+      + service LOG
+      | + child terminal_log
+      + any-service
+        + parent
+-
