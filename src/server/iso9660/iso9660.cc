@@ -489,7 +489,7 @@ unsigned long Iso::read_file(Block::Connection<> &block, File_info *info,
 
 		/* zero out rest of page */
 		if (!total_blk_count && (blk_count % 2))
-			memset(buf, 0, Sector::blk_size());
+			bzero(buf, Sector::blk_size());
 	}
 
 	return ret * Sector::blk_size();

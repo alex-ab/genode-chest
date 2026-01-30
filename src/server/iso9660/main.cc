@@ -73,7 +73,7 @@ class Iso::File : public File_cache::Element
 		:
 			File_cache::Element(file_cache, path), _alloc(alloc),
 			_info(Iso::file_info(_alloc, block, path, env.ep())),
-			_ds(env.ram(), env.rm(), align_addr(_info->page_sized(), 12))
+			_ds(env.ram(), env.rm(), align_addr(_info->page_sized(), { .log2 = 12 }))
 		{
 			Iso::read_file(block, _info, 0, _ds.size(), _ds.local_addr<void>(), env.ep());
 		}
