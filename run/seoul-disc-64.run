@@ -28,7 +28,7 @@ set vcpus_to_be_used  2
 
 set use_virtio        0
 
-set cpuid_native      "yes"
+set cpuid_native      yes
 
 if {![have_include power_on/qemu]} {
 	set use_block_ram  1

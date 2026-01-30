@@ -69,9 +69,11 @@ foreach line $vm {
 		}
 
 		if {$binary_cmdline eq ""} {
-			append multiboot_files "<rom name=\"$binary_file\" label=\"$label_file\"/>\n"
+			append multiboot_files {
+  + rom | name: } $binary_file { | label: } $label_file { }
 		} else {
-			append multiboot_files "<rom name=\"$binary_file\" label=\"$label_file\" cmdline=\"$binary_cmdline\"/>\n"
+			append multiboot_files {
+  + rom | name: } $binary_file { | label: } $label_file { | cmdline: } $binary_cmdline { }
 		}
 	}
 }

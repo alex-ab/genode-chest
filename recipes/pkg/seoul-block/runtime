@@ -1,58 +1,47 @@
-<runtime ram="2450M" caps="1350" binary="init">
-
-	<requires>
-		<nic/>
-		<block/>
-		<rom label="platform_info"/>
-		<gui/>
-		<rtc/>
-		<vm/>
-		<usb/>
-		<rm/>
-		<timer/>
-		<report label="shape"/>
-	</requires>
-
-	<content>
-		<rom label="vm_seoul_usb.cfg"/>
-		<rom label="init"/>
-		<rom label="seoul"/>
-	</content>
-
-	<config verbose="no">
-		<parent-provides>
-			<service name="ROM"/>
-			<service name="PD"/>
-			<service name="CPU"/>
-			<service name="LOG"/>
-			<service name="VM"/>
-			<service name="RM"/>
-			<service name="Gui"/>
-			<service name="Rtc"/>
-			<service name="Nic"/>
-			<service name="Timer"/>
-			<service name="Block"/>
-			<service name="Report"/>
-			<service name="Usb"/>
-		</parent-provides>
-
-		<start name="seoul" caps="5000">
-			<binary name="seoul"/>
-			<resource name="RAM" quantum="16G"/>
-			<route>
-				<service name="ROM" label="platform_info">
-					<parent label="platform_info"/> </service>
-				<service name="ROM" label="config">
-					<parent label="vm_seoul_usb.cfg"/> </service>
-				<service name="Report" label="shape">
-					<parent label="shape"/> </service>
-				<service name="Gui" label="fb1.0">
-				    <!-- XXX required for window/shape/pointer matching - does not work for other fbX.Y -->
-					<parent label=""/>
-				</service>
-				<any-service><parent/></any-service>
-			</route>
-		</start>
-	</config>
-
-</runtime>
+runtime | ram: 2450M | caps: 1350 | binary: init
++ requires
+  + nic
+  + block
+  + rom | label: platform_info
+  + gui
+  + rtc
+  + vm
+  + usb
+  + rm
+  + timer
+  + report | label: shape
++ content
+  + rom | label: vm_seoul_usb.cfg
+  + rom | label: init
+  + rom | label: seoul
++ config | verbose: no
+  + parent-provides
+  | + service ROM
+  | + service PD
+  | + service CPU
+  | + service LOG
+  | + service VM
+  | + service RM
+  | + service Gui
+  | + service Rtc
+  | + service Nic
+  | + service Timer
+  | + service Block
+  | + service Report
+  | + service Usb
+  + start seoul | caps: 5000
+    + binary seoul
+    + resource RAM | quantum: 16G
+    + route
+      + service ROM | label: platform_info
+      | + parent | label: platform_info
+      + service ROM | label: config
+      | + parent | label: vm_seoul_usb.cfg
+      + service Report | label: shape
+      | + parent | label: shape
+      . XXX required for window/shape/pointer matching - does not work for other fbX.Y
+      + service Gui | label: fb1.0
+      | + parent | label:
+      + any-service
+        + parent
+-
