@@ -1,92 +1,94 @@
-<runtime ram="32M" caps="750" binary="init">
-
-	<requires>
-		<!-- menu_view -->
-		<gui/>
-		<file_system label="fonts" writeable="no"/>
-
-		<!-- msr component -->
-		<rom label="platform_info"/>
-		<timer/>
-	</requires>
-
-	<content>
-		<rom label="ld.lib.so"/>
-		<rom label="libc.lib.so"/>
-		<rom label="libm.lib.so"/>
-		<rom label="vfs.lib.so"/>
-		<rom label="libpng.lib.so"/>
-		<rom label="zlib.lib.so"/>
-		<rom label="menu_view_styles.tar"/>
-		<rom label="menu_view_ab"/>
-		<rom label="init"/>
-		<rom label="report_rom"/>
-		<rom label="msr_gui"/>
-		<rom label="msr"/>
-	</content>
-
-	<config verbose="no" managing_system="yes">
-
-		<default-route> <any-service> <parent/> </any-service> </default-route>
-
-		<parent-provides>
-			<service name="PD"/>
-			<service name="CPU"/>
-			<service name="LOG"/>
-			<service name="ROM"/>
-			<service name="File_system"/>
-			<service name="Gui"/>
-			<service name="Timer"/>
-		</parent-provides>
-
-		<start name="report_rom" caps="100" ram="2M">
-			<provides> <service name="Report"/> <service name="ROM"/> </provides>
-			<config verbose="no">
-				<policy label="menu_view -> dialog" report="msr_gui -> dialog"/>
-				<policy label="msr_gui -> hover"    report="menu_view -> hover"/>
-				<policy label="msr_gui -> info"     report="msr -> info"/>
-				<policy label="msr -> config"       report="msr_gui -> config"/>
-			</config>
-		</start>
-
-		<start name="msr_gui" caps="150" ram="2M">
-			<route>
-				<service name="ROM" label="hover"> <child name="report_rom" /> </service>
-				<service name="ROM" label="info">  <child name="report_rom" /> </service>
-				<service name="Report"> <child name="report_rom" /> </service>
-				<any-service> <parent/> </any-service>
-			</route>
-		</start>
-
-		<start name="msr" caps="150" ram="2M" ld="yes" managing_system="yes">
-			<route>
-				<service name="ROM" label="config"> <child name="report_rom"/> </service>
-				<service name="ROM" label="platform_info"> <parent label="platform_info"/> </service>
-				<service name="Report"> <child name="report_rom" /> </service>
-				<any-service> <parent/> </any-service>
-			</route>
-		</start>
-
-		<start name="menu_view" caps="2000" ram="256M">
-			<binary name="menu_view_ab"/>
-			<config>
-				<report hover="yes"/>
-				<libc stderr="/dev/log"/>
-				<vfs>
-					<tar name="menu_view_styles.tar" />
-					<dir name="dev"> <log/> </dir>
-					<dir name="fonts"> <fs label="fonts -> /"/> </dir>
-				</vfs>
-				<dialog name="dialog" xpos="200" ypos="100"/>
-			</config>
-			<route>
-				<service name="ROM" label="dialog"> <child name="report_rom" /> </service>
-				<service name="Report" label="hover"> <child name="report_rom"/> </service>
-				<service name="File_system" label_prefix="fonts ->"> <parent identity="fonts"/> </service>
-				<any-service> <parent/> <any-child/> </any-service>
-			</route>
-		</start>
-
-	</config>
-
-</runtime>
+runtime | ram: 32M | caps: 750 | binary: init
++ requires
+  + gui
+  | . menu_view
+  + file_system | label: fonts | writeable: no
+  + rom | label: platform_info
+  | .
+  | . msr component
+  + timer
++ content
+  + rom | label: ld.lib.so
+  + rom | label: libc.lib.so
+  + rom | label: libm.lib.so
+  + rom | label: vfs.lib.so
+  + rom | label: libpng.lib.so
+  + rom | label: zlib.lib.so
+  + rom | label: menu_view_styles.tar
+  + rom | label: menu_view_ab
+  + rom | label: init
+  + rom | label: report_rom
+  + rom | label: msr_gui
+  + rom | label: msr
++ config | verbose: no | managing_system: yes
+  + default-route
+  | + any-service
+  |   + parent
+  + parent-provides
+  | + service PD
+  | + service CPU
+  | + service LOG
+  | + service ROM
+  | + service File_system
+  | + service Gui
+  | + service Timer
+  + start report_rom | caps: 100 | ram: 2M
+  | + provides
+  | | + service Report
+  | | + service ROM
+  | + config | verbose: no
+  |   + policy
+  |   |        label:  menu_view -> dialog
+  |   |        report: msr_gui -> dialog
+  |   + policy
+  |   |        label:  msr_gui -> hover
+  |   |        report: menu_view -> hover
+  |   + policy
+  |   |        label:  msr_gui -> info
+  |   |        report: msr -> info
+  |   + policy
+  |            label:  msr -> config
+  |            report: msr_gui -> config
+  + start msr_gui | caps: 150 | ram: 2M
+  | + route
+  |   + service ROM | label: hover
+  |   | + child report_rom
+  |   + service ROM | label: info
+  |   | + child report_rom
+  |   + service Report
+  |   | + child report_rom
+  |   + any-service
+  |     + parent
+  + start msr | caps: 150 | ram: 2M | ld: yes | managing_system: yes
+  | + route
+  |   + service ROM | label: config
+  |   | + child report_rom
+  |   + service ROM | label: platform_info
+  |   | + parent | label: platform_info
+  |   + service Report
+  |   | + child report_rom
+  |   + any-service
+  |     + parent
+  + start menu_view | caps: 2000 | ram: 256M
+    + binary menu_view_ab
+    + config
+    | + report | hover: yes
+    | + libc | stderr: /dev/log
+    | + vfs
+    | | + tar menu_view_styles.tar
+    | | + dir dev
+    | | | + log
+    | | + dir fonts
+    | |   + fs | label: fonts -> /
+    | + dialog dialog | xpos: 200 | ypos: 100
+    + route
+      + service ROM | label: dialog
+      | + child report_rom
+      + service Report | label: hover
+      | + child report_rom
+      + service File_system | label_prefix: fonts ->
+      | + parent | identity: fonts
+      + any-service
+        + parent
+        + any-child
+-

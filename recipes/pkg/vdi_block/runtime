@@ -1,22 +1,17 @@
-<runtime ram="8M" caps="100" binary="vdi_block">
-
-	<provides> <block/> </provides>
-	<requires> <file_system writeable="yes" label="block.vdi"/> </requires>
-
-	<content>
-		<rom label="ld.lib.so"/>
-		<rom label="vfs.lib.so"/>
-		<rom label="vfs_import.lib.so"/>
-		<rom label="vdi_block"/>
-		<rom label="block.vdi"/>
-	</content>
-
-	<config file="/block.vdi" writeable="yes">
-		<vfs>
-			<fs label="block.vdi -> /" buffer_size="2M"/>
-			<import overwrite="no">
-				<rom name="block.vdi" binary="yes"/>
-			</import>
-		</vfs>
-	</config>
-</runtime>
+runtime | ram: 8M | caps: 100 | binary: vdi_block
++ provides
+  + block
++ requires
+  + file_system | writeable: yes | label: block.vdi
++ content
+  + rom | label: ld.lib.so
+  + rom | label: vfs.lib.so
+  + rom | label: vfs_import.lib.so
+  + rom | label: vdi_block
+  + rom | label: block.vdi
++ config | file: /block.vdi | writeable: yes
+  + vfs
+    + fs | label: block.vdi -> / | buffer_size: 2M
+    + import | overwrite: no
+      + rom block.vdi | binary: yes
+-
