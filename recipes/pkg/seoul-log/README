@@ -1,0 +1,5 @@
+
+      Seoul VMM runtime
+
+The configuration of the VMM is imported to the recall filesystem and can
+be changed. Afterwards a restart of the whole package is required.

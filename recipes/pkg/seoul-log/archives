@@ -6,3 +6,4 @@ _/src/fs_rom
 _/src/libc
 _/src/vfs
 _/src/vfs_import
+_/src/terminal_log
