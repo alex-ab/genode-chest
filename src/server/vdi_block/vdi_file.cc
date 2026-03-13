@@ -16,7 +16,7 @@
 
 Vdi::File::Response
 Vdi::File::_read_split(::Block::Operation const operation,
-                       void * dst, Vfs::file_size const dst_size,
+                       void * dst, Genode::Vfs::file_size const dst_size,
                        uint64_t const file_offset,
                        uint32_t const max_offset_read)
 {
@@ -96,14 +96,14 @@ void Vdi::File::_execute_alloc_block()
 				                                                Genode::min(_md->block_size - _state_fs.written, _zero_size));
 				Write_result res = _vdi_file->fs().write(_vdi_file, range,
 				                                         written);
-				if (res == Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
+				if (res == Genode::Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
 					if (written != 0)
 						Genode::warning("WOULD_ERR_WOULD_BLOCK but written is not 0 -> ", written);
 					/* will be resumed later, keep state */
 					return false;
 				}
 
-				if (res != Vfs::File_io_service::WRITE_OK) {
+				if (res != Genode::Vfs::File_io_service::WRITE_OK) {
 					_state_fs.state = Write::ALLOC_BLOCK_ERROR;
 					Genode::error(__func__, " state: ", written, " ",
 					              _zero_size, " ", (int)res);
@@ -155,13 +155,13 @@ void Vdi::File::_execute_alloc_block()
 	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC_QUEUED) {
 		Sync_result res = _complete_sync_fs();
 		switch (res) {
-		case Vfs::File_io_service::SYNC_QUEUED:
+		case Genode::Vfs::File_io_service::SYNC_QUEUED:
 			_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
 			return;
-		case Vfs::File_io_service::SYNC_ERR_INVALID:
+		case Genode::Vfs::File_io_service::SYNC_ERR_INVALID:
 			_state_fs.state = Write::ERROR;
 			return;
-		case Vfs::File_io_service::SYNC_OK:
+		case Genode::Vfs::File_io_service::SYNC_OK:
 			_state_fs.state = Write::IDLE;
 		}
 	}
@@ -223,9 +223,9 @@ Vdi::File::_vdi_read(::Block::Request const & request,
 {
 	Response response {Response::REJECTED};
 
-	payload.with_content(request, [&] (void *addr, Vfs::file_size const dst_size) {
+	payload.with_content(request, [&] (void *addr, Genode::Vfs::file_size const dst_size) {
 		char * dst = reinterpret_cast<char *>(addr);
-		Vfs::file_size dst_offset = 0;
+		Genode::Vfs::file_size dst_offset = 0;
 
 		::Block::Operation operation = request.operation;
 
@@ -250,7 +250,7 @@ Vdi::File::_vdi_read(::Block::Request const & request,
 			_cross_vdi_block(operation);
 #endif
 
-			Vfs::file_size const len = operation.count * _block_ops.block_size;
+			Genode::Vfs::file_size const len = operation.count * _block_ops.block_size;
 
 			loop = _apply_block(operation.block_number, [&](Genode::uint32_t const max_offset_read) {
 				if (dst_size - dst_offset != len) {
@@ -329,7 +329,7 @@ Vdi::File::_vdi_write(::Block::Request const & request,
 			return Response::RETRY;
 	}
 
-	Vfs::file_size dst_offset = 0;
+	Genode::Vfs::file_size dst_offset = 0;
 
 	::Block::Operation operation = request.operation;
 
@@ -378,9 +378,9 @@ Vdi::File::_vdi_write(::Block::Request const & request,
 			}
 
 			return true;
-		}, [&](uint64_t const offset, Vfs::file_size const max_offset_write) {
+		}, [&](uint64_t const offset, Genode::Vfs::file_size const max_offset_write) {
 
-			Vfs::file_size const len = operation.count * _block_ops.block_size;
+			Genode::Vfs::file_size const len = operation.count * _block_ops.block_size;
 			bool retry = false;
 
 			payload.with_content(request, [&] (void *addr, Genode::size_t const dst_size) {

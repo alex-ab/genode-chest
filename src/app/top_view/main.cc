@@ -88,7 +88,7 @@ struct Subjects
 		Top::Thread const * load[MAX_CPUS_X][MAX_CPUS_Y][MAX_ELEMENTS_PER_CPU] { };
 
 		/* disable report for given CPU */
-		bool _cpu_show [MAX_CPUS_X][MAX_CPUS_Y] { };
+		bool _cpu_hide [MAX_CPUS_X][MAX_CPUS_Y] { };
 		/* state whether cpu is supposed to be available */
 		bool _cpu_online [MAX_CPUS_X][MAX_CPUS_Y] { };
 		/* state whether topmost threads should be reported to graph */
@@ -98,11 +98,11 @@ struct Subjects
 
 		Button_hub<1, 1, 20, 2> _cpu_num [MAX_CPUS_X][MAX_CPUS_Y] { };
 
-		bool & cpu_show(Location const &loc) {
-			return _cpu_show[loc.xpos()][loc.ypos()]; }
+		bool & cpu_hide(Location const &loc) {
+			return _cpu_hide[loc.xpos()][loc.ypos()]; }
 
-		bool cpu_show(Location const &loc) const {
-			return cpu_online(loc) && _cpu_show[loc.xpos()][loc.ypos()]; }
+		bool cpu_hide(Location const &loc) const {
+			return cpu_online(loc) && _cpu_hide[loc.xpos()][loc.ypos()]; }
 
 		bool cpu_online(Location const &loc) const {
 			return _cpu_online[loc.xpos()][loc.ypos()]; }
@@ -178,7 +178,7 @@ struct Subjects
 
 		void init(Genode::Affinity::Space const &space)
 		{
-			Genode::memset(_cpu_show, 1, sizeof(_cpu_show));
+			Genode::bzero(_cpu_hide, sizeof(_cpu_hide));
 
 			_button_cpus.max = Genode::max(8u, space.total() / 2);
 		}
@@ -218,10 +218,10 @@ struct Subjects
 			}
 
 			/* clear old calculations */
-			Genode::memset(total_first , 0, sizeof(total_first));
-			Genode::memset(total_second, 0, sizeof(total_second));
-			Genode::memset(total_idle  , 0, sizeof(total_idle));
-			Genode::memset(load        , 0, sizeof(load));
+			Genode::bzero(total_first , sizeof(total_first));
+			Genode::bzero(total_second, sizeof(total_second));
+			Genode::bzero(total_idle  , sizeof(total_idle));
+			Genode::bzero(load        , sizeof(load));
 		}
 
 		bool update(Genode::Trace::Connection &trace,
@@ -289,10 +289,10 @@ struct Subjects
 			});
 
 			/* clear old calculations */
-			Genode::memset(total_first , 0, sizeof(total_first));
-			Genode::memset(total_second, 0, sizeof(total_second));
-			Genode::memset(total_idle  , 0, sizeof(total_idle));
-			Genode::memset(load        , 0, sizeof(load));
+			Genode::bzero(total_first , sizeof(total_first));
+			Genode::bzero(total_second, sizeof(total_second));
+			Genode::bzero(total_idle  , sizeof(total_idle));
+			Genode::bzero(load        , sizeof(load));
 
 			for_each_thread([&] (Top::Thread &thread) {
 				/* collect highest execution time per CPU */
@@ -533,7 +533,7 @@ struct Subjects
 					g.node("button", [&] () {
 						g.attribute("name", cpu_name);
 
-						if (_sort == THREAD && cpu_show(loc))
+						if (_sort == THREAD && !cpu_hide(loc))
 							g.attribute("selected","yes");
 						if (_sort == COMPONENT && _same(_last_cpu, loc))
 							g.attribute("selected","yes");
@@ -744,7 +744,7 @@ struct Subjects
 
 				if (_button_cpus.hovered) {
 					if (_sort == THREAD) {
-						cpu_show(_button_cpu) = !cpu_show(_button_cpu);
+						cpu_hide(_button_cpu) = !cpu_hide(_button_cpu);
 						flush_config = true;
 					}
 					_last_cpu = _button_cpu;
@@ -1289,7 +1289,7 @@ struct Subjects
 
 				for_each([&] (Top::Thread const &thread, unsigned long long const) {
 
-					if (!cpu_show(thread.affinity()))
+					if (cpu_hide(thread.affinity()))
 						return;
 
 					bool left = true;
@@ -1356,7 +1356,7 @@ struct Subjects
 
 				for_each([&] (Top::Thread const &thread, unsigned long long const total) {
 
-					if (!cpu_show(thread.affinity()))
+					if (cpu_hide(thread.affinity()))
 						return;
 
 					Genode::uint64_t time = thread.recent_time(sort == EC_TIME);
@@ -1765,7 +1765,7 @@ void Subjects::read_config(Genode::Node const & node)
 		if (xpos >= MAX_CPUS_X || ypos >= MAX_CPUS_Y) return;
 
 		Location const loc(xpos, ypos);
-		cpu_show(loc) = cpu.attribute_value("show", true);
+		cpu_hide(loc) = !cpu.attribute_value("show", true);
 		_cpu_number(loc).set(cpu.attribute_value("threads", 2U));
 		cpu_online(loc) = true;
 	});
@@ -1790,7 +1790,7 @@ void Subjects::write_config(Genode::Generator &g) const
 		g.node("cpu", [&] () {
 			g.attribute("xpos", loc.xpos());
 			g.attribute("ypos", loc.ypos());
-			g.attribute("show", cpu_show(loc));
+			g.attribute("show", !cpu_hide(loc));
 			g.attribute("threads", _cpu_number(loc).value());
 		});
 	});

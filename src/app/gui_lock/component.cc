@@ -199,7 +199,7 @@ struct Lock
 
 	void _update_config();
 	void _handle_input();
-	void _show_box(unsigned, Genode::uint8_t, unsigned, short int);
+	void _show_box(unsigned, unsigned, short int);
 
 	Gui::Rect _avatar   (Gui::Rect const &, Gui::Rect const &);
 	Gui::Rect _circle   (Gui::Rect const &, Gui::Rect const &, Color const &);
@@ -416,7 +416,6 @@ Gui::Rect Lock::_rectangle(Gui::Rect const &rect, Gui::Rect const &mode,
 
 
 void Lock::_show_box(unsigned        const chars,
-                     Genode::uint8_t const cc, /* clear character */
                      unsigned        const sc  /* set   character */,
                      int       short const hs)
 {
@@ -444,7 +443,7 @@ void Lock::_show_box(unsigned        const chars,
 		if ((char *)buf > (char *)pixels + fb_size - size)
 			continue;
 
-		Genode::memset(buf, cc, size);
+		Genode::bzero(buf, size);
 	}
 
 	for (int y = -hs; y < hs; y++) {
@@ -530,14 +529,14 @@ void Lock::_handle_input()
 				if (state == RECORD_PWD) {
 					_pwd.chars[_pwd.i] = cp.value;
 					_inc_pwd_i();
-					_show_box(_pwd.i, 0, ~0, _hs);
+					_show_box(_pwd.i, ~0, _hs);
 				}
 				if (state == COMPARE_PWD) {
 					if (_cmp_valid)
 						_cmp_valid = (_pwd.chars[_pwd.i] == cp.value);
 
 					_inc_pwd_i();
-					_show_box(_pwd.i, 0, ~0, _hs);
+					_show_box(_pwd.i, ~0, _hs);
 				}
 			}
 
@@ -565,7 +564,7 @@ void Lock::_handle_input()
 
 		_handle = {};
 
-		Genode::memset(&_pwd, 0, sizeof(_pwd));
+		Genode::bzero(&_pwd, sizeof(_pwd));
 
 		_env.parent().exit(0);
 	} else {
@@ -619,7 +618,7 @@ void Lock::_update_config()
 
 		state = BEFORE_COMPARE;
 
-		memset(&passwd, 0, sizeof(passwd));
+		bzero(&passwd, sizeof(passwd));
 	} else {
 		state = WAIT_CLICK;
 		_pwd = { };

@@ -224,7 +224,7 @@ class Graph
 			hline(y_root() , _white);
 
 			if (reset_points) {
-				Genode::memset(_column, 0, sizeof(_column));
+				Genode::bzero(_column, sizeof(_column));
 				_column_cur  = 0;
 				_column_last = _column_cur;
 				_column_offset = 0;
@@ -502,7 +502,7 @@ class Graph
 
 				/* next column */
 				_column_cur = (_column_cur + 1) % _column_max;
-				Genode::memset(&_column[_column_cur], 0, sizeof(_column[0])); /* XXX better use constructor ? */
+				Genode::bzero(&_column[_column_cur], sizeof(_column[0])); /* XXX better use constructor ? */
 
 				if (_column_cur == 0) {
 					_column_warp ++;
@@ -539,7 +539,7 @@ class Graph
 					    Genode::destroy(_heap, entry);
 					}
 
-					Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
+					Genode::bzero(_ds->local_addr<void>(), _width * _height * sizeof(Pixel_rgb888));
 					_init_screen();
 					_gui.framebuffer.refresh(0, 0, _width, _height);
 				}
@@ -646,7 +646,7 @@ void Graph::_handle_mode()
 
 	_ds.construct(_env.rm(), gui_ds_buffer);
 
-	Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
+	Genode::bzero(_ds->local_addr<void>(), _width * _height * sizeof(Pixel_rgb888));
 	/* XXX - column calculation in hovered line is off when not reseting -> _column_offset ? */
 	_init_screen(_sliding);
 	_replay_data();
@@ -870,7 +870,7 @@ void Graph::_handle_graph()
 	if (done) return;
 
 	if (_sliding) {
-		Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
+		Genode::bzero(_ds->local_addr<void>(), _width * _height * sizeof(Pixel_rgb888));
 		_init_screen(false);
 		_replay_data();
 		_gui.framebuffer.refresh(0, 0, _width, _height);
@@ -934,7 +934,7 @@ void Graph::_handle_data()
 
 	do {
 		if (scale_update) {
-			Genode::memset(_ds->local_addr<void>(), 0, _width * _height * sizeof(Pixel_rgb888));
+			Genode::bzero(_ds->local_addr<void>(), _width * _height * sizeof(Pixel_rgb888));
 			_init_screen(false);
 			_replay_data();
 			refresh_all = true;
@@ -1102,8 +1102,8 @@ void Graph::_handle_input()
 	 */
 
 	/* reset old content */
-	memset(_pixel(0,0) + _height * _width, 0,
-	       (height_mode() - _height) * _width * sizeof(Pixel_rgb888));
+	Genode::bzero(_pixel(0,0) + _height * _width,
+	              (height_mode() - _height) * _width * sizeof(Pixel_rgb888));
 
 	unsigned text_count = 0;
 	unsigned max_len    = 0;

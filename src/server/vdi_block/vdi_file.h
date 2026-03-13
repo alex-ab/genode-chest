@@ -167,13 +167,13 @@ static void print_headers(Preheader const &ph, HeaderV1Plus const &h)
 }
 
 
-class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
+class Vdi::File: Genode::Vfs::Read_ready_response_handler, Genode::Vfs::Env::User
 {
 	private:
 
-		using Read_result  = Vfs::File_io_service::Read_result;
-		using Sync_result  = Vfs::File_io_service::Sync_result;
-		using Write_result = Vfs::File_io_service::Write_result;
+		using Read_result  = Genode::Vfs::File_io_service::Read_result;
+		using Sync_result  = Genode::Vfs::File_io_service::Sync_result;
+		using Write_result = Genode::Vfs::File_io_service::Write_result;
 
 		/**
 		 * Vfs::Read_ready_response_handler interface
@@ -212,19 +212,17 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 		Genode::Env  &_env;
 		Genode::Heap  _heap { _env.ram(), _env.rm() };
 
-		Genode::Attached_ram_dataspace  _header_buffer { _env.ram(), _env.rm(), 2u<<20 };
-		Vfs::file_size                  _header_size   { _header_buffer.size() };
-		char                           *_header_addr   { _header_buffer.local_addr<char>() };
+		Genode::Attached_ram_dataspace   _header_buffer { _env.ram(), _env.rm(), 2u<<20 };
+		Genode::Vfs::file_size           _header_size   { _header_buffer.size() };
+		char                           * _header_addr   { _header_buffer.local_addr<char>() };
 
-		Genode::Attached_ram_dataspace  _zero_buffer { _env.ram(), _env.rm(), 64u<<10 };
-		Vfs::file_size const            _zero_size   { _zero_buffer.size() };
-		char                           *_zero_addr   { _zero_buffer.local_addr<char>() };
+		Genode::Attached_ram_dataspace   _zero_buffer { _env.ram(), _env.rm(), 64u<<10 };
+		Genode::Vfs::file_size const     _zero_size   { _zero_buffer.size() };
+		char                           * _zero_addr   { _zero_buffer.local_addr<char>() };
 
-		::Block::Session::Info       _block_ops   { };
-
-		Vfs::Simple_env _vfs_env;
-
-		Vfs::Vfs_handle *_vdi_file { nullptr };
+		::Block::Session::Info          _block_ops { };
+		Genode::Vfs::Simple_env         _vfs_env;
+		Genode::Vfs::Vfs_handle       * _vdi_file { nullptr };
 
 		Genode::Constructible<Vdi::Meta_data> _md { };
 
@@ -245,23 +243,23 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 		enum Read { NONE, READ, LOOP_READ, CHECK, UNKNOWN, END };
 
 		struct {
-			enum Write         state;
-			Vfs::file_size     written;
-			Vfs::file_size     max;
-			uint64_t           block_nr;
-			Vfs::file_size     dst_offset;
-			::Block::Operation operation;
+			enum Write             state;
+			Genode::Vfs::file_size written;
+			Genode::Vfs::file_size max;
+			uint64_t               block_nr;
+			Genode::Vfs::file_size dst_offset;
+			::Block::Operation     operation;
 		} _state_fs { Write::IDLE, 0, 0, 0, 0,
 		              { ::Block::Operation::Type::INVALID, 0, 0}
 		            };
 
 		struct {
-			enum Read          state;
-			Vfs::file_size     bytes_read;
-			Vfs::file_size     remaining;
-			Vfs::file_size     offset;
-			::Block::Operation operation;
-			Vfs::file_size     dst_offset;
+			enum Read              state;
+			Genode::Vfs::file_size bytes_read;
+			Genode::Vfs::file_size remaining;
+			Genode::Vfs::file_size offset;
+			::Block::Operation     operation;
+			Genode::Vfs::file_size dst_offset;
 		} _state_fs_read { Read::NONE, 0, 0, 0,
 		                   { ::Block::Operation::Type::INVALID, 0, 0},
 		                   0
@@ -315,7 +313,7 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 
 			HeaderV1Plus *h = (HeaderV1Plus*)(_header_addr + sizeof(Preheader));
 			Vdi::Block *table = (Vdi::Block*)(_header_addr + h->blocks_offset);
-			Vfs::file_offset const offset = h->blocks_offset + (bid * sizeof (uint32_t));
+			Genode::Vfs::file_offset const offset = h->blocks_offset + (bid * sizeof (uint32_t));
 
 			if (_state_fs.state == SYNC_HEADER) {
 
@@ -378,10 +376,10 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 			_execute_alloc_block();
 		}
 
-		Vfs::File_io_service::Sync_result _complete_sync_fs() {
+		Genode::Vfs::File_io_service::Sync_result _complete_sync_fs() {
 			return _vdi_file->fs().complete_sync(_vdi_file); }
 
-		void _write(char * const base, Vfs::file_size const base_size,
+		void _write(char * const base, Genode::Vfs::file_size const base_size,
 		            Genode::uint64_t const fs_offset)
 		{
 			auto const written_state_on_enter = _state_fs.written;
@@ -405,14 +403,14 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 				auto const res = _vdi_file->fs().write(_vdi_file, range,
 				                                       written);
 
-				if (res == Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
+				if (res == Genode::Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
 					if (written != 0)
 						Genode::warning("WOULD_ERR_WOULD_BLOCK but written is not 0 -> ", written);
 					/* will be resumed later, keep state on WRITE */
 					break;
 				}
 
-				if (res != Vfs::File_io_service::WRITE_OK) {
+				if (res != Genode::Vfs::File_io_service::WRITE_OK) {
 					_state_fs.state = Write::ERROR;
 					Genode::error(".... write error");
 					break;
@@ -427,9 +425,9 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 			}
 		}
 
-		void _read(char * dst, Vfs::file_size const dst_size)
+		void _read(char * dst, Genode::Vfs::file_size const dst_size)
 		{
-			Vfs::Vfs_handle &handle = *_vdi_file;
+			Genode::Vfs::Vfs_handle &handle = *_vdi_file;
 
 			if (_state_fs_read.state == Read::LOOP_READ)
 				_state_fs_read.state = Read::READ;
@@ -464,7 +462,7 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 					handle.fs().complete_read(&handle, range, n);
 
 				switch (read_result) {
-				case Vfs::File_io_service::READ_OK:
+				case Genode::Vfs::File_io_service::READ_OK:
 				{
 					if (_state_fs_read.remaining != n) {
 						if (n)
@@ -488,7 +486,7 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 
 					break;
 				}
-				case Vfs::File_io_service::READ_QUEUED:
+				case Genode::Vfs::File_io_service::READ_QUEUED:
 					if (n)
 						Genode::error("read queued with n=", n);
 					break;
@@ -519,14 +517,14 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 			case Sync::SYNC_QUEUED: {
 				Sync_result res = _complete_sync_fs();
 				switch (res) {
-				case Vfs::File_io_service::SYNC_QUEUED:
+				case Genode::Vfs::File_io_service::SYNC_QUEUED:
 					_state_fs_sync.state = Sync::SYNC_QUEUED;
 					return Response::RETRY;
-				case Vfs::File_io_service::SYNC_ERR_INVALID:
+				case Genode::Vfs::File_io_service::SYNC_ERR_INVALID:
 					Genode::error("sync fault - out of service");
 					_state_fs_sync.state = Sync::FAULT;
 					return Response::REJECTED;
-				case Vfs::File_io_service::SYNC_OK:
+				case Genode::Vfs::File_io_service::SYNC_OK:
 					_state_fs_sync.state = Sync::IDLING;
 					return Response::ACCEPTED;
 				}
@@ -536,7 +534,7 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 		}
 
 		Response _read_split(::Block::Operation const operation,
-		                     void * dst, Vfs::file_size,
+		                     void * dst, Genode::Vfs::file_size,
 		                     uint64_t const file_offset,
 		                     uint32_t const max_offset_read);
 
@@ -555,9 +553,9 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 		File(Genode::Env &env, Genode::Node const &config)
 		:
 			_env(env), _vfs_env(config.with_sub_node("vfs",
-				[&] (auto const &node) -> Vfs::Simple_env {
+				[&] (auto const &node) -> Genode::Vfs::Simple_env {
 					return { _env, _heap, node, *this }; },
-				[&] () -> Vfs::Simple_env {
+				[&] () -> Genode::Vfs::Simple_env {
 					Genode::error("VFS not configured");
 					return { _env, _heap, { } };
 			}))
@@ -572,12 +570,12 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 				Genode::error("mandatory file attribute missing");
 				throw Could_not_open_file();
 			}
-			Vfs::Directory_service::Open_result open_result =
+			Genode::Vfs::Directory_service::Open_result open_result =
 			_vfs_env.root_dir().open(file.string(),
-			                         writeable ? Vfs::Directory_service::OPEN_MODE_RDWR
-			                                   : Vfs::Directory_service::OPEN_MODE_RDONLY,
+			                         writeable ? Genode::Vfs::Directory_service::OPEN_MODE_RDWR
+			                                   : Genode::Vfs::Directory_service::OPEN_MODE_RDONLY,
 			                         &_vdi_file, _heap);
-			if (open_result != Vfs::Directory_service::OPEN_OK) {
+			if (open_result != Genode::Vfs::Directory_service::OPEN_OK) {
 				Genode::error("Could not open '", file, "'");
 				throw Could_not_open_file();
 			}
@@ -650,8 +648,8 @@ class Vdi::File: Vfs::Read_ready_response_handler, Vfs::Env::User
 			_block_ops.block_size = HeaderV1Plus::SECTOR_SIZE;
 			_block_ops.block_count = h.disk_size / _block_ops.block_size;
 
-			Genode::log("block_size: ", _block_ops.block_size,
-			            " block_count: ", _block_ops.block_count);
+			Genode::log("block_size: ", uint64_t(_block_ops.block_size),
+			            " block_count: ", uint64_t(_block_ops.block_count));
 
 			return true;
 		}
