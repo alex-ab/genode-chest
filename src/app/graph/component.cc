@@ -124,7 +124,7 @@ class Graph
 			[&] () -> Root_directory {
 				return { _env, _heap, { } }; });
 
-		Genode::Vfs_font       _font { _heap, _root, "fonts/monospace/regular" };
+		Genode::Vfs_font       _font { _heap, _root, "font/monospace/regular" };
 
 		Genode::Constructible<Top::Storage<Graph>> _storage { };
 

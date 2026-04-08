@@ -19,7 +19,7 @@ proc depot_user {} { return [get_cmd_arg --depot-user genodelabs] }
 import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/pkg/[drivers_interactive_pkg] \
                   [depot_user]/pkg/themed_wm \
-                  [depot_user]/pkg/fonts_fs \
+                  [depot_user]/pkg/font \
                   [depot_user]/src/boot_fb \
                   [depot_user]/src/init \
                   [depot_user]/src/report_rom \
@@ -144,11 +144,11 @@ append config {
 		</config>
 	</start>
 
-	<start name="fonts_fs" caps="300" priority="-2">
+	<start name="font" caps="300" priority="-2">
 		<resource name="RAM" quantum="8M"/>
 		<binary name="vfs"/>
 		<route>
-			<service name="ROM" label="config"> <parent label="fonts_fs.config"/> </service>
+			<service name="ROM" label="config"> <parent label="font.config"/> </service>
 			<any-service> <parent/> </any-service>
 		</route>
 		<provides> <service name="File_system"/> </provides>
@@ -191,11 +191,11 @@ append config {
 	<start name="graph" priority="-3">
 		<resource name="RAM" quantum="6M"/>
 		<config store="yes" verbose="no" freq_khz="2000000">
-			<vfs> <dir name="fonts"> <fs label="fonts"/> </dir> </vfs>
+			<vfs> <dir name="font"> <fs label="fonts"/> </dir> </vfs>
 		</config>
 		<route>
 			<service name="ROM" label="graph"> <child name="report_rom_graph" /> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs" resource="/"/> </service>
+			<service name="File_system" label="fonts"> <child name="font" resource="/"/> </service>
 			<service name="File_system" label="/load/">  <child name="ram_fs" resource="/"/> </service>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
@@ -209,16 +209,16 @@ append config {
 			<report hover="yes"/>
 			<libc stderr="/dev/log"/>
 			<vfs>
-				<tar name="menu_view_styles.tar" />
+				<tar name="menu_view_style.tar" />
 				<dir name="dev"> <log/> </dir>
-				<dir name="fonts"> <fs label="fonts"/> </dir>
+				<dir name="font"> <fs label="fonts"/> </dir>
 			</vfs>
 			<dialog name="dialog" xpos="200" ypos="100"/>
 		</config>
 		<route>
 			<service name="ROM" label="dialog"> <child name="report_rom_dialog" /> </service>
 			<service name="Report" label="hover"> <child name="report_rom_hover"/> </service>
-			<service name="File_system" label="fonts"> <child name="fonts_fs" resource="/"/> </service>
+			<service name="File_system" label="fonts"> <child name="font" resource="/"/> </service>
 			<service name="Gui"> <child name="} $gui_name {"/> </service>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>

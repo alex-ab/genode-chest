@@ -9,7 +9,7 @@ include/polygon_gfx:
 
 menu_view_base:
 	mkdir -p src/app/menu_view
-	cp -r $(GENODE_DIR)/repos/gems/src/app/menu_view/styles src/app/menu_view/styles
+	cp -r $(GENODE_DIR)/repos/gems/src/app/menu_view/style src/app/menu_view/style
 	cp    $(GENODE_DIR)/repos/gems/src/app/menu_view/*.h src/app/menu_view/. 
 	rm src/app/menu_view/label_widget.h
 

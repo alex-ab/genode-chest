@@ -1,10 +1,11 @@
 runtime | ram: 43M | caps: 700 | binary: init
 + requires
   + gui
+  + timer
   + trace
-  + rom | label: platform_info
-  + file_system | label: fonts | writeable: no
-  + file_system | label: storage | writeable: yes
+  + rom        | label: platform_info
+  + fs font    | writeable: no
+  + fs storage | writeable: yes
 + config | prio_levels: 2
   + default-route
   | + any-service
@@ -35,13 +36,13 @@ runtime | ram: 43M | caps: 700 | binary: init
   + start graph | caps: 100 | priority: -1 | ram: 8M
   | + config | store: yes
   | | + vfs
-  | |   + dir fonts
-  | |     + fs | label: fonts -> /
+  | |   + dir font
+  | |     + fs | label: font -> /
   | + route
   |   + service ROM | label: graph
   |   | + child report_rom
-  |   + service File_system | label_prefix: fonts
-  |   | + parent | identity: fonts
+  |   + service File_system | label_prefix: font
+  |   | + parent | identity: font
   |   + service File_system | label: /load/
   |   | + parent | label: storage
   |   + any-service
@@ -71,19 +72,19 @@ runtime | ram: 43M | caps: 700 | binary: init
     | + report | hover: yes
     | + libc | stderr: /dev/log
     | + vfs
-    | | + tar menu_view_styles.tar
+    | | + tar menu_view_style.tar
     | | + dir dev
     | | | + log
-    | | + dir fonts
-    | |   + fs | label: fonts -> /
+    | | + dir font
+    | |   + fs | label: font -> /
     | + dialog dialog | xpos: 200 | ypos: 100
     + route
       + service ROM | label: dialog
       | + child report_rom
       + service Report | label: hover
       | + child report_rom
-      + service File_system | label_prefix: fonts ->
-      | + parent | identity: fonts
+      + service File_system | label_prefix: font ->
+      | + parent | identity: font
       + any-service
         + parent
         + any-child
@@ -94,7 +95,7 @@ runtime | ram: 43M | caps: 700 | binary: init
   + rom | label: vfs.lib.so
   + rom | label: libpng.lib.so
   + rom | label: zlib.lib.so
-  + rom | label: menu_view_styles.tar
+  + rom | label: menu_view_style.tar
   + rom | label: menu_view_ab
   + rom | label: init
   + rom | label: top_view
