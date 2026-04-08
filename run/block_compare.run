@@ -32,160 +32,132 @@ import_from_depot [depot_user]/src/[base_src] \
 # Generate config
 #
 append config {
-<config prio_levels="2">
-	<parent-provides>
-		<service name="ROM"/>
-		<service name="RAM"/>
-		<service name="IRQ"/>
-		<service name="IO_MEM"/>
-		<service name="IO_PORT"/>
-		<service name="CAP"/>
-		<service name="PD"/>
-		<service name="RM"/>
-		<service name="CPU"/>
-		<service name="LOG"/>
-		<service name="SIGNAL" />
-	</parent-provides>
-	<default-route>
-		<any-service> <parent/> <any-child/> </any-service>
-	</default-route>
+config | prio_levels: 2
++ parent-provides
+  + service ROM
+  + service RAM
+  + service IRQ
+  + service IO_MEM
+  + service IO_PORT
+  + service CAP
+  + service PD
+  + service RM
+  + service CPU
+  + service LOG
+  + service SIGNAL
++ default-route
+  + any-service
+    + parent
+    + any-child
 
-	<default caps="100"/>
-	<start name="timer">
-		<resource name="RAM" quantum="1M"/>
-		<provides><service name="Timer"/></provides>
-	</start>
++ start timer | ram: 2M | caps: 200
+  + provides
+    + service Timer
 
-	<start name="platform_reports" priority="-1">
-		<binary name="report_rom"/>
-		<resource name="RAM" quantum="1M"/>
-		<provides>
-			<service name="Report"/>
-			<service name="ROM"/>
-		</provides>
-		<config>
-			<policy label="pci_decode -> system" report="acpi -> acpi"/>
-			<policy label="platform -> devices" report="pci_decode -> devices"/>
-			<policy label="usb_hid -> report" report="usb -> devices"/>
-		</config>
-	</start>
++ start platform_reports | ram: 2M | caps: 200 | priority: -1
+  + binary report_rom
+  + provides
+  | + service Report
+  | + service ROM
+  + config
+    + policy | label: pci_decode -> system | report: acpi -> acpi
+    + policy | label: platform -> devices | report: pci_decode -> devices
+    + policy | label: usb_hid -> report | report: usb -> devices
 
-	<start name="acpi" caps="350" priority="-1">
-		<resource name="RAM" quantum="4M"/>
-		<route>
-			<service name="Report"> <child name="platform_reports"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
++ start acpi | ram: 4M | caps: 350 | priority: -1
+  + route
+    + service Report
+    | + child platform_reports
+    + any-service
+      + parent
+      + any-child
 
-	<start name="pci_decode" caps="350" priority="-1">
-		<resource name="RAM" quantum="2M"/>
-		<route>
-			<service name="ROM" label="system"> <child name="platform_reports"/> </service>
-			<service name="Report"> <child name="platform_reports"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
++ start pci_decode | ram: 2M | caps: 350 | priority: -1
+  + route
+    + service ROM | label: system
+    | + child platform_reports
+    + service Report
+    | + child platform_reports
+    + any-service
+      + parent
+      + any-child
 
-	<start name="platform" caps="400" managing_system="yes" priority="-1">
-		<resource name="RAM" quantum="4M"/>
-		<provides>
-			<service name="Platform"/>
-		</provides>
-		<config>
-			<policy label_prefix="ahci"> <pci class="AHCI"/>     </policy>
-		</config>
-		<route>
-			<service name="ROM" label="devices"> <child name="platform_reports"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
++ start platform | ram: 4M | caps: 400 | managing_system: yes | priority: -1
+  + provides
+  | + service Platform
+  + config
+  | + policy | label_prefix: ahci
+  |   + pci | class: AHCI
+  + route
+    + service ROM | label: devices
+    | + child platform_reports
+    + any-service
+      + parent
+      + any-child
 
-	<start name="ahci" priority="-1">
-		<resource name="RAM" quantum="1M" />
-		<provides><service name="Block"/></provides>
-		<config>
-			<policy label="block_compare -> block1" device="1" writeable="yes"/>
-		</config>
-	</start>
++ start ahci | ram: 4M | caps: 200 | priority: -1
+  + provides
+  | + service Block
+  + config
+    + policy | label: block_compare -> block1 | device: 1 | writeable: yes
 
-	<start name="ram_fs" caps="2000" priority="-1">
-		<resource name="RAM" quantum="512M"/>
-		<binary name="vfs"/>
-		<provides><service name="File_system"/></provides>
-		<config>
-			<vfs>
-				<ram/>
-				<import> <rom name="block.vdi"/> </import>
-			</vfs>
-			<default-policy root="/" writeable="yes"/>
-		</config>
-	</start>
++ start ram_fs | ram: 512M | caps: 2000 | priority: -1
+  + binary vfs
+  + provides
+  | + service File_system
+  + config
+    + vfs
+    | + ram
+    | + import
+    |   + rom block.vdi
+    + default-policy | root: / | writeable: yes
 
-	<start name="vdi_block" priority="-1">
-		<resource name="RAM" quantum="8M"/>
-		<provides> <service name="Block"/> </provides>
-		<config file="/block.vdi" writeable="yes">
-			<vfs> <fs buffer_size="1M"/> </vfs>
-		</config>
-		<route>
-			<service name="File_system"><child name="ram_fs"/></service>
-			<any-service> <parent/> <any-child /> </any-service>
-		</route>
-	</start>
++ start vdi_block | ram: 8M | caps: 200 | priority: -1
+  + provides
+  | + service Block
+  + config | file: /block.vdi | writeable: yes
+  | + vfs
+  |   + fs | buffer_size: 1M
+  + route
+    + service File_system
+    | + child ram_fs
+    + any-service
+      + parent
+      + any-child
 
++ start block_compare | ram: 10M | caps: 200 | priority: -1
+  + provides
+  | + service Block
+  + config | buffer_size: 1M | writeable: yes
+  + route
+    + service Block | label: block0
+    | + child vdi_block
+    + service Block | label: block1
+    | + child ahci
+    + any-service
+      + parent
+      + any-child
 
-	<start name="block_compare" priority="-1">
-		<resource name="RAM" quantum="10M" />
-		<provides><service name="Block" /></provides>
-		<config buffer_size="1M" writeable="yes">
-		</config>
-		<route>
-			<service name="Block" label="block0"><child name="vdi_block"/></service>
-			<service name="Block" label="block1"><child name="ahci"/></service>
-			<any-service> <parent/> <any-child /> </any-service>
-		</route>
-	</start>}
-
-
-append config {
-	<start name="block_tester" priority="-1">
-		<resource name="RAM" quantum="32M"/>
-		<config verbose="yes" report="no" log="yes" stop_on_error="yes">
-			<tests>
-<!--
-				<sequential copy="no" length="32M" size="4K"/>
-				<sequential copy="no" length="4M" size="4K"   batch="8"/>
-
-				<sequential copy="no" length="32M" size="8K"/>
-				<sequential copy="no" length="4M" size="8K"   batch="8"/>
-
-				<sequential copy="no" length="4M" size="16K"   batch="8"/>
-				<sequential copy="no" length="4M" size="64K"  batch="8"/>
-				<sequential copy="no" length="4M" size="128K" batch="8"/>
-
-				<sequential copy="no" length="32M" size="4K"  write="yes"/>
-
-				<sequential copy="no" length="32M" size="64K" write="yes"/>
--->
-				<random length="16M" size="16K" seed="0xdeadbeef" batch="2"/>
-				<random length="32M" size="512K" seed="0xc0ffee" />
-				<replay bulk="yes">
-					<request type="write" lba="131071" count="1"/>
-					<request type="read" lba="131071" count="1"/>
-					<request type="write" lba="131071" count="1"/>
-					<request type="write" lba="8388608" count="10"/>
-					<request type="read" lba="8388608" count="240"/>
-				</replay>
-
-			</tests>
-		</config>
-		<route>
-			<service name="Block"><child name="block_compare"/></service>
-			<any-service> <parent/> <any-child /> </any-service>
-		</route>
-	</start>
-</config>}
++ start block_tester | ram: 32M | caps: 200 | priority: -1
+  + config | verbose: yes | report: no | log: yes | stop_on_error: yes
+  | + tests
+  |   x sequential | copy: no | length: 32M | size: 4K
+  |   + random | length: 16M | size: 16K | seed: 0xdeadbeef | batch: 2
+  |   + random | length: 32M | size: 512K | seed: 0xc0ffee
+  |   + replay | bulk: yes
+  |     + request | type: write | lba: 131071 | count: 1
+  |     + request | type: read | lba: 131071 | count: 1
+  |     + request | type: write | lba: 131071 | count: 1
+  |     + request | type: write | lba: 8388608 | count: 10
+  |     + request | type: read | lba: 8388608 | count: 240
+  + route
+    + service Block
+    | + child block_compare
+    + any-service
+      + parent
+      + any-child
+-
+}
 
 install_config $config
 

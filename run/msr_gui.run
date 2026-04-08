@@ -27,488 +27,659 @@ append_if [expr $use_msr_native] build_components { app/msr }
 build $build_components
 
 append config {
-<config prio_levels="4">
-	<parent-provides>
-		<service name="ROM"/>
-		<service name="IRQ"/>
-		<service name="IO_MEM"/>
-		<service name="IO_PORT"/>
-		<service name="PD"/>
-		<service name="RM"/>
-		<service name="CPU"/>
-		<service name="LOG"/>
-		<service name="TRACE"/>
-	</parent-provides>
+config | prio_levels: 4
++ parent-provides
+  + service ROM
+  + service IRQ
+  + service IO_MEM
+  + service IO_PORT
+  + service PD
+  + service RM
+  + service CPU
+  + service LOG
+  + service TRACE
++ default-route
+  + any-service
+    + parent
+    + any-child
++ default | caps: 200
 
-	<default-route>
-		<any-service> <parent/> <any-child/> </any-service>
-	</default-route>
++ start timer | caps: 200 | ram: 1M
+  + provides
+    + service Timer
 
-	<default caps="200"/>
++ start drivers | priority: -2 | ram: 72M | caps: 1500 | managing_system: yes
+  + binary init
+  + route
+    + service ROM | label: config
+    | + parent | label: drivers.config
+    + service Timer
+    | + child timer
+    + service Capture
+    | + child nitpicker
+    + service Event
+    | + child nitpicker
+    + service ROM | label: vesa_fb
+    | + parent | label: } $use_framebuffer {
+    + any-service
+      + parent
 
-	<start name="timer">
-		<resource name="RAM" quantum="1M"/>
-		<provides><service name="Timer"/></provides>
-	</start>
++ start nitpicker | ram: 4M | caps: 200 | priority: -1
+  + provides
+  | + service Gui
+  | + service Capture
+  | + service Event
+  + config
+    + capture
+    + event
+    + background
+    |            color: #123456
+    + domain pointer
+    |        layer:   1
+    |        content: client
+    |        label:   no
+    |        origin:  pointer
+    + domain default
+    |        layer:   3
+    |        content: client
+    |        label:   no
+    |        hover:   always
+    |        focus:   click
+    + policy
+    |        label_prefix: pointer
+    |        domain:       pointer
+    + default-policy
+                     domain: default
 
-	<start name="drivers" priority="-2" caps="1500" managing_system="yes">
-		<resource name="RAM" quantum="72M"/>
-		<binary name="init"/>
-		<route>
-			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Timer">   <child name="timer"/> </service>
-			<service name="Capture"> <child name="nitpicker"/> </service>
-			<service name="Event">   <child name="nitpicker"/> </service>
-			<service name="ROM" label="vesa_fb">
-				<parent label="} $use_framebuffer {"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
++ start pointer | ram: 2M | caps: 200 | priority: -1
+  + route
+    + service Gui
+    | + child nitpicker
+    + any-service
+      + parent
+      + any-child
 
-	<start name="nitpicker" priority="-1">
-		<resource name="RAM" quantum="4M"/>
-		<provides>
-			<service name="Gui"/> <service name="Capture"/> <service name="Event"/>
-		</provides>
-		<config>
-			<capture/> <event/>
-			<background color="#123456"/>
-			<domain name="pointer" layer="1" content="client" label="no" origin="pointer" />
-			<domain name="default" layer="3" content="client" label="no" hover="always" focus="click" />
++ start report_rom | ram: 2M | caps: 200 | priority: -2
+  + provides
+  | + service Report
+  | + service ROM
+  + config | verbose: yes
+    + policy | label:  menu_view -> dialog | report: msr_gui -> dialog
+    + policy | label:  msr_gui -> hover    | report: menu_view -> hover
+    + policy | label:  msr_gui -> info     | report: msr -> info
+    + policy | label:  msr -> config       | report: msr_gui -> config
 
-			<policy label_prefix="pointer" domain="pointer"/>
-			<default-policy domain="default"/>
-		</config>
-	</start>
++ start font | ram: 8M | caps: 300 | priority: -2
+  + binary vfs
+  + route
+  | + service ROM | label: config
+  | | + parent | label: font.config
+  | + any-service
+  |   + parent
+  + provides
+    + service File_system
 
-	<start name="pointer" priority="-1">
-		<resource name="RAM" quantum="1M"/>
-		<route>
-			<service name="Gui"> <child name="nitpicker" /> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-
-	<start name="report_rom" priority="-2">
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes">
-			<policy label="menu_view -> dialog" report="msr_gui -> dialog"/>
-			<policy label="msr_gui -> hover" report="menu_view -> hover"/>
-			<policy label="msr_gui -> info"     report="msr -> info"/>
-			<policy label="msr -> config"       report="msr_gui -> config"/>
-		</config>
-	</start>
-
-	<start name="font" caps="300" priority="-2">
-		<resource name="RAM" quantum="8M"/>
-		<binary name="vfs"/>
-		<route>
-			<service name="ROM" label="config"> <parent label="font.config"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-		<provides> <service name="File_system"/> </provides>
-	</start>
-
-	<start name="menu_view" caps="200" priority="-3">
-		<binary name="menu_view_ab"/>
-		<resource name="RAM" quantum="12M"/>
-		<config>
-			<report hover="yes"/>
-			<libc stderr="/dev/log"/>
-			<vfs>
-				<tar name="menu_view_style.tar" />
-				<dir name="dev"> <log/> </dir>
-				<dir name="font"> <fs label="fonts"/> </dir>
-			</vfs>
-			<dialog name="dialog" xpos="200" ypos="100"/>
-		</config>
-		<route>
-			<service name="ROM"         label="dialog"> <child name="report_rom" /> </service>
-			<service name="Report"      label="hover">  <child name="report_rom"/> </service>
-			<service name="File_system" label="fonts">  <child name="font" resource="/"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
-
-append_if [expr !$use_msr_native] config {
-	<start name="dynamic_rom" priority="-3">
-		<resource name="RAM" quantum="4M"/>
-		<provides> <service name="ROM"/> </provides>
-		<config verbose="yes">
-			<rom name="info">
-				<inline description="0">
-					<info update_rate_us="4000000">
-						<cpu x="0" y="0" type="P" freq_khz="973791" temp_c="58">
-							<hwp enable="false"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-
-							<energy timestamp_ms="86923">
-								<units raw="658947" power="3" energy="14" time="10"/>
-								<package raw="15276100" Joule="932.379150" Watt="9.104591"/>
-								<pp0 raw="3830080" Joule="233.769531" Watt="1.982696"/>
-								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
-							</energy>
-							<power_info>
-								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
-							</power_info>
-							<power_limit>
-								<package raw="0x8042814000dd80e0" lock="true">
-									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
-									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
-								</package>
-								<dram raw="0x8042814000dd80e0"/>
-							</power_limit>
-							<policy pp0="0x10" pp1="0x10"/>
-							<perf_status>
-								<package raw="0x0" throttle_abs="10" throttle_diff="5"/>
-								<dram raw="0x0" throttle_abs="10" throttle_diff="5"/>
-								<pp0 raw="0x0" throttle_abs="10" throttle_diff="5"/>
-							</perf_status>
-
-							<msr_residency>
-								<core_c1 raw="1" abs_ms="10" diff_ms="11"/>
-								<core_c3 raw="3" abs_ms="12" diff_ms="10"/>
-								<core_c6 raw="6" abs_ms="13" diff_ms="9"/>
-								<core_c7 raw="7" abs_ms="14" diff_ms="8"/>
-								<pkg_c2 raw="2" abs_ms="15" diff_ms="7"/>
-								<pkg_c3 raw="3" abs_ms="11" diff_ms="6"/>
-								<pkg_c6 raw="6" abs_ms="15" diff_ms="5"/>
-								<pkg_c7 raw="7" abs_ms="14" diff_ms="4"/>
-								<pkg_c8 raw="8" abs_ms="13" diff_ms="3"/>
-								<pkg_c9 raw="9" abs_ms="12" diff_ms="2"/>
-								<pkg_c10 raw="10" abs_ms="11" diff_ms="1"/>
-							</msr_residency>
-
-							<mwait_support>
-								<c0 sub_state_count="1"/>
-								<c1 sub_state_count="2"/>
-								<c2 sub_state_count="1"/>
-								<c3 sub_state_count="4"/>
-								<c4 sub_state_count="1"/>
-								<c5 sub_state_count="1"/>
-								<c6 sub_state_count="1"/>
-								<c7 sub_state_count="1"/>
-							</mwait_support>
-						</cpu>
-						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
-							<hwp enable="false"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-						</cpu>
-						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
-							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
-						</cpu>
-					</info>
-				</inline>
-				<sleep milliseconds="8000" />
-				<inline description="1">
-					<info update_rate_us="4000000">
-						<cpu x="0" y="0" type="P" freq_khz="973791" temp_c="58">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0xffffffff8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-
-							<energy timestamp_ms="91923">
-								<units raw="658947" power="3" energy="14" time="10"/>
-								<package raw="16013183" Joule="977.367126" Watt="8.999395"/>
-								<pp0 raw="3986842" Joule="243.337524" Watt="1.913981"/>
-								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
-							</energy>
-							<power_info>
-								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
-							</power_info>
-							<power_limit>
-								<package raw="0x8042814000dd80e0" lock="true">
-									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
-									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
-								</package>
-								<pp0 raw="0x8042814000dd80e0"/>
-							</power_limit>
-							<policy pp0="0x10" pp1="0x10"/>
-							<perf_status>
-								<package raw="0x0" throttle_abs="20" throttle_diff="10"/>
-							</perf_status>
-
-							<msr_residency>
-								<core_c1 raw="1" abs_ms="4000000" diff_ms="11"/>
-								<core_c3 raw="3" abs_ms="150000" diff_ms="10"/>
-								<core_c6 raw="6" abs_ms="13" diff_ms="9"/>
-								<core_c7 raw="7" abs_ms="14" diff_ms="8"/>
-								<pkg_c2 raw="2" abs_ms="15" diff_ms="7"/>
-								<pkg_c3 raw="3" abs_ms="11" diff_ms="6"/>
-								<pkg_c6 raw="6" abs_ms="15" diff_ms="5"/>
-								<pkg_c7 raw="7" abs_ms="14" diff_ms="4"/>
-								<pkg_c8 raw="8" abs_ms="13" diff_ms="3"/>
-								<pkg_c9 raw="9" abs_ms="0" diff_ms="2"/>
-								<pkg_c10 raw="10" abs_ms="11" diff_ms="1"/>
-							</msr_residency>
-
-							<mwait_support>
-								<c0 sub_state_count="1"/>
-								<c1 sub_state_count="2"/>
-								<c2 sub_state_count="1"/>
-								<c3 sub_state_count="4"/>
-								<c4 sub_state_count="1"/>
-								<c5 sub_state_count="1"/>
-								<c6 sub_state_count="1"/>
-								<c7 sub_state_count="1"/>
-							</mwait_support>
-						</cpu>
-						<cpu x="0" y="1" type="E" freq_khz="1973791" temp_c="64">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-						</cpu>
-						<cpu x="2" y="0" type="P" freq_khz="3234912" verbose="yes">
-							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
-						</cpu>
-					</info>
-				</inline>
-				<sleep milliseconds="4000" />
-				<inline description="2">
-					<info update_rate_us="4000000">
-						<cpu x="0" y="0" freq_khz="273891" temp_c="48">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x0fffffff8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-
-							<energy timestamp_ms="96923">
-								<units raw="658947" power="3" energy="14" time="10"/>
-								<package raw="16746906" Joule="1022.150024" Watt="8.815519"/>
-								<pp0 raw="4143408" Joule="252.893554" Watt="1.776392"/>
-								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
-							</energy>
-							<power_info>
-								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
-							</power_info>
-							<power_limit>
-								<package raw="0x8042814000dd80e0" lock="true">
-									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
-									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
-								</package>
-								<pp1 raw="0x8042814000dd80e0"/>
-							</power_limit>
-							<policy pp0="0x10" pp1="0x10"/>
-							<perf_status>
-								<package raw="0x0" throttle_abs="40" throttle_diff="20"/>
-							</perf_status>
-
-							<msr_residency>
-								<core_c1 raw="1"/>
-								<core_c3 raw="3"/>
-								<core_c6 raw="6"/>
-								<core_c7 raw="7"/>
-								<pkg_c2 raw="2"/>
-								<pkg_c3 raw="3"/>
-								<pkg_c6 raw="6"/>
-								<pkg_c7 raw="7"/>
-								<pkg_c8 raw="8"/>
-								<pkg_c9 raw="9"/>
-								<pkg_c10 raw="10"/>
-							</msr_residency>
-
-							<mwait_support>
-								<c0 sub_state_count="1"/>
-								<c1 sub_state_count="2"/>
-								<c2 sub_state_count="1"/>
-								<c3 sub_state_count="4"/>
-								<c4 sub_state_count="1"/>
-								<c5 sub_state_count="1"/>
-								<c6 sub_state_count="1"/>
-								<c7 sub_state_count="1"/>
-							</mwait_support>
-						</cpu>
-						<cpu x="0" y="1" freq_khz="2973791" temp_c="74">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-						</cpu>
-						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
-							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="0u"/>
-						</cpu>
-					</info>
-				</inline>
-				<sleep milliseconds="4000" />
-				<inline description="3">
-					<info update_rate_us="4000000">
-						<cpu x="0" y="0" freq_khz="173991" temp_c="28">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="0" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-
-							<energy timestamp_ms="66923">
-								<units raw="658947" power="3" energy="14" time="10"/>
-								<package raw="12218055" Joule="745.730895" Watt="9.350352"/>
-								<pp0 raw="3138820" Joule="191.578369" Watt="2.020531"/>
-								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
-							</energy>
-							<power_info>
-								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
-							</power_info>
-							<power_limit>
-								<package raw="0x8042814000dd80e0" lock="true">
-									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
-									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
-								</package>
-								<dram raw="0x80dd80e0" lock="true" power="12.0" enable="false" clamp="false" time_window="18.0"/>
-								<pp1 raw="0x80dd80e0"/>
-								<pp0 raw="0x00dd80e0"/>
-							</power_limit>
-							<policy pp0="0x10" pp1="0x10"/>
-							<perf_status>
-								<package raw="0x0" throttle_abs="47" throttle_diff="7"/>
-							</perf_status>
-
-							<msr_residency>
-								<core_c1 raw="1"/>
-								<core_c3 raw="3"/>
-								<core_c6 raw="6"/>
-								<core_c7 raw="7"/>
-								<pkg_c2 raw="2"/>
-								<pkg_c3 raw="3"/>
-								<pkg_c6 raw="6"/>
-								<pkg_c7 raw="7"/>
-								<pkg_c8 raw="8"/>
-								<pkg_c9 raw="9"/>
-								<pkg_c10 raw="10"/>
-							</msr_residency>
-
-							<mwait_support>
-								<c0 sub_state_count="1"/>
-								<c1 sub_state_count="2"/>
-								<c2 sub_state_count="1"/>
-								<c3 sub_state_count="4"/>
-								<c4 sub_state_count="1"/>
-								<c5 sub_state_count="1"/>
-								<c6 sub_state_count="1"/>
-								<c7 sub_state_count="1"/>
-							</mwait_support>
-						</cpu>
-						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
-							<hwp enable="true"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-						</cpu>
-						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
-							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="1u"/>
-						</cpu>
-					</info>
-				</inline>
-				<sleep milliseconds="4000" />
-				<inline description="4">
-					<info update_rate_us="4000000">
-						<cpu x="0" y="0" freq_khz="173991" temp_c="28">
-							<hwp enable="true"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-
-							<energy timestamp_ms="76923">
-								<units raw="658947" power="3" energy="14" time="10"/>
-								<package raw="13768707" Joule="840.375183" Watt="9.222867"/>
-								<pp0 raw="3494162" Joule="213.266723" Watt="1.979049"/>
-								<pp1 raw="19" Joule="0.001159" Watt="0.0"/>
-							</energy>
-							<power_info>
-								<package raw="224" ThermalSpecPower="28.0" MinimumPower="0.0" MaximumPower="0.0" MaximumTimeWindow="0.0"/>
-							</power_info>
-							<power_limit>
-								<package raw="0x8042814000dd80e0" lock="true">
-									<limit_1 power="28.0" enable="true" clamp="true" time_window="28.0"/>
-									<limit_2 power="40.0" enable="true" clamp="false" time_window="0.002441"/>
-								</package>
-							</power_limit>
-							<policy pp0="0x10" pp1="0x10"/>
-							<perf_status>
-								<package raw="0x0" throttle_abs="60" throttle_diff="13"/>
-							</perf_status>
-
-							<msr_residency>
-								<core_c1 raw="0"/>
-								<core_c3 raw="0"/>
-							</msr_residency>
-
-						</cpu>
-						<cpu x="0" y="1" freq_khz="3973791" temp_c="94">
-							<hwp enable="false"/>
-							<hwp_cap high="36" guar="27" effi="9" low="1" raw="0x1091b24"/>
-							<hwp_request_package raw="0x8000ff01"/>
-							<hwp_request min="1" max="255" desired="5" epp="128" raw="0x8000ff01"/>
-							<energy_perf_bias raw="0"/>
-							<hwp_coord_feed_cap/>
-						</cpu>
-						<cpu x="2" y="0" freq_khz="3234912" verbose="yes">
-							<pstate rw_command="0" ro_limit_cur="0" ro_max_value="2" ro_status="1u"/>
-						</cpu>
-					</info>
-				</inline>
-				<sleep milliseconds="4000" />
-			</rom>
-		</config>
-	</start>}
-
-append config {
-	<start name="msr_gui" priority="-3">
-		<resource name="RAM" quantum="2M"/>
-		<route>
-			<service name="ROM" label="hover"> <child name="report_rom" /> </service>}
-
-append_if [expr $use_msr_native] config {
-			<service name="ROM" label="info">  <child name="report_rom" /> </service>}
++ start menu_view | ram: 12M | caps: 200 | priority: -3
+  + binary menu_view_ab
+  + config
+  | + report | hover: yes
+  | + libc | stderr: /dev/log
+  | + vfs
+  | | + tar menu_view_style.tar
+  | | + dir dev
+  | | | + log
+  | | + dir font
+  | |   + fs | label: fonts
+  | + dialog dialog | xpos: 200 | ypos: 100
+  + route
+    + service ROM | label: dialog
+    | + child report_rom
+    + service Report | label: hover
+    | + child report_rom
+    + service File_system | label: fonts
+    | + child font | resource: /
+    + any-service
+      + parent
+      + any-child }
 
 append_if [expr !$use_msr_native] config {
-			<service name="ROM" label="info">  <child name="dynamic_rom" /> </service>}
++ start dynamic_rom | ram: 4M | caps: 200 | priority: -3
+  + provides
+  | + service ROM
+  + config | verbose: yes
+    + rom info
+      + inline | description: 0
+      | + info | update_rate_us: 4000000
+      |   + cpu | x: 0 | y: 0 | type: P | freq_khz: 973791 | temp_c: 58
+      |   | + hwp | enable: false
+      |   | + hwp_cap | high: 36 | guar: 27 | effi: 9 | low: 1 | raw: 0x1091b24
+      |   | + hwp_request_package | raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0xffffffff8000ff01
+      |   | + energy_perf_bias | raw: 0
+      |   | + hwp_coord_feed_cap
+      |   | + energy | timestamp_ms: 86923
+      |   | | + units
+      |   | | |       raw:    658947
+      |   | | |       power:  3
+      |   | | |       energy: 14
+      |   | | |       time:   10
+      |   | | + package
+      |   | | |         raw:   15276100
+      |   | | |         Joule: 932.379150
+      |   | | |         Watt:  9.104591
+      |   | | + pp0
+      |   | | |     raw:   3830080
+      |   | | |     Joule: 233.769531
+      |   | | |     Watt:  1.982696
+      |   | | + pp1
+      |   | |       raw:   19
+      |   | |       Joule: 0.001159
+      |   | |       Watt:  0.0
+      |   | + power_info
+      |   | | + package
+      |   | |           raw:               224
+      |   | |           ThermalSpecPower:  28.0
+      |   | |           MinimumPower:      0.0
+      |   | |           MaximumPower:      0.0
+      |   | |           MaximumTimeWindow: 0.0
+      |   | + power_limit
+      |   | | + package | raw: 0x8042814000dd80e0 | lock: true
+      |   | | | + limit_1
+      |   | | | |         power:       28.0
+      |   | | | |         enable:      true
+      |   | | | |         clamp:       true
+      |   | | | |         time_window: 28.0
+      |   | | | + limit_2
+      |   | | |           power:       40.0
+      |   | | |           enable:      true
+      |   | | |           clamp:       false
+      |   | | |           time_window: 0.002441
+      |   | | + dram | raw: 0x8042814000dd80e0
+      |   | + policy | pp0: 0x10 | pp1: 0x10
+      |   | + perf_status
+      |   | | + package | raw: 0x0 | throttle_abs: 10 | throttle_diff: 5
+      |   | | + dram | raw: 0x0 | throttle_abs: 10 | throttle_diff: 5
+      |   | | + pp0 | raw: 0x0 | throttle_abs: 10 | throttle_diff: 5
+      |   | + msr_residency
+      |   | | + core_c1 | raw: 1 | abs_ms: 10 | diff_ms: 11
+      |   | | + core_c3 | raw: 3 | abs_ms: 12 | diff_ms: 10
+      |   | | + core_c6 | raw: 6 | abs_ms: 13 | diff_ms: 9
+      |   | | + core_c7 | raw: 7 | abs_ms: 14 | diff_ms: 8
+      |   | | + pkg_c2 | raw: 2 | abs_ms: 15 | diff_ms: 7
+      |   | | + pkg_c3 | raw: 3 | abs_ms: 11 | diff_ms: 6
+      |   | | + pkg_c6 | raw: 6 | abs_ms: 15 | diff_ms: 5
+      |   | | + pkg_c7 | raw: 7 | abs_ms: 14 | diff_ms: 4
+      |   | | + pkg_c8 | raw: 8 | abs_ms: 13 | diff_ms: 3
+      |   | | + pkg_c9 | raw: 9 | abs_ms: 12 | diff_ms: 2
+      |   | | + pkg_c10 | raw: 10 | abs_ms: 11 | diff_ms: 1
+      |   | + mwait_support
+      |   |   + c0 | sub_state_count: 1
+      |   |   + c1 | sub_state_count: 2
+      |   |   + c2 | sub_state_count: 1
+      |   |   + c3 | sub_state_count: 4
+      |   |   + c4 | sub_state_count: 1
+      |   |   + c5 | sub_state_count: 1
+      |   |   + c6 | sub_state_count: 1
+      |   |   + c7 | sub_state_count: 1
+      |   + cpu | x: 0 | y: 1 | type: E | freq_khz: 1973791 | temp_c: 64
+      |   | + hwp
+      |   | |     enable: false
+      |   | + hwp_cap
+      |   | |         high: 36
+      |   | |         guar: 27
+      |   | |         effi: 9
+      |   | |         low:  1
+      |   | |         raw:  0x1091b24
+      |   | + hwp_request_package
+      |   | |                     raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias
+      |   | |                  raw: 0
+      |   | + hwp_coord_feed_cap
+      |   + cpu | x: 2 | y: 0 | type: P | freq_khz: 3234912 | verbose: yes
+      |     + pstate
+      |              rw_command:   0
+      |              ro_limit_cur: 0
+      |              ro_max_value: 2
+      |              ro_status:    0u
+      + sleep | milliseconds: 8000
+      + inline | description: 1
+      | + info | update_rate_us: 4000000
+      |   + cpu | x: 0 | y: 0 | type: P | freq_khz: 973791 | temp_c: 58
+      |   | + hwp | enable: true
+      |   | + hwp_cap | high: 36 | guar: 27 | effi: 9 | low: 1 | raw: 0x1091b24
+      |   | + hwp_request_package | raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0xffffffff8000ff01
+      |   | + energy_perf_bias | raw: 0
+      |   | + hwp_coord_feed_cap
+      |   | + energy | timestamp_ms: 91923
+      |   | | + units
+      |   | | |       raw:    658947
+      |   | | |       power:  3
+      |   | | |       energy: 14
+      |   | | |       time:   10
+      |   | | + package
+      |   | | |         raw:   16013183
+      |   | | |         Joule: 977.367126
+      |   | | |         Watt:  8.999395
+      |   | | + pp0
+      |   | | |     raw:   3986842
+      |   | | |     Joule: 243.337524
+      |   | | |     Watt:  1.913981
+      |   | | + pp1
+      |   | |       raw:   19
+      |   | |       Joule: 0.001159
+      |   | |       Watt:  0.0
+      |   | + power_info
+      |   | | + package
+      |   | |           raw:               224
+      |   | |           ThermalSpecPower:  28.0
+      |   | |           MinimumPower:      0.0
+      |   | |           MaximumPower:      0.0
+      |   | |           MaximumTimeWindow: 0.0
+      |   | + power_limit
+      |   | | + package | raw: 0x8042814000dd80e0 | lock: true
+      |   | | | + limit_1
+      |   | | | |         power:       28.0
+      |   | | | |         enable:      true
+      |   | | | |         clamp:       true
+      |   | | | |         time_window: 28.0
+      |   | | | + limit_2
+      |   | | |           power:       40.0
+      |   | | |           enable:      true
+      |   | | |           clamp:       false
+      |   | | |           time_window: 0.002441
+      |   | | + pp0 | raw: 0x8042814000dd80e0
+      |   | + policy | pp0: 0x10 | pp1: 0x10
+      |   | + perf_status
+      |   | | + package | raw: 0x0 | throttle_abs: 20 | throttle_diff: 10
+      |   | + msr_residency
+      |   | | + core_c1 | raw: 1 | abs_ms: 4000000 | diff_ms: 11
+      |   | | + core_c3 | raw: 3 | abs_ms: 150000 | diff_ms: 10
+      |   | | + core_c6 | raw: 6 | abs_ms: 13 | diff_ms: 9
+      |   | | + core_c7 | raw: 7 | abs_ms: 14 | diff_ms: 8
+      |   | | + pkg_c2 | raw: 2 | abs_ms: 15 | diff_ms: 7
+      |   | | + pkg_c3 | raw: 3 | abs_ms: 11 | diff_ms: 6
+      |   | | + pkg_c6 | raw: 6 | abs_ms: 15 | diff_ms: 5
+      |   | | + pkg_c7 | raw: 7 | abs_ms: 14 | diff_ms: 4
+      |   | | + pkg_c8 | raw: 8 | abs_ms: 13 | diff_ms: 3
+      |   | | + pkg_c9 | raw: 9 | abs_ms: 0 | diff_ms: 2
+      |   | | + pkg_c10 | raw: 10 | abs_ms: 11 | diff_ms: 1
+      |   | + mwait_support
+      |   |   + c0 | sub_state_count: 1
+      |   |   + c1 | sub_state_count: 2
+      |   |   + c2 | sub_state_count: 1
+      |   |   + c3 | sub_state_count: 4
+      |   |   + c4 | sub_state_count: 1
+      |   |   + c5 | sub_state_count: 1
+      |   |   + c6 | sub_state_count: 1
+      |   |   + c7 | sub_state_count: 1
+      |   + cpu | x: 0 | y: 1 | type: E | freq_khz: 1973791 | temp_c: 64
+      |   | + hwp
+      |   | |     enable: true
+      |   | + hwp_cap
+      |   | |         high: 36
+      |   | |         guar: 27
+      |   | |         effi: 9
+      |   | |         low:  1
+      |   | |         raw:  0x1091b24
+      |   | + hwp_request_package
+      |   | |                     raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias
+      |   | |                  raw: 0
+      |   | + hwp_coord_feed_cap
+      |   + cpu | x: 2 | y: 0 | type: P | freq_khz: 3234912 | verbose: yes
+      |     + pstate
+      |              rw_command:   0
+      |              ro_limit_cur: 0
+      |              ro_max_value: 2
+      |              ro_status:    0u
+      + sleep | milliseconds: 4000
+      + inline | description: 2
+      | + info | update_rate_us: 4000000
+      |   + cpu | x: 0 | y: 0 | freq_khz: 273891 | temp_c: 48
+      |   | + hwp | enable: true
+      |   | + hwp_cap | high: 36 | guar: 27 | effi: 9 | low: 1 | raw: 0x1091b24
+      |   | + hwp_request_package | raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x0fffffff8000ff01
+      |   | + energy_perf_bias | raw: 0
+      |   | + hwp_coord_feed_cap
+      |   | + energy | timestamp_ms: 96923
+      |   | | + units
+      |   | | |       raw:    658947
+      |   | | |       power:  3
+      |   | | |       energy: 14
+      |   | | |       time:   10
+      |   | | + package
+      |   | | |         raw:   16746906
+      |   | | |         Joule: 1022.150024
+      |   | | |         Watt:  8.815519
+      |   | | + pp0
+      |   | | |     raw:   4143408
+      |   | | |     Joule: 252.893554
+      |   | | |     Watt:  1.776392
+      |   | | + pp1
+      |   | |       raw:   19
+      |   | |       Joule: 0.001159
+      |   | |       Watt:  0.0
+      |   | + power_info
+      |   | | + package
+      |   | |           raw:               224
+      |   | |           ThermalSpecPower:  28.0
+      |   | |           MinimumPower:      0.0
+      |   | |           MaximumPower:      0.0
+      |   | |           MaximumTimeWindow: 0.0
+      |   | + power_limit
+      |   | | + package | raw: 0x8042814000dd80e0 | lock: true
+      |   | | | + limit_1
+      |   | | | |         power:       28.0
+      |   | | | |         enable:      true
+      |   | | | |         clamp:       true
+      |   | | | |         time_window: 28.0
+      |   | | | + limit_2
+      |   | | |           power:       40.0
+      |   | | |           enable:      true
+      |   | | |           clamp:       false
+      |   | | |           time_window: 0.002441
+      |   | | + pp1 | raw: 0x8042814000dd80e0
+      |   | + policy | pp0: 0x10 | pp1: 0x10
+      |   | + perf_status
+      |   | | + package | raw: 0x0 | throttle_abs: 40 | throttle_diff: 20
+      |   | + msr_residency
+      |   | | + core_c1 | raw: 1
+      |   | | + core_c3 | raw: 3
+      |   | | + core_c6 | raw: 6
+      |   | | + core_c7 | raw: 7
+      |   | | + pkg_c2 | raw: 2
+      |   | | + pkg_c3 | raw: 3
+      |   | | + pkg_c6 | raw: 6
+      |   | | + pkg_c7 | raw: 7
+      |   | | + pkg_c8 | raw: 8
+      |   | | + pkg_c9 | raw: 9
+      |   | | + pkg_c10 | raw: 10
+      |   | + mwait_support
+      |   |   + c0 | sub_state_count: 1
+      |   |   + c1 | sub_state_count: 2
+      |   |   + c2 | sub_state_count: 1
+      |   |   + c3 | sub_state_count: 4
+      |   |   + c4 | sub_state_count: 1
+      |   |   + c5 | sub_state_count: 1
+      |   |   + c6 | sub_state_count: 1
+      |   |   + c7 | sub_state_count: 1
+      |   + cpu | x: 0 | y: 1 | freq_khz: 2973791 | temp_c: 74
+      |   | + hwp
+      |   | |     enable: true
+      |   | + hwp_cap
+      |   | |         high: 36
+      |   | |         guar: 27
+      |   | |         effi: 9
+      |   | |         low:  1
+      |   | |         raw:  0x1091b24
+      |   | + hwp_request_package
+      |   | |                     raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias
+      |   | |                  raw: 0
+      |   | + hwp_coord_feed_cap
+      |   + cpu | x: 2 | y: 0 | freq_khz: 3234912 | verbose: yes
+      |     + pstate
+      |              rw_command:   0
+      |              ro_limit_cur: 0
+      |              ro_max_value: 2
+      |              ro_status:    0u
+      + sleep | milliseconds: 4000
+      + inline | description: 3
+      | + info | update_rate_us: 4000000
+      |   + cpu | x: 0 | y: 0 | freq_khz: 173991 | temp_c: 28
+      |   | + hwp | enable: true
+      |   | + hwp_cap | high: 36 | guar: 27 | effi: 9 | low: 1 | raw: 0x1091b24
+      |   | + hwp_request_package | raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 0
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias | raw: 0
+      |   | + hwp_coord_feed_cap
+      |   | + energy | timestamp_ms: 66923
+      |   | | + units
+      |   | | |       raw:    658947
+      |   | | |       power:  3
+      |   | | |       energy: 14
+      |   | | |       time:   10
+      |   | | + package
+      |   | | |         raw:   12218055
+      |   | | |         Joule: 745.730895
+      |   | | |         Watt:  9.350352
+      |   | | + pp0
+      |   | | |     raw:   3138820
+      |   | | |     Joule: 191.578369
+      |   | | |     Watt:  2.020531
+      |   | | + pp1
+      |   | |       raw:   19
+      |   | |       Joule: 0.001159
+      |   | |       Watt:  0.0
+      |   | + power_info
+      |   | | + package
+      |   | |           raw:               224
+      |   | |           ThermalSpecPower:  28.0
+      |   | |           MinimumPower:      0.0
+      |   | |           MaximumPower:      0.0
+      |   | |           MaximumTimeWindow: 0.0
+      |   | + power_limit
+      |   | | + package | raw: 0x8042814000dd80e0 | lock: true
+      |   | | | + limit_1
+      |   | | | |         power:       28.0
+      |   | | | |         enable:      true
+      |   | | | |         clamp:       true
+      |   | | | |         time_window: 28.0
+      |   | | | + limit_2
+      |   | | |           power:       40.0
+      |   | | |           enable:      true
+      |   | | |           clamp:       false
+      |   | | |           time_window: 0.002441
+      |   | | + dram
+      |   | | |      raw:         0x80dd80e0
+      |   | | |      lock:        true
+      |   | | |      power:       12.0
+      |   | | |      enable:      false
+      |   | | |      clamp:       false
+      |   | | |      time_window: 18.0
+      |   | | + pp1 | raw: 0x80dd80e0
+      |   | | + pp0 | raw: 0x00dd80e0
+      |   | + policy | pp0: 0x10 | pp1: 0x10
+      |   | + perf_status
+      |   | | + package | raw: 0x0 | throttle_abs: 47 | throttle_diff: 7
+      |   | + msr_residency
+      |   | | + core_c1 | raw: 1
+      |   | | + core_c3 | raw: 3
+      |   | | + core_c6 | raw: 6
+      |   | | + core_c7 | raw: 7
+      |   | | + pkg_c2 | raw: 2
+      |   | | + pkg_c3 | raw: 3
+      |   | | + pkg_c6 | raw: 6
+      |   | | + pkg_c7 | raw: 7
+      |   | | + pkg_c8 | raw: 8
+      |   | | + pkg_c9 | raw: 9
+      |   | | + pkg_c10 | raw: 10
+      |   | + mwait_support
+      |   |   + c0 | sub_state_count: 1
+      |   |   + c1 | sub_state_count: 2
+      |   |   + c2 | sub_state_count: 1
+      |   |   + c3 | sub_state_count: 4
+      |   |   + c4 | sub_state_count: 1
+      |   |   + c5 | sub_state_count: 1
+      |   |   + c6 | sub_state_count: 1
+      |   |   + c7 | sub_state_count: 1
+      |   + cpu | x: 0 | y: 1 | freq_khz: 3973791 | temp_c: 94
+      |   | + hwp
+      |   | |     enable: true
+      |   | + hwp_cap
+      |   | |         high: 36
+      |   | |         guar: 27
+      |   | |         effi: 9
+      |   | |         low:  1
+      |   | |         raw:  0x1091b24
+      |   | + hwp_request_package
+      |   | |                     raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias
+      |   | |                  raw: 0
+      |   | + hwp_coord_feed_cap
+      |   + cpu | x: 2 | y: 0 | freq_khz: 3234912 | verbose: yes
+      |     + pstate
+      |              rw_command:   0
+      |              ro_limit_cur: 0
+      |              ro_max_value: 2
+      |              ro_status:    1u
+      + sleep | milliseconds: 4000
+      + inline | description: 4
+      | + info | update_rate_us: 4000000
+      |   + cpu | x: 0 | y: 0 | freq_khz: 173991 | temp_c: 28
+      |   | + hwp | enable: true
+      |   | + energy_perf_bias | raw: 0
+      |   | + hwp_coord_feed_cap
+      |   | + energy | timestamp_ms: 76923
+      |   | | + units
+      |   | | |       raw:    658947
+      |   | | |       power:  3
+      |   | | |       energy: 14
+      |   | | |       time:   10
+      |   | | + package
+      |   | | |         raw:   13768707
+      |   | | |         Joule: 840.375183
+      |   | | |         Watt:  9.222867
+      |   | | + pp0
+      |   | | |     raw:   3494162
+      |   | | |     Joule: 213.266723
+      |   | | |     Watt:  1.979049
+      |   | | + pp1
+      |   | |       raw:   19
+      |   | |       Joule: 0.001159
+      |   | |       Watt:  0.0
+      |   | + power_info
+      |   | | + package
+      |   | |           raw:               224
+      |   | |           ThermalSpecPower:  28.0
+      |   | |           MinimumPower:      0.0
+      |   | |           MaximumPower:      0.0
+      |   | |           MaximumTimeWindow: 0.0
+      |   | + power_limit
+      |   | | + package | raw: 0x8042814000dd80e0 | lock: true
+      |   | |   + limit_1
+      |   | |   |         power:       28.0
+      |   | |   |         enable:      true
+      |   | |   |         clamp:       true
+      |   | |   |         time_window: 28.0
+      |   | |   + limit_2
+      |   | |             power:       40.0
+      |   | |             enable:      true
+      |   | |             clamp:       false
+      |   | |             time_window: 0.002441
+      |   | + policy | pp0: 0x10 | pp1: 0x10
+      |   | + perf_status
+      |   | | + package | raw: 0x0 | throttle_abs: 60 | throttle_diff: 13
+      |   | + msr_residency
+      |   |   + core_c1 | raw: 0
+      |   |   + core_c3 | raw: 0
+      |   + cpu | x: 0 | y: 1 | freq_khz: 3973791 | temp_c: 94
+      |   | + hwp
+      |   | |     enable: false
+      |   | + hwp_cap
+      |   | |         high: 36
+      |   | |         guar: 27
+      |   | |         effi: 9
+      |   | |         low:  1
+      |   | |         raw:  0x1091b24
+      |   | + hwp_request_package
+      |   | |                     raw: 0x8000ff01
+      |   | + hwp_request
+      |   | |             min:     1
+      |   | |             max:     255
+      |   | |             desired: 5
+      |   | |             epp:     128
+      |   | |             raw:     0x8000ff01
+      |   | + energy_perf_bias
+      |   | |                  raw: 0
+      |   | + hwp_coord_feed_cap
+      |   + cpu | x: 2 | y: 0 | freq_khz: 3234912 | verbose: yes
+      |     + pstate
+      |              rw_command:   0
+      |              ro_limit_cur: 0
+      |              ro_max_value: 2
+      |              ro_status:    1u
+      + sleep | milliseconds: 4000 }
 
 append config {
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
++ start msr_gui | ram: 2M | caps: 200 | priority: -3
+  + route
+    + service ROM | label: hover | + child report_rom }
+
+append_if [expr !$use_msr_native] config {
+    + service ROM | label: info  | + child dynamic_rom }
 
 append_if [expr $use_msr_native] config {
-	<start name="msr" caps="100" ld="yes" managing_system="yes" priority="-2">
-		<resource name="RAM" quantum="2M"/>
-		<route>
-			<service name="ROM" label="config">
-				<child name="report_rom"/> </service>
-			<service name="ROM" label="platform_info">
-				<parent label="platform_info"/> </service>
-			<service name="Report"> <child name="report_rom" /> </service>
-			<service name="Timer">  <child name="timer" />      </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>}
+    + service ROM | label: info  | + child report_rom }
 
 append config {
-</config>
+    + any-service
+      + parent
+      + any-child }
+
+append_if [expr $use_msr_native] config {
++ start msr | ram: 2M | caps: 200 | ld: yes | managing_system: yes | priority: -2
+  + route
+    + service ROM | label: config        | + child report_rom
+    + service ROM | label: platform_info | + parent | label: platform_info
+    + service Report                     | + child report_rom
+    + service Timer                      | + child timer
+    + any-service
+      + parent }
+
+append config {
+-
 }
 
 set fb_cfg_fd [open "bin/fb_drv.config" w]
-puts $fb_cfg_fd { <config width="1280" height="1024"/> }
+puts $fb_cfg_fd {config | width: 1280 | height: 1024
+-}
 close $fb_cfg_fd
 
 set boot_modules { fb_drv.config }

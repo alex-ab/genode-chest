@@ -29,140 +29,161 @@ build $build_components
 #
 
 append config {
-<config verbose="no">
-	<parent-provides>
-		<service name="ROM"/>
-		<service name="IRQ"/>
-		<service name="IO_MEM"/>
-		<service name="IO_PORT"/>
-		<service name="PD"/>
-		<service name="RM"/>
-		<service name="CPU"/>
-		<service name="LOG"/>
-	</parent-provides>
-	<default-route>
-		<any-service> <parent/> <any-child/> </any-service>
-	</default-route>
-	<default caps="100"/>
+config | verbose: no
++ parent-provides
+  + service ROM
+  + service IRQ
+  + service IO_MEM
+  + service IO_PORT
+  + service PD
+  + service RM
+  + service CPU
+  + service LOG
++ default-route
+  + any-service
+    + parent
+    + any-child
 
-	<start name="timer">
-		<resource name="RAM" quantum="1M"/>
-		<provides><service name="Timer"/></provides>
-	</start>
++ start timer | ram: 2M | caps: 200
+  + provides
+    + service Timer
 
-	<start name="drivers" caps="1500" managing_system="yes">
-		<resource name="RAM" quantum="64M"/>
-		<binary name="init"/>
-		<route>
-			<service name="ROM" label="config"> <parent label="drivers.config"/> </service>
-			<service name="Capture"> <child name="nitpicker"/> </service>
-			<service name="Event">   <child name="nitpicker"/> </service>
-			<service name="Timer"> <child name="timer"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>
++ start drivers | ram: 64M | caps: 1500 | managing_system: yes
+  + binary init
+  + route
+    + service ROM | label: config
+    | + parent | label: drivers.config
+    + service Capture
+    | + child nitpicker
+    + service Event
+    | + child nitpicker
+    + service Timer
+    | + child timer
+    + any-service
+      + parent
 
-	<start name="report_rom">
-		<resource name="RAM" quantum="1M"/>
-		<provides> <service name="Report"/> <service name="ROM"/> </provides>
-		<config verbose="yes">
-			<policy label="nit_focus -> clicked"         report="nitpicker -> clicked"/>
-			<policy label="nitpicker -> focus"           report="nit_focus -> focus"/>
-		</config>
-	</start>
++ start report_rom | ram: 2M | caps: 200
+  + provides
+  | + service Report
+  | + service ROM
+  + config | verbose: yes
+    + policy
+    |        label:  nit_focus -> clicked
+    |        report: nitpicker -> clicked
+    + policy
+             label:  nitpicker -> focus
+             report: nit_focus -> focus
 
-	<start name="nitpicker" caps="110">
-		<resource name="RAM" quantum="1216K"/>
-		<provides><service name="Gui"/> <service name="Capture"/> <service name="Event"/></provides>
-		<config focus="rom">
-			<capture/> <event/>
-			<report clicked="yes"/>
-			<domain name="pointer" layer="1" content="client" label="no" origin="pointer"/>
-			<domain name="lock"    layer="2" content="client" label="no" focus="click"/>
-			<domain name="default" layer="3" content="client" label="no" focus="click"/>
++ start nitpicker | ram: 2M | caps: 200
+  + provides
+  | + service Gui
+  | + service Capture
+  | + service Event
+  + config | focus: rom
+  | + capture
+  | + event
+  | + report
+  | |        clicked: yes
+  | + domain pointer
+  | |        layer:   1
+  | |        content: client
+  | |        label:   no
+  | |        origin:  pointer
+  | + domain lock
+  | |        layer:   2
+  | |        content: client
+  | |        label:   no
+  | |        focus:   click
+  | + domain default
+  | |        layer:   3
+  | |        content: client
+  | |        label:   no
+  | |        focus:   click
+  | + policy
+  | |        label_prefix: pointer
+  | |        domain:       pointer
+  | + policy
+  | |        label_prefix: gui_lock
+  | |        domain:       lock
+  | + default-policy
+  | |                domain: default
+  | + global-key KEY_L
+  |              label: gui_lock -> screen
+  + route
+    + service ROM | label: focus
+    | + child report_rom
+    + service Report
+    | + child report_rom
+    + any-service
+      + parent
+      + any-child
 
-			<policy label_prefix="pointer"     domain="pointer"/>
-			<policy label_prefix="gui_lock"    domain="lock"/>
-			<default-policy                    domain="default"/>
++ start pointer | ram: 2M | caps: 200
+  + config
+  + route
+    + service Gui
+    | + child nitpicker
+    + any-service
+      + parent
+      + any-child
 
-			<global-key name="KEY_L" label="gui_lock -> screen" />
-		</config>
-		<route>
-			<service name="ROM" label="focus">
-				<child name="report_rom"/> </service>
-			<service name="Report">
-				<child name="report_rom"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-
-	<start name="pointer">
-		<resource name="RAM" quantum="1096K"/>
-		<config/>
-		<route>
-			<service name="Gui"> <child name="nitpicker"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-
-	<start name="nit_focus">
-		<resource name="RAM" quantum="1M"/>
-		<config> <default-policy focus="yes"/> </config>
-		<route>
-			<service name="ROM" label="clicked"> <child name="report_rom"/> </service>
-			<service name="Report"> <child name="report_rom"/> </service>
-			<any-service> <parent/> </any-service>
-		</route>
-	</start>}
++ start nit_focus | ram: 2M | caps: 200
+  + config
+  | + default-policy | focus: yes
+  + route
+    + service ROM | label: clicked
+    | + child report_rom
+    + service Report
+    | + child report_rom
+    + any-service
+      + parent }
 
 append_if [expr $use_wm] config {
-	<start name="wm" caps="1000">
-		<resource name="RAM" quantum="32M"/>
-		<binary name="init"/>
-		<provides> <service name="Gui"/> <service name="Report"/> </provides>
-		<route>
-			<service name="ROM" label="config"> <parent label="wm.config"/> </service>
-			<service name="Gui"> <child name="nitpicker"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
++ start wm | ram: 32M | caps: 1000
+  + binary init
+  + provides
+  | + service Gui
+  | + service Report
+  + route
+    + service ROM | label: config
+    | + parent | label: wm.config
+    + service Gui
+    | + child nitpicker
+    + any-service
+      + parent
+      + any-child
 
-	<!-- use one nano3d directly with nitpicker to see that it is still alive -->
-	<start name="nano3d-nitpicker">
-		<binary name="nano3d"/>
-		<resource name="RAM" quantum="8M"/>
-		<config/>
-		<route>
-			<service name="Gui"> <child name="nitpicker"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
++ start nano3d-nitpicker | ram: 8M | caps: 200
+  .
+  . use one nano3d directly with nitpicker to see that it is still alive
+  + binary nano3d
+  + config
+  + route
+    + service Gui
+    | + child nitpicker
+    + any-service
+      + parent
+      + any-child }
 
 append config {
-	<start name="gui_lock">
-		<resource name="RAM" quantum="8M"/>
++ start gui_lock | ram: 8M | caps: 200
+  + config User: Alex | password: secret | transparent: no | lock_key: KEY_L
+  + route
+    + service Gui | + child } $gui_name {
+    + any-service
+      + parent
+      + any-child
 
-		<config name="User: Alex" password="secret" transparent="no"
-		        lock_key="KEY_L"/>
-<!--
--->
-
-		<route>
-			<service name="Gui"> <child name="} $gui_name {"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-
-	<start name="nano3d-wm">
-		<resource name="RAM" quantum="8M"/>
-		<binary name="nano3d"/>
-		<config/>
-		<route>
-			<service name="Gui"> <child name="} $gui_name {"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>
-</config>}
++ start nano3d-wm | ram: 8M | caps: 200
+  + binary nano3d
+  + config
+  + route
+    + service Gui | + child } $gui_name {
+    + any-service
+      + parent
+      + any-child
+-
+}
 
 install_config $config
 
