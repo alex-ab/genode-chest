@@ -1321,7 +1321,7 @@ struct Subjects
 						g.attribute("west", "yes");
 						g.node("bar", [&] () {
 							if (thread.session_label("kernel")) {
-								g.attribute("color", "#00ff000");
+								g.attribute("color", "#00ff00");
 								g.attribute("textcolor", "#f000f0");
 							} else {
 								g.attribute("color", "#ff0000");
