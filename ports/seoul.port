@@ -2,8 +2,9 @@ LICENSE   := GPLv2
 VERSION   := git
 DOWNLOADS := seoul.git
 
+# branch genode_26_03
 URL(seoul) := https://github.com/alex-ab/seoul.git
-REV(seoul) := 60c8e17bd0e1ae2d1a3a64b1ac004927f4b4535d
+REV(seoul) := 59241e9f103dd832a0dd725fa4c0d825678b3e8d
 DIR(seoul) := src/app/seoul
 
 #

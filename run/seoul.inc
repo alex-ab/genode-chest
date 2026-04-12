@@ -225,6 +225,43 @@ proc config_part_block { } {
 	return $config_part_block
 }
 
+
+proc config_ram_fs { } {
+
+	set config_ram_fs {
++ start ram_fs | ram: 38M
+  + binary vfs
+  + provides
+  | + service File_system
+  + config
+  | + vfs
+  | | + ram
+  | | + import
+  | |   + dir abc
+  | |   + dir efg
+  | |   + dir runtime
+  | |   | + dir nic_router
+  | |   | | + inline state
+  | |   | |   + empty
+  | |   | + dir update
+  | |   | | + inline state
+  | |   | |   + empty
+  | |   | + dir depot_query
+  | |   | | + inline blueprint
+  | |   | |   + empty
+  | |   | + inline state
+  | |   |   + empty
+  | |   + inline state_file
+  | |     + empty
+  | + policy | label: seoul -> / | root: / | writeable: yes
+  + route
+    + any-service
+      + parent }
+
+	return $config_ram_fs
+}
+
+
 #
 # Build
 #
@@ -359,6 +396,7 @@ append_if $use_nic_session vm_cfg {
 append_if $use_virtio vm_cfg {
   + virtio_input | mem: 0xe0200000
   + virtio_gpu   | mem: 0xe0400000
+  + virtio_fs    | mem: 0xe0500000
 }
 
 append_if $use_audio vm_cfg {
@@ -554,7 +592,7 @@ append_if $use_audio config {
       + parent
       + any-child}
 
-append config { } [config_nvme] { } [config_ahci] { } [config_part_block] { }
+append config { } [config_nvme] { } [config_ahci] { } [config_part_block] { } [config_ram_fs] { }
 
 append_if [expr $use_vfs_block && $use_block_ram] config {
 + start vfs_block | priority: -2 | caps: 400 | ram: 300M
@@ -711,6 +749,7 @@ append config {
     + service Gui                   | + child wm
     + service Rtc                   | + child pc_rtc
     + service Usb                   | + child usb
+    + service File_system           | + child ram_fs
     + service Report | label: shape | + child wm
     + service Report                | + child report_rom
     + any-service
