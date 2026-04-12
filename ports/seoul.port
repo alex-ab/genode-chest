@@ -3,7 +3,7 @@ VERSION   := git
 DOWNLOADS := seoul.git
 
 URL(seoul) := https://github.com/alex-ab/seoul.git
-REV(seoul) := genode_25_12
+REV(seoul) := 69f9b3666739bf4f7649aa9ac30ecf42fe03c6e7
 DIR(seoul) := src/app/seoul
 
 #
