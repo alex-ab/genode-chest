@@ -31,9 +31,8 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   | + service Report
   | + service Usb
   | + service Play
-  + start seoul | caps: 5000
+  + start seoul | ram: 16G | caps: 5000
     + binary seoul
-    + resource RAM | quantum: 16G
     + route
       + service ROM | label: platform_info
       | + parent | label: platform_info

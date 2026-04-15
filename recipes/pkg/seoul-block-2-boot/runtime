@@ -1,4 +1,5 @@
 runtime | ram: 1380M | caps: 1000 | binary: init
+
 + requires
   + nic
   + block | label: disk0
@@ -11,10 +12,12 @@ runtime | ram: 1380M | caps: 1000 | binary: init
   + rm
   + timer
   + report | label: shape
+
 + content
   + rom | label: vm_seoul_boot_1.cfg
   + rom | label: init
   + rom | label: seoul
+
 + config | verbose: no
   + parent-provides
   | + service ROM
@@ -30,9 +33,8 @@ runtime | ram: 1380M | caps: 1000 | binary: init
   | + service Block
   | + service Report
   | + service Usb
-  + start seoul | caps: 5000
+  + start seoul | ram: 16G | caps: 5000
     + binary seoul
-    + resource RAM | quantum: 16G
     + route
       + service ROM | label: platform_info
       | + parent | label: platform_info

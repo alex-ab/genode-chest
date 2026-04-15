@@ -1,4 +1,5 @@
 runtime | ram: 2450M | caps: 1350 | binary: init
+
 + requires
   + nic
   + block
@@ -11,6 +12,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + timer
   + report | label: shape
   + file_system | writeable: yes | label: log
+
 + content
   + rom | label: vm_seoul_usb.cfg
   + rom | label: init
@@ -19,6 +21,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + rom | label: libc.lib.so
   + rom | label: vfs.lib.so
   + rom | label: terminal_log
+
 + config | verbose: no
   + parent-provides
   | + service ROM
@@ -35,9 +38,8 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   | + service Report
   | + service File_system
   | + service Usb
-  + start file_terminal | caps: 100
+  + start file_terminal | ram: 3M | caps: 100
   | + binary file_terminal
-  | + resource RAM | quantum: 3M
   | + provides
   | | + service Terminal
   | + config
@@ -52,8 +54,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   |   | + parent | identity: log | resource: /
   |   + any-service
   |     + parent
-  + start terminal_log | caps: 100
-  | + resource RAM | quantum: 1M
+  + start terminal_log | ram: 1M | caps: 100
   | + provides
   | | + service LOG
   | + config
@@ -62,9 +63,8 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   |   | + child file_terminal
   |   + any-service
   |     + parent
-  + start seoul | caps: 10000
+  + start seoul | ram: 16G | caps: 10000
     + binary seoul
-    + resource RAM | quantum: 16G
     + route
       + service ROM | label: platform_info
       | + parent | label: platform_info

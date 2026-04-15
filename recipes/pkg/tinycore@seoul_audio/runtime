@@ -1,4 +1,5 @@
 runtime | ram: 2450M | caps: 1350 | binary: init
+
 + requires
   + file_system | writeable: yes | label: vdi
   + nic
@@ -11,6 +12,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + timer
   + report | label: shape
   + play
+
 + content
   + rom | label: vm_seoul_audio.cfg
   + rom | label: init
@@ -20,6 +22,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + rom | label: vdi_block
   + rom | label: tc16.vdi
   + rom | label: seoul
+
 + config | verbose: no
   + parent-provides
   | + service ROM
@@ -37,7 +40,6 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   | + service Usb
   | + service Play
   + start vdi_block | ram: 8M | caps: 100
-  | + resource RAM | quantum: 8M
   | + provides
   | | + service Block
   | + config | file: /tc16.vdi | writeable: yes
@@ -50,9 +52,8 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   |   | + parent | identity: vdi | resource: /
   |   + any-service
   |     + parent
-  + start seoul | caps: 5000
+  + start seoul | ram: 16G | caps: 5000
     + binary seoul
-    + resource RAM | quantum: 16G
     + route
       + service ROM | label: platform_info
       | + parent | label: platform_info
