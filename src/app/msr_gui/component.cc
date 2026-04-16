@@ -810,8 +810,8 @@ void Power::_cpu_energy_detail(Generator &g, Node const &node,
 
 		double joule = 0, watt = 0;
 
-		watt  = node.attribute_value("Watt",  watt);
-		joule = node.attribute_value("Joule", joule);
+		watt  = node.attribute_value("watt",  watt);
+		joule = node.attribute_value("joule", joule);
 
 		g.node("label", [&] {
 			g.attribute("name", id++);
@@ -890,10 +890,10 @@ void Power::_cpu_power_info_detail(Generator &g, Node const &node,
 
 		double spec = 0, min = 0, max = 0, wnd = 0;
 
-		spec = node.attribute_value("ThermalSpecPower" , spec);
-		min  = node.attribute_value("MinimumPower"     , min);
-		max  = node.attribute_value("MaximumPower"     , max);
-		wnd  = node.attribute_value("MaximumTimeWindow", wnd);
+		spec = node.attribute_value("thermalspecpower" , spec);
+		min  = node.attribute_value("minimumpower"     , min);
+		max  = node.attribute_value("maximumpower"     , max);
+		wnd  = node.attribute_value("maximumtimewindow", wnd);
 
 		g.node("hbox", [&] {
 			g.attribute("name", id++);

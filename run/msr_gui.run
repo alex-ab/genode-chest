@@ -170,23 +170,23 @@ append_if [expr !$use_msr_native] config {
       |   | | |       time:   10
       |   | | + package
       |   | | |         raw:   15276100
-      |   | | |         Joule: 932.379150
-      |   | | |         Watt:  9.104591
+      |   | | |         joule: 932.379150
+      |   | | |         watt:  9.104591
       |   | | + pp0
       |   | | |     raw:   3830080
-      |   | | |     Joule: 233.769531
-      |   | | |     Watt:  1.982696
+      |   | | |     joule: 233.769531
+      |   | | |     watt:  1.982696
       |   | | + pp1
       |   | |       raw:   19
-      |   | |       Joule: 0.001159
-      |   | |       Watt:  0.0
+      |   | |       joule: 0.001159
+      |   | |       watt:  0.0
       |   | + power_info
       |   | | + package
       |   | |           raw:               224
-      |   | |           ThermalSpecPower:  28.0
-      |   | |           MinimumPower:      0.0
-      |   | |           MaximumPower:      0.0
-      |   | |           MaximumTimeWindow: 0.0
+      |   | |           thermalspecpower:  28.0
+      |   | |           minimumpower:      0.0
+      |   | |           maximumpower:      0.0
+      |   | |           maximumtimewindow: 0.0
       |   | + power_limit
       |   | | + package | raw: 0x8042814000dd80e0 | lock: true
       |   | | | + limit_1
@@ -275,23 +275,23 @@ append_if [expr !$use_msr_native] config {
       |   | | |       time:   10
       |   | | + package
       |   | | |         raw:   16013183
-      |   | | |         Joule: 977.367126
-      |   | | |         Watt:  8.999395
+      |   | | |         joule: 977.367126
+      |   | | |         watt:  8.999395
       |   | | + pp0
       |   | | |     raw:   3986842
-      |   | | |     Joule: 243.337524
-      |   | | |     Watt:  1.913981
+      |   | | |     joule: 243.337524
+      |   | | |     watt:  1.913981
       |   | | + pp1
       |   | |       raw:   19
-      |   | |       Joule: 0.001159
-      |   | |       Watt:  0.0
+      |   | |       joule: 0.001159
+      |   | |       watt:  0.0
       |   | + power_info
       |   | | + package
       |   | |           raw:               224
-      |   | |           ThermalSpecPower:  28.0
-      |   | |           MinimumPower:      0.0
-      |   | |           MaximumPower:      0.0
-      |   | |           MaximumTimeWindow: 0.0
+      |   | |           thermalspecpower:  28.0
+      |   | |           minimumpower:      0.0
+      |   | |           maximumpower:      0.0
+      |   | |           maximumtimewindow: 0.0
       |   | + power_limit
       |   | | + package | raw: 0x8042814000dd80e0 | lock: true
       |   | | | + limit_1
@@ -378,23 +378,23 @@ append_if [expr !$use_msr_native] config {
       |   | | |       time:   10
       |   | | + package
       |   | | |         raw:   16746906
-      |   | | |         Joule: 1022.150024
-      |   | | |         Watt:  8.815519
+      |   | | |         joule: 1022.150024
+      |   | | |         watt:  8.815519
       |   | | + pp0
       |   | | |     raw:   4143408
-      |   | | |     Joule: 252.893554
-      |   | | |     Watt:  1.776392
+      |   | | |     joule: 252.893554
+      |   | | |     watt:  1.776392
       |   | | + pp1
       |   | |       raw:   19
-      |   | |       Joule: 0.001159
-      |   | |       Watt:  0.0
+      |   | |       joule: 0.001159
+      |   | |       watt:  0.0
       |   | + power_info
       |   | | + package
       |   | |           raw:               224
-      |   | |           ThermalSpecPower:  28.0
-      |   | |           MinimumPower:      0.0
-      |   | |           MaximumPower:      0.0
-      |   | |           MaximumTimeWindow: 0.0
+      |   | |           thermalspecpower:  28.0
+      |   | |           minimumpower:      0.0
+      |   | |           maximumpower:      0.0
+      |   | |           maximumtimewindow: 0.0
       |   | + power_limit
       |   | | + package | raw: 0x8042814000dd80e0 | lock: true
       |   | | | + limit_1
@@ -481,23 +481,23 @@ append_if [expr !$use_msr_native] config {
       |   | | |       time:   10
       |   | | + package
       |   | | |         raw:   12218055
-      |   | | |         Joule: 745.730895
-      |   | | |         Watt:  9.350352
+      |   | | |         joule: 745.730895
+      |   | | |         watt:  9.350352
       |   | | + pp0
       |   | | |     raw:   3138820
-      |   | | |     Joule: 191.578369
-      |   | | |     Watt:  2.020531
+      |   | | |     joule: 191.578369
+      |   | | |     watt:  2.020531
       |   | | + pp1
       |   | |       raw:   19
-      |   | |       Joule: 0.001159
-      |   | |       Watt:  0.0
+      |   | |       joule: 0.001159
+      |   | |       watt:  0.0
       |   | + power_info
       |   | | + package
       |   | |           raw:               224
-      |   | |           ThermalSpecPower:  28.0
-      |   | |           MinimumPower:      0.0
-      |   | |           MaximumPower:      0.0
-      |   | |           MaximumTimeWindow: 0.0
+      |   | |           thermalspecpower:  28.0
+      |   | |           minimumpower:      0.0
+      |   | |           maximumpower:      0.0
+      |   | |           maximumtimewindow: 0.0
       |   | + power_limit
       |   | | + package | raw: 0x8042814000dd80e0 | lock: true
       |   | | | + limit_1
@@ -584,23 +584,23 @@ append_if [expr !$use_msr_native] config {
       |   | | |       time:   10
       |   | | + package
       |   | | |         raw:   13768707
-      |   | | |         Joule: 840.375183
-      |   | | |         Watt:  9.222867
+      |   | | |         joule: 840.375183
+      |   | | |         watt:  9.222867
       |   | | + pp0
       |   | | |     raw:   3494162
-      |   | | |     Joule: 213.266723
-      |   | | |     Watt:  1.979049
+      |   | | |     joule: 213.266723
+      |   | | |     watt:  1.979049
       |   | | + pp1
       |   | |       raw:   19
-      |   | |       Joule: 0.001159
-      |   | |       Watt:  0.0
+      |   | |       joule: 0.001159
+      |   | |       watt:  0.0
       |   | + power_info
       |   | | + package
       |   | |           raw:               224
-      |   | |           ThermalSpecPower:  28.0
-      |   | |           MinimumPower:      0.0
-      |   | |           MaximumPower:      0.0
-      |   | |           MaximumTimeWindow: 0.0
+      |   | |           thermalspecpower:  28.0
+      |   | |           minimumpower:      0.0
+      |   | |           maximumpower:      0.0
+      |   | |           maximumtimewindow: 0.0
       |   | + power_limit
       |   | | + package | raw: 0x8042814000dd80e0 | lock: true
       |   | |   + limit_1

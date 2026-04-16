@@ -945,8 +945,8 @@ struct Msr::Power_intel
 			auto const t_p = double(msr_prev & ((1ull << 32) - 1));
 
 			g.attribute("raw"  , msr);
-			g.attribute("Joule", t * pow); /* J = W * s */
-			g.attribute("Watt" , (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
+			g.attribute("joule", t * pow); /* J = W * s */
+			g.attribute("watt" , (time_ms > 0) ? time_diff(t, t_p) * pow * 1000.0d / double(time_ms) : 0);
 		});
 	}
 
@@ -966,10 +966,10 @@ struct Msr::Power_intel
 			auto const time  = Msr_pkg_power_info::Max_time_window   ::get(msr);
 
 			g.attribute("raw", msr);
-			g.attribute("ThermalSpecPower",  double(therm) * pow_power);
-			g.attribute("MinimumPower",      double(min)   * pow_power);
-			g.attribute("MaximumPower",      double(max)   * pow_power);
-			g.attribute("MaximumTimeWindow", double(time)  * pow_time);
+			g.attribute("thermalspecpower",  double(therm) * pow_power);
+			g.attribute("minimumpower",      double(min)   * pow_power);
+			g.attribute("maximumpower",      double(max)   * pow_power);
+			g.attribute("maximumtimewindow", double(time)  * pow_time);
 		});
 	}
 
