@@ -17,7 +17,7 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + rom | label: vfs_import.lib.so
   + rom | label: ld.lib.so
   + rom | label: vdi_block
-  + rom | label: tc16.vdi
+  + rom | label: tc17.vdi
   + rom | label: seoul
 + config | verbose: no
   + parent-provides
@@ -37,11 +37,11 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + start vdi_block | ram: 8M | caps: 100
   | + provides
   | | + service Block
-  | + config | file: /tc16.vdi | writeable: yes
+  | + config | file: /tc17.vdi | writeable: yes
   | | + vfs
   | |   + fs | label: vdi | buffer_size: 2M
   | |   + import | overwrite: no
-  | |     + rom tc16.vdi | binary: yes
+  | |     + rom tc17.vdi | binary: yes
   | + route
   |   + service File_system | label: vdi
   |   | + parent | identity: vdi | resource: /
