@@ -67,19 +67,11 @@ runtime | ram: 1420M | caps: 1190 | binary: init
   + start seoul | caps: 5000 | ram: 16G
     + binary seoul
     + route
-      + service ROM | label: platform_info
-      | + parent | label: platform_info
-      + service ROM | label: config
-      | + parent | label: vm_seoul_boot_0.cfg
-      + service Block | label: disk0
-      | + child vfs_block
-      + service Block | label: disk1
-      | + child vdi_block
-      + service Report | label: shape
-      | + parent | label: shape
-      + service Gui | label: fb1.0
-      | + parent | label:
-      |   . XXX required for window/shape/pointer matching - does not work for other fbX.Y
-      + any-service
-        + parent
+      + service ROM    | label: platform_info | + parent | label: platform_info
+      + service ROM    | label: config        | + parent | label: vm_seoul_boot_0.cfg
+      + service Block  | label: disk0         | + child vfs_block
+      + service Block  | label: disk1         | + child vdi_block
+      + service Report | label: shape         | + parent | label: shape
+      + service Gui    | label: fb1.0         | + parent | label: fb1.0
+      + any-service                           | + parent
 -

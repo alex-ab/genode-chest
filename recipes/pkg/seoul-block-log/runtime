@@ -66,16 +66,10 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + start seoul | ram: 16G | caps: 10000
     + binary seoul
     + route
-      + service ROM | label: platform_info
-      | + parent | label: platform_info
-      + service ROM | label: config
-      | + parent | label: vm_seoul_usb.cfg
-      + service Report | label: shape
-      | + parent | label: shape
-      + service Gui | label: fb1.0
-      | + parent | label:
-      + service LOG
-      | + child terminal_log
-      + any-service
-        + parent
+      + service ROM    | label: platform_info | + parent | label: platform_info
+      + service ROM    | label: config        | + parent | label: vm_seoul_usb.cfg
+      + service Report | label: shape         | + parent | label: shape
+      + service Gui    | label: fb1.0         | + parent | label: fb1.0
+      + service LOG                           | + child terminal_log
+      + any-service                           | + parent
 -
