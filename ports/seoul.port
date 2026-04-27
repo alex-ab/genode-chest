@@ -2,9 +2,9 @@ LICENSE   := GPLv2
 VERSION   := git
 DOWNLOADS := seoul.git
 
-# branch genode_26_03
+# branch genode_capture_hack
 URL(seoul) := https://github.com/alex-ab/seoul.git
-REV(seoul) := a3d7f6a07c37ab7a2fe6da377f0d7b6d96dc87c6
+REV(seoul) := 2746fae539d4fe09e2613099fb34c77097bc7bb5
 DIR(seoul) := src/app/seoul
 
 #
