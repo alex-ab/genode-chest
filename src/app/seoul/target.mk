@@ -27,11 +27,13 @@ INC_DIR += $(SEOUL_CONTRIB_DIR)/include
 INC_DIR += $(SEOUL_CONTRIB_DIR)/genode/include
 
 CC_WARN += -Wno-unused
+CC_WARN += -Wformat
 
 # 32bit builds need this ssse3 enforcement
-CC_OPT_model/intel82576vf := -mssse3
-CC_OPT_model/rtl8029      := -mssse3
-CC_OPT_genode/network     := -mssse3
+CC_OPT_model/intel82576vf   := -mssse3
+CC_OPT_model/rtl8029        := -mssse3
+CC_OPT_model/virtio_network := -mssse3
+CC_OPT_genode/network       := -mssse3
 
 CC_OPT_PIC :=
 

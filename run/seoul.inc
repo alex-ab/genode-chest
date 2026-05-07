@@ -52,12 +52,14 @@ if {![info exists cpuid_native]}   { set cpuid_native   no }
 if {![info exists vdi_name]}       { set vdi_name       "guest.vdi" }
 if {![info exists image]}          { set image          "seoul-disc.raw" }
 if {![info exists use_model_xhci]} { set use_model_xhci 0 }
+if {![info exists use_nic]}        { set use_nic        1 }
 
 if {$use_fs_rump   } { import_from_depot [depot_user]/src/vfs_rump }
 if {$use_part_block} { import_from_depot [depot_user]/src/part_block }
 if {$use_drv_ahci  } { import_from_depot [depot_user]/src/ahci }
 if {$use_drv_nvme  } { import_from_depot [depot_user]/src/nvme }
 if {$use_audio     } { import_from_depot [depot_user]/src/bsd_audio }
+if {$use_nic       } { import_from_depot [depot_user]/src/pc_nic }
 
 if {[have_include power_on/qemu] && $use_block_vdi} {
 	if {![file exists bin/seoul-disc-vdi.raw]} {
@@ -229,7 +231,7 @@ proc config_part_block { } {
 proc config_ram_fs { } {
 
 	set config_ram_fs {
-+ start ram_fs | ram: 38M
++ start ram_fs | ram: 38M | priority: -2
   + binary vfs
   + provides
   | + service File_system
@@ -282,8 +284,7 @@ set build_components {
 
 lappend_if $use_block_vdi       build_components server/vdi_block
 lappend_if $use_vfs_block       build_components server/vfs_block
-lappend_if $use_nic_session     build_components driver/nic
-lappend_if $use_nic_session     build_components server/nic_router
+lappend_if $use_nic             build_components server/nic_router
 lappend_if $use_genode_iso      build_components server/iso9660
 lappend_if $use_top             build_components app/top
 
@@ -388,7 +389,7 @@ if {!$use_multiboot} {
 	}
 }
 
-append_if $use_nic_session vm_cfg {
+append_if $use_nic vm_cfg {
   x rtl8029 | irq: 9 | port: 0x300
   + intel82576vf | mem_mmio: 0xe0100000 | mem_msix: 0xe0120000
 }
@@ -396,7 +397,9 @@ append_if $use_nic_session vm_cfg {
 append_if $use_virtio vm_cfg {
   + virtio_input | mem: 0xe0200000
   + virtio_gpu   | mem: 0xe0400000
-  + virtio_fs    | mem: 0xe0500000
+  + virtio_fs    | mem: 0xe0500000 | tag: fs_1 | uid: 1001 | gid: 1002
+  + virtio_fs    | mem: 0xe1500000 | tag: fs_2 | uid: 1003 | gid: 1004
+  x virtio_net   | mem: 0xe0a00000
 }
 
 append_if $use_audio vm_cfg {
@@ -475,6 +478,7 @@ set config {config | verbose: no | prio_levels: 4
 + start platform | caps: 400 | ram: 6M | managing_system: yes | priority: -2
   + provides
   | + service Platform
+  | + service Dma
   + config
   | + policy | label_prefix: ps2
   | | + device ps2
@@ -665,7 +669,7 @@ append_if $use_genode_iso config {
     + any-service
       + parent }
 
-append_if $use_nic_session config {
+append_if $use_nic config {
 + start nic | caps: 150 | priority: -3 | ram: 16M
   + binary pc_nic
   + route
@@ -905,6 +909,7 @@ if {$use_usb} {
 }
 
 append qemu_args " -accel kvm -cpu host"
+append qemu_args " -device VGA,vgamem_mb=4"
 
 if { [have_include power_on/qemu] } {
 	if {[regexp -- {-accel kvm -cpu host} $qemu_args dummy]} {
