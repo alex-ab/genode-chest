@@ -229,7 +229,7 @@ proc config_part_block { } {
 proc config_ram_fs { } {
 
 	set config_ram_fs {
-+ start ram_fs | ram: 38M
++ start ram_fs | ram: 38M | priority: -2
   + binary vfs
   + provides
   | + service File_system
@@ -251,6 +251,7 @@ proc config_ram_fs { } {
   | |   | |   + empty
   | |   | + inline state
   | |   |   + empty
+  | |   + rom vfs_test
   | |   + inline state_file
   | |     + empty
   | + policy | label: seoul -> / | root: / | writeable: yes
@@ -396,7 +397,8 @@ append_if $use_nic_session vm_cfg {
 append_if $use_virtio vm_cfg {
   + virtio_input | mem: 0xe0200000
   + virtio_gpu   | mem: 0xe0400000
-  + virtio_fs    | mem: 0xe0500000
+  x virtio_fs    | mem: 0xe0500000
+  x virtio_net   | mem: 0xe0a00000
 }
 
 append_if $use_audio vm_cfg {
@@ -858,7 +860,7 @@ proc check_qemu_version {qemu_version qemu_min qemu_max} {
 # Boot modules
 #
 
-set boot_modules { vm_seoul.cfg }
+set boot_modules { vm_seoul.cfg vfs_test }
 lappend_if $use_genode_iso boot_modules genode.iso
 lappend_if $use_block_ram  boot_modules $image
 
@@ -905,6 +907,7 @@ if {$use_usb} {
 }
 
 append qemu_args " -accel kvm -cpu host"
+append qemu_args " -device VGA,vgamem_mb=4"
 
 if { [have_include power_on/qemu] } {
 	if {[regexp -- {-accel kvm -cpu host} $qemu_args dummy]} {

@@ -40,6 +40,7 @@ set use_usb           [expr ![have_cmd_switch --autopilot]]
 set use_part_block    0
 
 set use_nic_session   1
+set use_virtio        1
 
 set use_top           0
 
