@@ -2,9 +2,9 @@ LICENSE   := GPLv2
 VERSION   := git
 DOWNLOADS := seoul.git
 
-# branch genode_26_03
+# branch virtio_fs_26_05
 URL(seoul) := https://github.com/alex-ab/seoul.git
-REV(seoul) := a3d7f6a07c37ab7a2fe6da377f0d7b6d96dc87c6
+REV(seoul) := 4c2e685911cb39c779069e4e728b0cd12c004710
 DIR(seoul) := src/app/seoul
 
 #
