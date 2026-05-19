@@ -5,7 +5,7 @@ Genode OS framework (https://genode.org) with additional functionality.
 
 To use it, you first need to obtain a clone of Genode:
 
-! git clone https://github.com/genodelabs/genode.git genode
+! git clone https:///codeberg.org/genodelabs/genode.git genode
 
 Now, clone the _genode-chest.git_ repository to _genode/repos/chest_:
 
