@@ -1,77 +1,81 @@
 runtime | ram: 2450M | caps: 1350 | binary: init
 
 + requires
-  + file_system | writeable: yes | label: recall
+  + fs recall | writeable: yes
+  + fs shared | writeable: yes
   + nic
   + block
-  + rom | label: platform_info
+  + rom platform_info
   + gui
   + rtc
   + vm
   + usb
   + rm
   + timer
-  + report | label: shape
+  + report shape
+  + play
 
 + content
-  + rom | label: vm_seoul_usb.cfg
-  + rom | label: init
-  + rom | label: seoul
-  + rom | label: file_terminal
-  + rom | label: fs_rom
-  + rom | label: libc.lib.so
-  + rom | label: vfs.lib.so
-  + rom | label: vfs_import.lib.so
+  + rom vm_seoul_audio.cfg
+  + rom init
+  + rom vfs.lib.so
+  + rom vfs_import.lib.so
+  + rom ld.lib.so
+  + rom file_terminal
+  + rom fs_rom
+  + rom libc.lib.so
+  + rom seoul
 
 + config | verbose: no
   + parent-provides
-  | + service ROM
-  | + service PD
-  | + service CPU
-  | + service LOG
-  | + service VM
-  | + service RM
-  | + service Gui
-  | + service Rtc
-  | + service Nic
-  | + service Timer
-  | + service Block
-  | + service Report
-  | + service File_system
-  | + service Usb
+    + service ROM
+    + service PD
+    + service CPU
+    + service LOG
+    + service VM
+    + service RM
+    + service Gui
+    + service Rtc
+    + service Nic
+    + service Timer
+    + service Block
+    + service Report
+    + service Usb
+    + service Play
+    + service File_system
+
   + start file_terminal | ram: 3M | caps: 100
-  | + binary file_terminal
-  | + provides
-  | | + service Terminal
-  | + config
-  | | + default-policy | filename: log
-  | | + vfs
-  | | | + dir dev
-  | | | | + log
-  | | | + fs
-  | | | + import | overwrite: no
-  | | |   + rom vm_seoul_usb.cfg | binary: yes
-  | | + libc | stdout: /dev/log
-  | + route
-  |   + service File_system
-  |   | + parent | identity: recall
-  |   + any-service
-  |     + parent
+    + binary file_terminal
+    + provides
+      + service Terminal
+    + config
+      + default-policy | filename: log
+      + vfs
+        + dir dev
+          + log
+        + fs
+        + import | overwrite: no
+          + rom vm_seoul_audio.cfg | binary: yes
+      + libc | stdout: /dev/log
+    + route
+      + service File_system | + parent | identity: recall
+      + any-service
+        + parent
+
   + start fs_rom | ram: 1M | caps: 100
-  | + provides
-  | | + service ROM
-  | + config
-  | + route
-  |   + service File_system
-  |   | + parent | identity: recall | resource: /
-  |   + any-service
-  |     + parent
+    + provides | + service ROM
+    + config
+    + route
+      + service File_system | + parent | identity: recall | resource: /
+      + any-service         | + parent
+
   + start seoul | ram: 16G | caps: 10000
     + binary seoul
     + route
       + service ROM    | label: platform_info | + parent | label: platform_info
-      + service ROM    | label: config        | + child fs_rom | label: vm_seoul_usb.cfg
+      + service ROM    | label: config        | + child fs_rom | label: vm_seoul_audio.cfg
       + service Report | label: shape         | + parent | label: shape
       + service Gui    | label: fb1.0         | + parent | label: fb1.0
+      + service File_system                   | + parent | identity: shared | resource: /
       + any-service                           | + parent
 -

@@ -1,40 +1,43 @@
 runtime | ram: 9580M | caps: 1500 | binary: init
 
 + requires
+  + fs shared | writeable: yes
   + nic
   + block | label: disk0
   + block | label: disk1
   + block | label: disk2
-  + rom | label: platform_info
+  + rom platform_info
   + gui
   + rtc
   + vm
   + usb
   + rm
   + timer
-  + report | label: shape
+  + report shape
 
 + content
-  + rom | label: vm_seoul_4cpu_3disk.cfg
-  + rom | label: init
-  + rom | label: seoul
+  + rom vm_seoul_4cpu_3disk.cfg
+  + rom init
+  + rom seoul
 
 + config | verbose: no
   + parent-provides
-  | + service ROM
-  | + service PD
-  | + service CPU
-  | + service LOG
-  | + service VM
-  | + service RM
-  | + service Gui
-  | + service Rtc
-  | + service Nic
-  | + service Timer
-  | + service Block
-  | + service Report
-  | + service Usb
-  + start seoul | ram: 16G | caps: 5000
+    + service ROM
+    + service PD
+    + service CPU
+    + service LOG
+    + service VM
+    + service RM
+    + service Gui
+    + service Rtc
+    + service Nic
+    + service Timer
+    + service Block
+    + service Report
+    + service Usb
+    + service File_system
+
+  + start seoul | ram: 32G | caps: 5000
     + binary seoul
     + route
       + service ROM    | label: platform_info | + parent | label: platform_info
@@ -44,5 +47,6 @@ runtime | ram: 9580M | caps: 1500 | binary: init
       + service Block  | label: disk1         | + parent | label: disk1
       + service Block  | label: disk2         | + parent | label: disk2
       + service Gui    | label: fb1.0         | + parent | label: fb1.0
+      + service File_system                   | + parent | identity: shared | resource: /
       + any-service                           | + parent
 -

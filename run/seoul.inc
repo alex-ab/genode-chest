@@ -403,7 +403,7 @@ append_if $use_virtio vm_cfg {
 }
 
 append_if $use_audio vm_cfg {
-  + virtio_sound | mem: 0xe0600000
+  + virtio_sound | mem: 0xe0600000 | msix: 0
 }
 
 append_if $use_model_xhci vm_cfg {
