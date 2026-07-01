@@ -42,8 +42,16 @@ $(MIRROR_FROM_QEMU_USB_PORT_DIR):
 
 MIRROR_FROM_OS := include/pointer/shape_report.h
 
-content: $(MIRROR_FROM_OS)
+MIRROR_FROM_NOVA := include/nova/syscall-generic.h \
+                    include/spec/64bit/nova/syscalls.h \
+                    include/nova/stdint.h
+
+content: $(MIRROR_FROM_OS) $(MIRROR_FROM_NOVA)
 
 $(MIRROR_FROM_OS):
 	mkdir -p $(dir $@)
 	cp -r $(GENODE_DIR)/repos/os/$@ $(dir $@)
+
+$(MIRROR_FROM_NOVA):
+	mkdir -p $(dir $@)
+	cp -r $(GENODE_DIR)/repos/base-nova/$@ $(dir $@)

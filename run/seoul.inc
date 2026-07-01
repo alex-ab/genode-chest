@@ -277,6 +277,7 @@ if {[have_spec sel4]} {
 
 
 set build_components {
+	core lib/ld
 	driver/rtc
 	app/seoul
 	server/record_play_mixer
