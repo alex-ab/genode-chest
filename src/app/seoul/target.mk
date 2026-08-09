@@ -26,6 +26,7 @@ SRC_CC += $(filter-out $(FILTER_OUT),base/lib/runtime/string.cc)
 INC_DIR += $(SEOUL_CONTRIB_DIR)/include
 INC_DIR += $(SEOUL_CONTRIB_DIR)/genode/include
 
+CC_WARN  = -Wall
 CC_WARN += -Wno-unused
 CC_WARN += -Wformat
 
