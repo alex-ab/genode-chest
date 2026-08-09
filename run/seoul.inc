@@ -45,7 +45,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/boot_fb
 
 if {[have_spec nova]} {
-	import_from_depot [depot_user]/src/ld-nova
+	import_from_depot alex-ab/src/ld-nova/2026-08-09
 }
 
 if {![info exists use_usb]}        { set use_usb        1 }
