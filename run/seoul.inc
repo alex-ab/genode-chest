@@ -44,6 +44,10 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/src/vesa_fb \
                   [depot_user]/src/boot_fb
 
+if {[have_spec nova]} {
+	import_from_depot [depot_user]/src/ld-nova
+}
+
 if {![info exists use_usb]}        { set use_usb        1 }
 if {![info exists use_virtio]}     { set use_virtio     0 }
 if {![info exists use_audio]}      { set use_audio      0 }
@@ -281,6 +285,7 @@ set build_components {
 	driver/rtc
 	app/seoul
 	server/record_play_mixer
+	server/rom_select
 }
 
 lappend_if $use_block_vdi       build_components server/vdi_block
@@ -734,10 +739,20 @@ append_if $use_top config {
       + any-child }
 
 append config {
++ start rom_select | priority: -3 | ram: 8M
+  + provides
+    + service ROM
+  + config
+    + policy | kernel: nova | target: ld.lib.so | replace: ld-nova.lib.so
+  + route
+    + any-service
+      + parent
+
 + start seoul | priority: -3 | caps: 2000 | ram: } $memory_vmm_vm {
   + binary seoul
   + route
     + service Timer | + child timer
+    + service ROM | unscoped_label: ld.lib.so | + child rom_select
     + service ROM | label: config | + parent | label: vm_seoul.cfg }
 append_if $use_genode_iso config {
     + service ROM | unscoped_label: seoul     | + parent
