@@ -1,5 +1,7 @@
 _/raw/seoul-config
 _/src/seoul
+_/src/rom_select
+_/src/ld-nova
 _/src/init
 _/src/file_terminal
 _/src/fs_rom

@@ -1,4 +1,4 @@
-runtime | ram: 2450M | caps: 1350 | binary: init
+runtime | ram: 2456M | caps: 1450 | binary: init
 
 + requires
   + fs recall | writeable: yes
@@ -25,6 +25,8 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + rom fs_rom
   + rom libc.lib.so
   + rom seoul
+  + rom rom_select
+  + rom ld-nova.lib.so
 
 + config | verbose: no
   + parent-provides
@@ -43,6 +45,13 @@ runtime | ram: 2450M | caps: 1350 | binary: init
     + service Usb
     + service Play
     + service File_system
+
+  + start rom_select | ram: 3M | caps: 100
+    + provides | + service ROM
+    + config
+      + policy | kernel: nova | target: ld.lib.so | replace: ld-nova.lib.so
+    + route
+      + any-service | + parent
 
   + start file_terminal | ram: 3M | caps: 100
     + binary file_terminal
@@ -72,10 +81,11 @@ runtime | ram: 2450M | caps: 1350 | binary: init
   + start seoul | ram: 16G | caps: 10000
     + binary seoul
     + route
-      + service ROM    | label: platform_info | + parent | label: platform_info
-      + service ROM    | label: config        | + child fs_rom | label: vm_seoul_audio.cfg
-      + service Report | label: shape         | + parent | label: shape
-      + service Gui    | label: fb1.0         | + parent | label: fb1.0
-      + service File_system                   | + parent | identity: shared | resource: /
-      + any-service                           | + parent
+      + service ROM    | unscoped_label: ld.lib.so | + child rom_select
+      + service ROM    | label: config             | + child fs_rom | label: vm_seoul_audio.cfg
+      + service ROM    | label: platform_info      | + parent | label: platform_info
+      + service Report | label: shape              | + parent | label: shape
+      + service Gui    | label: fb1.0              | + parent | label: fb1.0
+      + service File_system                        | + parent | identity: shared | resource: /
+      + any-service                                | + parent
 -
