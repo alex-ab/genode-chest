@@ -26,6 +26,9 @@ set vcpus_to_be_used  2
 
 set use_virtio        1
 
+set use_nic           0
+set use_nic_direct    1
+
 set cpuid_native      yes
 
 if {![have_include power_on/qemu]} {

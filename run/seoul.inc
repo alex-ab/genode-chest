@@ -53,6 +53,7 @@ if {![info exists vdi_name]}       { set vdi_name       "guest.vdi" }
 if {![info exists image]}          { set image          "seoul-disc.raw" }
 if {![info exists use_model_xhci]} { set use_model_xhci 0 }
 if {![info exists use_nic]}        { set use_nic        1 }
+if {![info exists use_nic_direct]} { set use_nic_direct 0 }
 
 if {$use_fs_rump   } { import_from_depot [depot_user]/src/vfs_rump }
 if {$use_part_block} { import_from_depot [depot_user]/src/part_block }
@@ -336,6 +337,7 @@ append vm_cfg {
   + vbios_mem
   + vbios_time
   + vbios_reset
+  + dpci | class: 2 | subclass: 0
 }
 
 if {$use_multiboot} {
@@ -480,21 +482,22 @@ set config {config | verbose: no | prio_levels: 4
   | + service Platform
   | + service Dma
   + config
-  | + policy | label_prefix: ps2
-  | | + device ps2
-  | + policy | label_prefix: ahci
-  | | + pci | class: AHCI
-  | + policy | label_prefix: nvme | info: yes
-  | | + pci | class: NVME
-  | + policy | label_prefix: nic | info: yes
-  | | + pci | class: ETHERNET
-  | + policy | label_prefix: audio
-  | | + pci | class: AUDIO
-  | | + pci | class: HDAUDIO
-  | + policy | label_prefix: fb | info: yes
-  | | + pci | class: VGA
-  | + policy | label_prefix: usb | info: yes
-  |   + pci | class: USB
+    + policy | label_prefix: ps2              | + device ps2
+    + policy | label_prefix: ahci             | + pci | class: AHCI
+    + policy | label_prefix: nvme | info: yes | + pci | class: NVME
+    + policy | label_prefix: fb   | info: yes | + pci | class: VGA
+    + policy | label_prefix: usb  | info: yes | + pci | class: USB
+    + policy | label_prefix: audio
+      + pci | class: AUDIO
+      + pci | class: HDAUDIO }
+
+append_if $use_nic config {
+  | + policy | label_prefix: nic  | info: yes | + pci | class: ETHERNET }
+
+append_if $use_nic_direct config {
+  | + policy | label_prefix: seoul | info: yes | + pci | class: ETHERNET }
+
+append config {
   + route
     + service ROM | label: devices
     | + child platform_reports
