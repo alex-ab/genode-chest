@@ -88,29 +88,34 @@ void Vdi::File::_execute_alloc_block()
 
 		bool const allocated = _md->alloc_block(bid, [&](uint64_t const offset) {
 			do {
-				Genode::size_t written = 0;
+//				Genode::size_t written = 0;
 
-				_vdi_file->seek(offset + _state_fs.written);
+//				_vdi_file->seek(offset + _state_fs.written);
 
 				auto const range = Genode::Const_byte_range_ptr(_zero_addr,
 				                                                Genode::min(_md->block_size - _state_fs.written, _zero_size));
-				Write_result res = _vdi_file->fs().write(_vdi_file, range,
-				                                         written);
-				if (res == Genode::Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
-					if (written != 0)
-						Genode::warning("WOULD_ERR_WOULD_BLOCK but written is not 0 -> ", written);
+//				Write_result res = _vdi_file->fs().write(_vdi_file, range,
+//				                                         written);
+				Genode::Vfs::At const at { offset +_state_fs.written };
+
+				auto result = _vdi_file->write(at, range);
+
+				if (result == Genode::Vfs::File_channel::Write_error::RETRY) {
 					/* will be resumed later, keep state */
 					return false;
 				}
 
-				if (res != Genode::Vfs::File_io_service::WRITE_OK) {
+				if (!result.convert<bool>([&] (auto written) {
+					_state_fs.written += written;
+					return true;
+				}, [&] (auto) {
 					_state_fs.state = Write::ALLOC_BLOCK_ERROR;
-					Genode::error(__func__, " state: ", written, " ",
-					              _zero_size, " ", (int)res);
+					Genode::error(" _execute_alloc_block, state: ",
+					              _state_fs.written, " ", _zero_size);
 					return false;
-				}
+				}))
+					return false;
 
-				_state_fs.written += written;
 			} while (_state_fs.written < _md->block_size);
 
 			return true;
@@ -143,26 +148,21 @@ void Vdi::File::_execute_alloc_block()
 		_state_fs.state = Write::ALLOC_BLOCK_SYNC;
 	}
 
-	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC) {
-		if (!_vdi_file->fs().queue_sync(_vdi_file))
-			return;
-		_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
+	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC ||
+	    _state_fs.state == Write::ALLOC_BLOCK_SYNC_QUEUED) {
 
-		/* trigger queued sync to be processed */
-		_vfs_env.io().commit();
-	}
-
-	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC_QUEUED) {
-		Sync_result res = _complete_sync_fs();
+		Sync_result res = _vdi_file->sync();
 		switch (res) {
-		case Genode::Vfs::File_io_service::SYNC_QUEUED:
-			_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
-			return;
-		case Genode::Vfs::File_io_service::SYNC_ERR_INVALID:
-			_state_fs.state = Write::ERROR;
-			return;
-		case Genode::Vfs::File_io_service::SYNC_OK:
+		case Genode::Vfs::Sync_result::OK:
 			_state_fs.state = Write::IDLE;
+			break;
+		case Genode::Vfs::Sync_result::RETRY:
+			_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
+
+			/* trigger queued sync to be processed */
+			_vfs_env.io().commit();
+
+			return;
 		}
 	}
 }
