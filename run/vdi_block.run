@@ -59,24 +59,19 @@ config | verbose: yes
     + any-child
 
 + start timer | ram: 2M | caps: 200
-  + provides
-    + service Timer
+  + provides | + service Timer
 
 + start lx_fs | ram: 8M | caps: 200 | ld: no
-  + provides
-  | + service File_system
+  + provides | + service File_system
   + config
-    + policy | label_prefix: vdi_block | root: / | writeable: yes
+    + policy | label_prefix: vdi_block -> | root: / | writeable: yes
 
 + start vdi_block | ram: 8M | caps: 200
-  + provides
-  | + service Block
+  + provides | + service Block
   + config | file: /block.vdi | writeable: yes
-  | + vfs
-  |   + fs | buffer_size: 1M
+    + vfs | + fs
   + route
-    + service File_system
-    | + child lx_fs
+    x service File_system | + child lx_fs
     + any-service
       + parent
       + any-child

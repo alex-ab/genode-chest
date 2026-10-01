@@ -221,8 +221,9 @@ class Vdi::File: Genode::Vfs::Read_ready_response_handler, Genode::Vfs::Env::Use
 		char                           * _zero_addr   { _zero_buffer.local_addr<char>() };
 
 		::Block::Session::Info           _block_ops { };
-		Genode::Vfs::Root                _vfs_env      { _env, _heap, *this };
-		Genode::Vfs::File_channel      * _vdi_file { };
+
+		Genode::Vfs::Root                _vfs_env   { _env, _heap, *this };
+		Genode::Vfs::File_channel      * _vdi_file  { };
 
 		Genode::Constructible<Vdi::Meta_data> _md { };
 
@@ -611,6 +612,9 @@ class Vdi::File: Genode::Vfs::Read_ready_response_handler, Genode::Vfs::Env::Use
 				Genode::error("mandatory file attribute missing");
 				throw Genode::Exception();
 			}
+
+			config.with_optional_sub_node("vfs",
+				[&] (auto const &cfg) { _vfs_env.apply_config(cfg); });
 
 			Genode::Vfs::File_system::Open_attr attr { .writeable = writeable,
 			                                           .create    = false };
