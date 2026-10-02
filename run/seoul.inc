@@ -38,6 +38,7 @@ import_from_depot [depot_user]/src/[base_src] \
                   [depot_user]/raw/drivers_interactive-pc \
                   [depot_user]/pkg/themed_wm \
                   [depot_user]/src/report_rom \
+                  [depot_user]/src/pc_platform \
                   [depot_user]/src/platform \
                   [depot_user]/src/acpi \
                   [depot_user]/src/pci_decode \
@@ -53,6 +54,10 @@ if {![info exists vdi_name]}       { set vdi_name       "guest.vdi" }
 if {![info exists image]}          { set image          "seoul-disc.raw" }
 if {![info exists use_model_xhci]} { set use_model_xhci 0 }
 if {![info exists use_nic]}        { set use_nic        1 }
+
+if {![info exists use_nic_direct]}    { set use_nic_direct  0 }
+if {![info exists use_nvme_direct]}   { set use_nvme_direct 0 }
+if {![info exists image_nvme_direct]} { set image_nvme_direct "seoul-disc-nvme-direct.raw" }
 
 if {$use_fs_rump   } { import_from_depot [depot_user]/src/vfs_rump }
 if {$use_part_block} { import_from_depot [depot_user]/src/part_block }
@@ -108,6 +113,21 @@ if {[have_include power_on/qemu] && $use_block_sata} {
 
 }
 
+if {[have_include power_on/qemu] && $use_nvme_direct} {
+	if {![file exists bin/$image_nvme_direct]} {
+		set dd     [installed_command dd]
+
+		catch { exec $dd if=/dev/zero of=bin/$image_nvme_direct bs=1M count=1000 }
+	}
+
+	append qemu_args " -device pcie-root-port,id=root_port2 "
+	append qemu_args " -drive id=nvme1,file=bin/$image_nvme_direct,format=raw,if=none "
+	append qemu_args " -device nvme,drive=nvme1,serial=fnord,id=nvme0n2,bus=root_port2 "
+	append qemu_args " -boot d"
+	# due to nvme serial:fnord it is diasabled by tool/run/poweron/qemu
+	append qemu_args " -serial mon:stdio "
+}
+
 proc config_ahci { } {
 
 	global use_drv_ahci
@@ -122,7 +142,6 @@ proc config_ahci { } {
 	}
 
 	append config_ahci {
-config
 + start ahci | priority: -2 | ram: 10M
   + provides
   | + service Block
@@ -280,6 +299,7 @@ set build_components {
 	driver/rtc
 	app/seoul
 	server/record_play_mixer
+	driver/platform
 }
 
 lappend_if $use_block_vdi       build_components server/vdi_block
@@ -335,8 +355,13 @@ append vm_cfg {
   + vbios_keyboard | host_keyboard: 0x10000
   + vbios_mem
   + vbios_time
-  + vbios_reset
-}
+  + vbios_reset }
+
+append_if $use_nic_direct vm_cfg {
+  + dpci | class: 2 | subclass: 0 | map_mode: 1 | . NETWORK }
+
+append_if $use_nvme_direct vm_cfg {
+  + dpci | class: 1 | subclass: 8 | map_mode: 1 | . NVME }
 
 if {$use_multiboot} {
 	if {[info exists use_multiboot_modaddr]} {
@@ -456,9 +481,12 @@ set config {config | verbose: no | prio_levels: 4
   | + service Report
   | + service ROM
   + config
-    + policy | label: pci_decode -> system | report: acpi -> acpi
-    + policy | label: platform -> devices  | report: pci_decode -> devices
-    + policy | label: usb_hid -> report    | report: usb -> devices
+    + policy | label: seoul -> acpi            | report: acpi -> acpi
+    + policy | label: pci_decode -> system     | report: acpi -> acpi
+    + policy | label: usb_hid -> report        | report: usb -> devices
+    + policy | label: platform -> devices      | report: pci_decode -> devices
+    + policy | label: platform -> system       | report: dummy
+    + policy | label: platform -> sleep_states | report: dummy
 
 + start acpi | caps: 350 | ram: 4M | priority: -1
   + route
@@ -476,28 +504,36 @@ set config {config | verbose: no | prio_levels: 4
       + any-child
 
 + start platform | caps: 400 | ram: 6M | managing_system: yes | priority: -2
+  + binary platform
   + provides
   | + service Platform
   | + service Dma
   + config
-  | + policy | label_prefix: ps2
-  | | + device ps2
-  | + policy | label_prefix: ahci
-  | | + pci | class: AHCI
-  | + policy | label_prefix: nvme | info: yes
-  | | + pci | class: NVME
-  | + policy | label_prefix: nic | info: yes
-  | | + pci | class: ETHERNET
-  | + policy | label_prefix: audio
-  | | + pci | class: AUDIO
-  | | + pci | class: HDAUDIO
-  | + policy | label_prefix: fb | info: yes
-  | | + pci | class: VGA
-  | + policy | label_prefix: usb | info: yes
-  |   + pci | class: USB
+    + policy | label_prefix: ps2              | + device ps2
+    + policy | label_prefix: ahci             | + pci | class: AHCI
+    + policy | label_prefix: fb   | info: yes | + pci | class: VGA
+    + policy | label_prefix: usb  | info: yes | + pci | class: USB
+    + policy | label_prefix: audio
+      + pci | class: AUDIO
+      + pci | class: HDAUDIO }
+
+append_if $use_nic config {
+    + policy | label_prefix: nic  | info: yes | + pci | class: ETHERNET }
+
+append_if $use_nic_direct config {
+    + policy | label_prefix: seoul | info: yes | + pci | class: ETHERNET }
+
+append_if $use_drv_nvme config {
+    + policy | label_prefix: nvme | info: yes | + pci | class: NVME }
+
+append_if $use_nvme_direct config {
+    + policy | label_prefix: seoul | info: yes | + pci | class: NVME }
+
+append config {
   + route
-    + service ROM | label: devices
-    | + child platform_reports
+    + service ROM | label: devices      | + child platform_reports
+    + service ROM | label: system       | + child platform_reports
+    + service ROM | label: sleep_states | + child platform_reports
     + any-service
       + parent
       + any-child
@@ -530,17 +566,13 @@ set config {config | verbose: no | prio_levels: 4
 append_if $use_usb config {
 + start usb | priority: -2 | caps: 200 | ram: 12M
   + binary pc_usb_host
-  + provides
-  | + service Usb
+  + provides | + service Usb
   + config
   | + report | devices: yes
-  | + policy | label_prefix: usb_hid
-  | | + device | class: 0x3
-  | + policy | label_prefix: seoul
-  |   + device
+  | + policy | label_prefix: usb_hid | + device | class: 0x3
+  | + policy | label_prefix: seoul   | + device
   + route
-    + service Report
-    | + child report_rom
+    + service Report | + child report_rom
     + any-service
       + parent
       + any-child
@@ -737,6 +769,7 @@ append config {
   + binary seoul
   + route
     + service Timer | + child timer
+    + service ROM | label: acpi | + child platform_reports
     + service ROM | label: config | + parent | label: vm_seoul.cfg }
 append_if $use_genode_iso config {
     + service ROM | unscoped_label: seoul     | + parent
@@ -765,14 +798,14 @@ append config {
   | + service Gui
   | + service Capture
   | + service Event
-  + config
+  + config | focus: rom
   | + capture
   | + event
   | + report | focus: yes | hover: yes
-  | + domain pointer | layer: 1 | content: client | label: no | origin:  pointer
-  | + domain panel   | layer: 2 | content: client | label: no | focus:   none
-  | + domain default | layer: 3 | content: client | label: no | focus:   click | hover:   always
-  | + policy         | label_prefix: pointer | domain:       pointer
+  | + domain pointer | layer: 1 | content: client | label: no | origin: pointer
+  | + domain panel   | layer: 2 | content: client | label: no | focus:  none
+  | + domain default | layer: 3 | content: client | label: no | focus:  click | hover:   always
+  | + policy         | label_prefix: pointer | domain: pointer
   | + default-policy | domain: default
   + route
     + service Timer  | + child timer
@@ -782,41 +815,34 @@ append config {
       + any-child
 
 + start pointer | priority: -2 | ram: 2M
-  + provides
-  | + service Report
+  + provides | + service Report
   + config | shapes: yes | verbose: no
   + route
-    + service Gui
-    | + child nitpicker
-    + service ROM | label: hover
-    | + child report_rom
-    + service ROM | label: xray
-    | + child report_rom
+    + service Gui                | + child nitpicker
+    + service ROM | label: hover | + child report_rom
+    + service ROM | label: xray  | + child report_rom
     + any-service
       + parent
 
 + start report_rom | priority: -2 | ram: 2M
   + provides
-  | + service Report
-  | + service ROM
+    + service Report
+    + service ROM
   + config
-    + policy | label: pointer -> hover | report: nitpicker -> hover
-    + policy | label: pointer -> xray | report: nitpicker -> xray
+    + policy | label: pointer -> hover  | report: nitpicker -> hover
+    + policy | label: pointer -> xray   | report: nitpicker -> xray
     + policy | label: usb_hid -> report | report: usb -> devices
 
 + start wm | caps: 1200 | priority: -2 | ram: 34M
   + binary init
   + provides
-  | + service Gui
-  | + service Report
-  | + service ROM
-  + route
-    + service ROM | label: config
-    | + parent | label: wm.config
-    + service Report | label_last: shape
-    | + child pointer
     + service Gui
-    | + child nitpicker
+    + service Report
+    + service ROM
+  + route
+    + service ROM    | label: config     | + parent | label: wm.config
+    + service Report | label_last: shape | + child pointer
+    + service Gui                        | + child nitpicker
     + any-service
       + parent
       + any-child
@@ -861,6 +887,10 @@ proc check_qemu_version {qemu_version qemu_min qemu_max} {
 #
 # Boot modules
 #
+
+set fd [open [run_dir]/genode/focus w]
+puts $fd "focus | label: wm -> focus | domain: default\n-"
+close $fd
 
 set boot_modules { vm_seoul.cfg }
 lappend_if $use_genode_iso boot_modules genode.iso
@@ -908,11 +938,12 @@ if {$use_usb} {
 	append qemu_args " -device usb-mouse,bus=xhci.0"
 }
 
-append qemu_args " -accel kvm -cpu host"
 append qemu_args " -device VGA,vgamem_mb=4"
+append qemu_args " -device intel-iommu,intremap=on"
+append qemu_args " -cpu host -M q35,accel=kvm,kernel-irqchip=split"
 
 if { [have_include power_on/qemu] } {
-	if {[regexp -- {-accel kvm -cpu host} $qemu_args dummy]} {
+	if {[regexp -- {accel.kvm} $qemu_args dummy]} {
 	} else {
 		# Qemu TCG SVM is broken after $qemu_good_old and until before $qemu_good_new
 

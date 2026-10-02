@@ -2,9 +2,9 @@ LICENSE   := GPLv2
 VERSION   := git
 DOWNLOADS := seoul.git
 
-# branch genode_26_06
+# branch pci_genode_26_04 - WiP
 URL(seoul) := https://github.com/alex-ab/seoul.git
-REV(seoul) := 94067bab2af213e3870258390e31b60f86bc6b4c
+REV(seoul) := 6c4f26650f4c6b865706776216314baac0eaf828
 DIR(seoul) := src/app/seoul
 
 #
