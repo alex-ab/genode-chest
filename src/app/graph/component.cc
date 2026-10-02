@@ -618,12 +618,12 @@ void Graph::_handle_mode()
 	if (mode.area.w * mode.area.h > _max_width * _max_height) {
 		unsigned diff = (mode.area.w * mode.area.h -
 		                 _max_width * _max_height) * sizeof(Pixel_rgb888);
-		if (diff > _env.pd().avail_ram().value + 0x2000) {
+		if (diff > _env.pd().stats().ram.avail().value + 0x2000) {
 			Genode::warning("no memory left for mode change - ",
 			                _width, "x", _height, " -> ",
 			                mode.area.w, "x", mode.area.h, " - ",
-			                _env.pd().avail_ram(), " (available) < ",
-			                diff, " (required)");
+			                _env.pd().stats().ram.avail().value,
+			                " (available) < ", diff, " (required)");
 			return;
 		}
 		_max_width  = _width;

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (C) 2020-2023 Genode Labs GmbH
+ * Copyright (C) 2020-2026 Genode Labs GmbH
  *
  * This file is part of the Genode OS framework, which is distributed
  * under the terms of the GNU General Public License version 2.
@@ -20,61 +20,63 @@ Vdi::File::_read_split(::Block::Operation const operation,
                        uint64_t const file_offset,
                        uint32_t const max_offset_read)
 {
-	if (_state_fs_read.state == Read::NONE) {
-		_state_fs_read.bytes_read = 0;
-		_state_fs_read.offset     = file_offset;
+	auto &state = _state_fs_read;
+
+	if (state.state == Read::NONE) {
+		state.bytes_read = 0;
+		state.offset     = file_offset;
 		if (max_offset_read < dst_size) {
-			_state_fs_read.remaining = max_offset_read;
-			_state_fs_read.operation = operation;
+			state.remaining = max_offset_read;
+			state.operation = operation;
 		} else {
-			_state_fs_read.remaining = dst_size;
-			_state_fs_read.operation.type = ::Block::Operation::Type::INVALID;
+			state.remaining = dst_size;
+			state.operation.type = ::Block::Operation::Type::INVALID;
 		}
 
-		_state_fs_read.state = Read::READ;
+		state.state = Read::READ;
 	}
 
-	auto const read_before = _state_fs_read.bytes_read;
+	auto const read_before = state.bytes_read;
 
 	do {
-		_read(reinterpret_cast<char *>(dst), _state_fs_read.remaining);
-	} while (_state_fs_read.state == Read::LOOP_READ);
+		_read(reinterpret_cast<char *>(dst), state.remaining);
+	} while (state.state == Read::LOOP_READ);
 
-	if (_state_fs_read.state != Read::NONE)
+	if (state.state != Read::NONE)
 		return Response::RETRY;
 
 	/* sanity check, READ::NONE should be same as remaining == 0 - XXX remove me */
-	if (_state_fs_read.remaining) {
+	if (state.remaining) {
 		Genode::error("invalid read state - unexpected remaining state");
 		return Response::REJECTED;
 	}
 
-	if (_state_fs_read.operation.type == ::Block::Operation::Type::INVALID) {
-		_state_fs_read.dst_offset = 0;
+	if (state.operation.type == ::Block::Operation::Type::INVALID) {
+		state.dst_offset = 0;
 		return Response::ACCEPTED;
 	}
 
-	if (read_before > _state_fs_read.bytes_read) {
+	if (read_before > state.bytes_read) {
 		Genode::error("invalid read state");
 		return Response::REJECTED;
 	}
 
-	auto const blocks = _state_fs_read.bytes_read / _block_ops.block_size;
-	if (_state_fs_read.bytes_read % _block_ops.block_size) {
+	auto const blocks = state.bytes_read / _block_ops.block_size;
+	if (state.bytes_read % _block_ops.block_size) {
 		Genode::error("invalid read state - bytes read");
 		return Response::REJECTED;
 	}
 
-	if (_state_fs_read.operation.count < blocks) {
+	if (state.operation.count < blocks) {
 		Genode::error("count of blocks is too small ",
-		              _state_fs_read.operation.count, " vs ", blocks,
+		              state.operation.count, " vs ", blocks,
 		              " read_before=", read_before);
 		return Response::REJECTED;
 	}
 
-	_state_fs_read.operation.block_number += blocks;
-	_state_fs_read.operation.count        -= ::Block::block_count_t(blocks); /* size checked above */
-	_state_fs_read.dst_offset             += blocks * _block_ops.block_size;
+	state.operation.block_number += blocks;
+	state.operation.count        -= ::Block::block_count_t(blocks); /* size checked above */
+	state.dst_offset             += blocks * _block_ops.block_size;
 
 	return Response::ACCEPTED;
 }
@@ -88,29 +90,29 @@ void Vdi::File::_execute_alloc_block()
 
 		bool const allocated = _md->alloc_block(bid, [&](uint64_t const offset) {
 			do {
-				Genode::size_t written = 0;
+				auto const size  = Genode::min(_md->block_size - _state_fs.written, _zero_size);
+				auto const range = Genode::Const_byte_range_ptr(_zero_addr, size);
 
-				_vdi_file->seek(offset + _state_fs.written);
+				Genode::Vfs::At const at { offset +_state_fs.written };
 
-				auto const range = Genode::Const_byte_range_ptr(_zero_addr,
-				                                                Genode::min(_md->block_size - _state_fs.written, _zero_size));
-				Write_result res = _vdi_file->fs().write(_vdi_file, range,
-				                                         written);
-				if (res == Genode::Vfs::File_io_service::WRITE_ERR_WOULD_BLOCK) {
-					if (written != 0)
-						Genode::warning("WOULD_ERR_WOULD_BLOCK but written is not 0 -> ", written);
+				auto result = _vdi_file->write(at, range);
+
+				if (result == Genode::Vfs::File_channel::Write_error::RETRY) {
 					/* will be resumed later, keep state */
 					return false;
 				}
 
-				if (res != Genode::Vfs::File_io_service::WRITE_OK) {
+				if (!result.convert<bool>([&] (auto written) {
+					_state_fs.written += written;
+					return true;
+				}, [&] (auto) {
 					_state_fs.state = Write::ALLOC_BLOCK_ERROR;
-					Genode::error(__func__, " state: ", written, " ",
-					              _zero_size, " ", (int)res);
+					Genode::error(" _execute_alloc_block, state: ",
+					              _state_fs.written, " ", _zero_size);
 					return false;
-				}
+				}))
+					return false;
 
-				_state_fs.written += written;
 			} while (_state_fs.written < _md->block_size);
 
 			return true;
@@ -143,26 +145,21 @@ void Vdi::File::_execute_alloc_block()
 		_state_fs.state = Write::ALLOC_BLOCK_SYNC;
 	}
 
-	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC) {
-		if (!_vdi_file->fs().queue_sync(_vdi_file))
-			return;
-		_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
+	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC ||
+	    _state_fs.state == Write::ALLOC_BLOCK_SYNC_QUEUED) {
 
-		/* trigger queued sync to be processed */
-		_vfs_env.io().commit();
-	}
-
-	if (_state_fs.state == Write::ALLOC_BLOCK_SYNC_QUEUED) {
-		Sync_result res = _complete_sync_fs();
+		Sync_result res = _vdi_file->sync();
 		switch (res) {
-		case Genode::Vfs::File_io_service::SYNC_QUEUED:
-			_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
-			return;
-		case Genode::Vfs::File_io_service::SYNC_ERR_INVALID:
-			_state_fs.state = Write::ERROR;
-			return;
-		case Genode::Vfs::File_io_service::SYNC_OK:
+		case Genode::Vfs::Sync_result::OK:
 			_state_fs.state = Write::IDLE;
+			break;
+		case Genode::Vfs::Sync_result::RETRY:
+			_state_fs.state = Write::ALLOC_BLOCK_SYNC_QUEUED;
+
+			/* trigger queued sync to be processed */
+			_vfs_env.io().commit();
+
+			return;
 		}
 	}
 }
@@ -194,7 +191,6 @@ bool Vdi::File::_cross_vdi_block(::Block::Operation const operation) const
 		Genode::log(op_string," ", operation.block_number, "+", operation.count,
 		            " crossing 1MB range ", Genode::Hex(range_start), "-", Genode::Hex(range_end),
 		            (_state_fs_read.state == Read::NONE) ? " none" :
-		            (_state_fs_read.state == Read::CHECK) ? " check" :
 		            (_state_fs_read.state == Read::READ) ? " read" : " unknown");
 	}
 	if (cross_vdi_block && operation.type == ::Block::Operation::Type::WRITE) {
