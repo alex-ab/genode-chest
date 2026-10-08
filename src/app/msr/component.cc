@@ -140,6 +140,9 @@ struct Msr::Msr {
 
 	Signal_handler<Msr> signal_config { env.ep(), *this, &Msr::handle_config };
 
+	String<16> kernel { };
+	bool       kernel_supports_mwait { };
+
 	bool _cpu_name(char const * name)
 	{
 		uint32_t cpuid = 0, edx = 0, ebx = 0, ecx = 0;
@@ -158,7 +161,6 @@ struct Msr::Msr {
 		Attached_rom_dataspace info { env, "platform_info"};
 
 		uint64_t   freq_khz { };
-		String<16> kernel   { };
 
 		info.node().with_optional_sub_node("hardware", [&] (auto const &n) {
 			n.with_optional_sub_node("tsc", [&] (auto const &node) {
@@ -267,7 +269,8 @@ struct Msr::Msr {
 					cpu.report(g, tcc);
 
 					if (cpu.power_intel.constructed())
-						cpu.power_intel->report(g, cpu.tsc_freq_khz);
+						cpu.power_intel->report(g, cpu.tsc_freq_khz,
+						                        kernel_supports_mwait);
 					if (cpu.power_amd.constructed())
 						cpu.power_amd->report(g);
 				});
@@ -291,6 +294,16 @@ struct Msr::Msr {
 				timer.trigger_periodic(timer_rate.value);
 			}
 		}
+
+		config.node().for_each_sub_node("kernel", [&](Node const &node) {
+			String<16> µkernel { };
+
+			µkernel    = node.attribute_value("label", µkernel);
+			auto mwait = node.attribute_value("mwait", false);
+
+			if (mwait && kernel == µkernel)
+				kernel_supports_mwait = mwait;
+		});
 
 		config.node().for_each_sub_node("cpu", [&](Node const &node) {
 

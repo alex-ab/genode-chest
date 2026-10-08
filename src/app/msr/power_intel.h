@@ -1124,7 +1124,8 @@ struct Msr::Power_intel
 		});
 	}
 
-	void report(Genode::Generator &g, uint64_t const tsc_freq_khz) const
+	void report(Genode::Generator &g, uint64_t const tsc_freq_khz,
+	            bool const kernel_supports_mwait) const
 	{
 		using Genode::String;
 
@@ -1257,6 +1258,9 @@ struct Msr::Power_intel
 		}
 
 		g.node("mwait_support", [&] () {
+			if (kernel_supports_mwait)
+				g.attribute("by_kernel", kernel_supports_mwait);
+
 			cpuid.intel_mwait_ext([&](auto const &value) {
 				auto const c_sub_states = value;
 

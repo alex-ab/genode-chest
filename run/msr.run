@@ -1,6 +1,8 @@
-build "kernel core init timer app/msr server/report_rom server/dynamic_rom"
-
 create_boot_directory
+
+import_from_depot [depot_user]/src/[base_src]
+
+build "init app/msr server/report_rom server/dynamic_rom"
 
 install_config {
 config | prio_levels: 2
@@ -44,6 +46,7 @@ config | prio_levels: 2
   |   + sleep | milliseconds: 10000
   |   + inline | description: set pstate AMD - middle performance
   |   | + config
+  |   |   + kernel | label: nova | mwait: yes
   |   |   + cpu | x: 0 | y: 0 | verbose: yes
   |   |   | + pstate | rw_command: 1
   |   |   + cpu | x: 0 | y: 1
@@ -55,6 +58,7 @@ config | prio_levels: 2
   |   + sleep | milliseconds: 10000
   |   + inline | description: set pstate AMD - low performance
   |   | + config | verbose: yes
+  |   |   + kernel | label: nova | mwait: yes
   |   |   + cpu | x: 0 | y: 0
   |   |   | + pstate | rw_command: 2
   |   |   + cpu | x: 0 | y: 1
@@ -66,6 +70,7 @@ config | prio_levels: 2
   |   + sleep | milliseconds: 10000
   |   + inline | description: set pstate AMD - high performance
   |   | + config | verbose: yes
+  |   |   + kernel | label: nova | mwait: yes
   |   |   + cpu | x: 0 | y: 0
   |   |   | + pstate | rw_command: 0
   |   |   + cpu | x: 0 | y: 1

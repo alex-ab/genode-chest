@@ -149,7 +149,8 @@ class Power
 		bool _cpu_residency_detail(Generator &, Node const &,
 		                           char const *, unsigned &);
 		void _cpu_mwait(Generator &, Node const &, unsigned &);
-		void _cpu_mwait_detail(Generator &, String<4> const &, uint8_t, uint8_t);
+		void _cpu_mwait_detail(Generator &, String<4> const &, uint8_t,
+		                       uint8_t, bool);
 		void _cpu_temp(Generator &, Node const &);
 		void _cpu_freq(Generator &, Node const &);
 		void _cpu_setting(Generator &, Node const &);
@@ -201,6 +202,8 @@ class Power
 			_timer_period.set(unsigned(Milliseconds(4000).value));
 
 			_info_update();
+
+			_generate_msr_config(true, true); /* close to empty first config */
 		}
 };
 
@@ -722,11 +725,12 @@ void Power::_generate_msr_cpu(Generator &g, unsigned affinity_x, unsigned affini
 
 void Power::_generate_msr_config(bool all_cpus, bool const apply_period)
 {
-	if (!_setting_cpu.valid())
-		return;
-
 	_msr_config.generate([&] (Generator &g) {
 
+		g.node("kernel", [&] {
+			g.attribute("label", "nova");
+			g.attribute("mwait", true);
+		});
 /*
 		g.attribute("verbose", false);
 */
@@ -734,6 +738,9 @@ void Power::_generate_msr_config(bool all_cpus, bool const apply_period)
 
 		/* if soley period changed, don't rewrite HWP parameters */
 		if (apply_period)
+			return;
+
+		if (!_setting_cpu.valid())
 			return;
 
 		if (all_cpus) {
@@ -1314,51 +1321,63 @@ void Power::_cpu_residency(Generator &g, Node const &status, unsigned &)
 
 
 void Power::_cpu_mwait_detail(Generator &g, String<4> const &text,
-                              uint8_t const c_state, uint8_t const sub_state)
+                              uint8_t const c_state, uint8_t const sub_state,
+                              bool const kernel_support)
 {
-		g.node("label", [&] {
-			g.attribute("font", "monospace/regular");
-			g.attribute("name", "mwait");
-			g.attribute("align", "left");
-			g.node("text", [&] { g.append_quoted(String<16>(" MWAIT hint ")); });
+	g.node("label", [&] {
+		g.attribute("font", "monospace/regular");
+		g.attribute("name", "mwait");
+		g.attribute("align", "left");
+		g.node("text", [&] {
+			if (kernel_support)
+				g.append_quoted(String<16>(" MWAIT hint: "));
+			else
+				g.append_quoted(String<32>(" no MWAIT support by kernel"));
+		});
+	});
+
+	if (!kernel_support)
+		return;
+
+	g.node("button", [&] () {
+		g.attribute("name", "mwait_hlt");
+		g.node("label", [&] () {
+			g.node("text", [&] { g.append_quoted("hlt"); });
 		});
 
+		if (_hover_mwait && _mwait_button_hovered == "mwait_hlt")
+			g.attribute("hovered", true);
+		if (_mwait_button_selected == "mwait_hlt")
+			g.attribute("selected", true);
+	});
+
+	for (uint8_t i = 0; i < sub_state; i++) {
 		g.node("button", [&] () {
-			g.attribute("name", "mwait_hlt");
+			auto name = sub_state > 1 ? String<16>("mwait_", text, "_", i)
+			                          : String<16>("mwait_", text);
+			g.attribute("name", name);
 			g.node("label", [&] () {
-				g.node("text", [&] { g.append_quoted("hlt"); });
-			});
-
-			if (_hover_mwait && _mwait_button_hovered == "mwait_hlt")
-				g.attribute("hovered", true);
-			if (_mwait_button_selected == "mwait_hlt")
-				g.attribute("selected", true);
-		});
-
-		for (uint8_t i = 0; i < sub_state; i++) {
-			g.node("button", [&] () {
-				auto name = sub_state > 1 ? String<16>("mwait_", text, "_", i)
-				                          : String<16>("mwait_", text);
-				g.attribute("name", name);
-				g.node("label", [&] () {
-					g.node("text", [&] { g.append_quoted(					              sub_state > 1 ? String<16>(text, "_", i)
+				g.node("text", [&] {
+					g.append_quoted(sub_state > 1 ? String<16>(text, "_", i)
 					                            : String<16>(text)); });
-				});
-
-				if (_hover_mwait && _mwait_button_hovered == name)
-					g.attribute("hovered", true);
-				if (_mwait_button_selected == name) {
-					g.attribute("selected", true);
-					_mwait_c_state     = c_state;
-					_mwait_c_sub_state = i;
-				}
 			});
-		}
+
+			if (_hover_mwait && _mwait_button_hovered == name)
+				g.attribute("hovered", true);
+			if (_mwait_button_selected == name) {
+				g.attribute("selected", true);
+				_mwait_c_state     = c_state;
+				_mwait_c_sub_state = i;
+			}
+		});
+	}
 }
 
 
 void Power::_cpu_mwait(Generator &g, Node const &status, unsigned &)
 {
+	bool kernel_support = status.attribute_value("by_kernel", false);
+
 	for (uint8_t c = 0; c < 8; c++) {
 		String<4> mwait_c_state("c", c);
 		status.with_optional_sub_node(mwait_c_state.string(), [&](auto const &node) {
@@ -1366,7 +1385,7 @@ void Power::_cpu_mwait(Generator &g, Node const &status, unsigned &)
 			if (!sub_count)
 				return;
 
-			_cpu_mwait_detail(g, mwait_c_state, c, sub_count);
+			_cpu_mwait_detail(g, mwait_c_state, c, sub_count, kernel_support);
 		});
 	}
 }

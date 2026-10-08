@@ -20,8 +20,9 @@ if {[have_include "power_on/qemu"]} {
 
 set use_msr_native ![have_include "power_on/qemu"]
 
-set build_components { app/msr_gui app/menu_view_ab core kernel lib/ld }
+set build_components { app/msr_gui app/menu_view_ab core lib/ld }
 
+append_if [expr ![have_spec hw]] build_components { kernel }
 append_if [expr $use_msr_native] build_components { app/msr }
 
 build $build_components
@@ -104,18 +105,16 @@ config | prio_levels: 4
   | + service Report
   | + service ROM
   + config | verbose: yes
-    + policy | label:  menu_view -> dialog | report: msr_gui -> dialog
-    + policy | label:  msr_gui -> hover    | report: menu_view -> hover
-    + policy | label:  msr_gui -> info     | report: msr -> info
-    + policy | label:  msr -> config       | report: msr_gui -> config
+    + policy | label: menu_view -> dialog | report: msr_gui -> dialog
+    + policy | label: msr_gui -> hover    | report: menu_view -> hover
+    + policy | label: msr_gui -> info     | report: msr -> info
+    + policy | label: msr -> config       | report: msr_gui -> config
 
 + start font | ram: 8M | caps: 300 | priority: -2
   + binary vfs
   + route
-  | + service ROM | label: config
-  | | + parent | label: font.config
-  | + any-service
-  |   + parent
+    + service ROM | label: config | + parent | label: font.config
+    + any-service                 | + parent
   + provides
     + service File_system
 

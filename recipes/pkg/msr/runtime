@@ -7,6 +7,7 @@ runtime | ram: 2M | caps: 150 | binary: msr
   + rom | label: ld.lib.so
   + rom | label: msr
 + config
+  + kernel | label: nova | mwait: yes
   x cpu | x: 0 | y: 0 | verbose: false
   x + hwp_cap          | high: 36 | guar: 27 | effi: 9    | low:  1
   x + hwp_request      | min: 1   | max: 255 | desired: 0 | epp: 128
