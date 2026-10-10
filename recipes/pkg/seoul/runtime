@@ -46,21 +46,18 @@ runtime | ram: 2450M | caps: 1350 | binary: init
 
   + start file_terminal | ram: 3M | caps: 100
     + binary file_terminal
-    + provides
-      + service Terminal
+    + provides | + service Terminal
     + config
       + default-policy | filename: log
       + vfs
-        + dir dev
-          + log
+        + dir dev | + log
         + fs
         + import | overwrite: no
           + rom vm_seoul_audio.cfg | binary: yes
       + libc | stdout: /dev/log
     + route
       + service File_system | + parent | identity: recall
-      + any-service
-        + parent
+      + any-service         | + parent
 
   + start fs_rom | ram: 1M | caps: 100
     + provides | + service ROM
