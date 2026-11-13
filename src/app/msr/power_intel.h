@@ -764,7 +764,8 @@ struct Msr::Power_intel
 		read_mwait_pkg     (system);
 	}
 
-	void update(System_control &system, Genode::Node const &config, Genode::Affinity::Location const &cpu)
+	void update(System_control &system, Genode::Node const &config,
+	            Genode::Affinity::Location const &cpu, bool mwait_support)
 	{
 		bool const verbose = config.attribute_value("verbose", false);
 
@@ -873,6 +874,9 @@ struct Msr::Power_intel
 					        Hex(hwp_req), " -> ", Hex(raw_hwp));
 			}
 		});
+
+		if (!mwait_support)
+			return;
 
 		config.with_optional_sub_node("mwait", [&] (auto const &node) {
 

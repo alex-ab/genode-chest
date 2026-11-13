@@ -55,19 +55,20 @@ struct Core_thread : Thread, Msr::Monitoring
 	Capability<Pd_session::System_control> const control_cap;
 	Msr::System_control                          system { control_cap };
 
-	bool intel;
-	bool amd;
-	bool main { };
+	bool  intel;
+	bool  amd;
+	bool  main { };
+	bool &mwait;
 
 	Node const * config_node { };
 
 	Core_thread(Env &env, Location const &location, uint64_t tsc_freq_khz,
-	            bool intel, bool amd)
+	            bool intel, bool amd, bool &mwait)
 	:
 		Thread(env, Name("msr", location), { 4 * 4096 }, location),
 		location(location), tsc_freq_khz(tsc_freq_khz),
 		control_cap(env.pd().system_control_cap(location)),
-		intel(intel), amd(amd)
+		intel(intel), amd(amd), mwait(mwait)
 	{ }
 
 	void entry() override
@@ -95,7 +96,7 @@ struct Core_thread : Thread, Msr::Monitoring
 			if (power_intel.constructed()) {
 				power_intel->update(system);
 				if (config_node)
-					power_intel->update(system, *config_node, location);
+					power_intel->update(system, *config_node, location, mwait);
 
 				/* features are homogen across all CPUs, e.g. P/E ? */
 				if (main)
@@ -206,7 +207,8 @@ struct Msr::Msr {
 			for (unsigned y = 0; y < cpus.height(); y++) {
 				unsigned const i = y + x * cpus.height();
 				threads[i] = new (heap) Core_thread(env, Affinity::Location(x, y),
-				                                    freq_khz, intel, amd);
+				                                    freq_khz, intel, amd,
+				                                    kernel_supports_mwait);
 
 				/* the first thread will read out TCC && package temperature */
 				if (x == 0 && y == 0)
