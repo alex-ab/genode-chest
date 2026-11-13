@@ -51,7 +51,7 @@ config | prio_levels: 4
   + provides
     + service Timer
 
-+ start drivers | ram: 72M | caps: 1500 | managing_system: yes | priority: -2
++ start drivers | ram: 72M | caps: 2500 | managing_system: yes | priority: -2
   + binary init
   + route
     + service Timer                  | + child timer
@@ -89,7 +89,7 @@ config | prio_levels: 4
       + any-child }
 
 append_if [expr $use_wm] config {
-+ start wm | ram: 32M | caps: 1000 | priority: -2
++ start wm | ram: 48M | caps: 1000 | priority: -2
   + binary init
   + provides
   | + service Gui
@@ -250,6 +250,6 @@ build_boot_image $boot_modules
 
 append qemu_args " -smp 4"
 #append qemu_args " -smp 32,cores=16,threads=2"
-append qemu_args " -accel kvm -cpu host"
+#append qemu_args " -accel kvm -cpu host"
 
 run_genode_until forever

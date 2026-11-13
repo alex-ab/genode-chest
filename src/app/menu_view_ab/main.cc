@@ -45,7 +45,7 @@ struct Menu_view::Main : Dialog::Action
 
 	Heap _heap { _env.ram(), _env.rm() };
 
-	Directory _root_dir  { _env.vfs_env() };
+	Directory _root_dir  { _env.vfs_root() };
 	Directory _font_dir  { _root_dir, "font" };
 	Directory _style_dir { _root_dir, "style" };
 
@@ -192,7 +192,7 @@ void Menu_view::Main::_handle_config()
 	/* re-assign font pointers in labels (needed due to font style change) */
 	if (!_styles.up_to_date()) {
 		_dialogs.for_each([&] (Dialog &dialog) {
-			dialog.enforce_font_sytle_change(); });
+			dialog.enforce_font_style_change(); });
 
 		_styles.flush_outdated_styles();
 	}

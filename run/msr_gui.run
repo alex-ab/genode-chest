@@ -49,7 +49,7 @@ config | prio_levels: 4
   + provides
     + service Timer
 
-+ start drivers | priority: -2 | ram: 72M | caps: 1500 | managing_system: yes
++ start drivers | priority: -2 | ram: 72M | caps: 2500 | managing_system: yes
   + binary init
   + route
     + service ROM | label: config
@@ -139,7 +139,7 @@ config | prio_levels: 4
     | + child font | resource: /
     + any-service
       + parent
-      + any-child }
+      + any-child}
 
 append_if [expr !$use_msr_native] config {
 + start dynamic_rom | ram: 4M | caps: 200 | priority: -3
@@ -644,23 +644,23 @@ append_if [expr !$use_msr_native] config {
       |              ro_limit_cur: 0
       |              ro_max_value: 2
       |              ro_status:    1u
-      + sleep | milliseconds: 4000 }
+      + sleep | milliseconds: 4000}
 
 append config {
 + start msr_gui | ram: 2M | caps: 200 | priority: -3
   + route
-    + service ROM | label: hover | + child report_rom }
+    + service ROM | label: hover | + child report_rom}
 
 append_if [expr !$use_msr_native] config {
-    + service ROM | label: info  | + child dynamic_rom }
+    + service ROM | label: info | + child dynamic_rom}
 
 append_if [expr $use_msr_native] config {
-    + service ROM | label: info  | + child report_rom }
+    + service ROM | label: info | + child report_rom}
 
 append config {
     + any-service
       + parent
-      + any-child }
+      + any-child}
 
 append_if [expr $use_msr_native] config {
 + start msr | ram: 2M | caps: 200 | ld: yes | managing_system: yes | priority: -2
@@ -670,7 +670,7 @@ append_if [expr $use_msr_native] config {
     + service Report                     | + child report_rom
     + service Timer                      | + child timer
     + any-service
-      + parent }
+      + parent}
 
 append config {
 -
